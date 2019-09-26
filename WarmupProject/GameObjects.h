@@ -3,6 +3,9 @@
 #ifndef GAMEOBJECTS_H
 #define GAMEOBJECTS_H
 
+class Player;
+struct Tile;
+
 class Objects {
 public:
 	Objects();
@@ -26,12 +29,34 @@ private:
 
 class Drops : public Objects {
 public:
-	Drops();
-	void changeHP();
-	void changeArmor();
-	void changeDex();
-	void changeStr();
+	Drops(int x, int y, std::string item);
+	std::string getItem() const;
 private:
+	std::string m_item;
+};
+
+class LifePotion : public Drops {
+public:
+	LifePotion();
+	void restoreHP(Player &p);
+};
+
+class ArmorDrop : public Drops {
+public:
+	ArmorDrop();
+	void increaseArmor(Player &p);
+};
+
+class StatPotion : public Drops {
+public:
+	StatPotion();
+	void buffStats(Player &p);
+};
+
+class Chest : public Drops {
+public:
+	Chest();
+	void open(Tile &tile);
 };
 
 class Weapon : public Objects {

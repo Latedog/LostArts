@@ -1,6 +1,10 @@
+#include "global.h"
 #include "GameObjects.h"
+#include "Actors.h"
 #include "utilities.h"
+#include "Dungeon.h"
 #include <string>
+#include <iostream>
 
 using namespace std;
 
@@ -41,16 +45,61 @@ Idol::~Idol() {
 }
 
 
-//		DROP FUNCTION
-Drops::Drops() {
+//		DROP FUNCTIONS
+Drops::Drops(int x, int y, string item) : Objects(x, y) {
+	m_item = item;
+}
+string Drops::getItem() const {
+	return m_item;
+}
+
+LifePotion::LifePotion() : Drops(randInt(68) + 1, randInt(16) + 1, "Life Potion") {
+	
+}
+void LifePotion::restoreHP(Player &p) {
+	p.setHP(p.getHP() + 10);
+	cout << "You feel replenished." << endl;
+}
+
+ArmorDrop::ArmorDrop() : Drops(randInt(68) + 1, randInt(16) + 1, "Armor") {
 
 }
-void Drops::changeHP() {
+void ArmorDrop::increaseArmor(Player &p) {
+	p.setArmor(p.getArmor() + 1);
+	cout << "You feel ready for battle." << endl;
+}
+
+StatPotion::StatPotion() : Drops(randInt(68) + 1, randInt(16) + 1, "Stat Potion") {
 
 }
-void changeArmor();
-void changeDex();
-void changeStr();
+void StatPotion::buffStats(Player &p) {
+	p.setDex(p.getDex() + 1);
+	p.setStr(p.getStr() + 2);
+	cout << "You feel stronger." << endl;
+}
+
+Chest::Chest() : Drops(randInt(68) + 1, randInt(16) + 1, "Chest") {
+
+}
+void Chest::open(Tile &tile) {
+	int n = randInt(3) + 1;
+	switch (n) {
+	case 1:
+		tile.bottom = LIFEPOT; // life potion
+		cout << " and find a health potion!" << endl;
+		break;
+	case 2:
+		tile.bottom = ARMOR; // armor
+		cout << " and find armor!" << endl;
+		break;
+	case 3:
+		tile.bottom = STATPOT; // stat potion
+		cout << " and find a stat potion!" << endl;
+		break;
+	default:
+		break;
+	}
+}
 
 
 //		WEAPON FUNCTIONS
