@@ -1,5 +1,6 @@
 // Game.cpp
 
+#include "global.h"
 #include "Game.h"
 #include "Dungeon.h"
 #include "Actors.h"
@@ -51,6 +52,10 @@ void Game::play()
 		
 		if (c == 'g'){
 			m_dungeon.peekDungeon(x, y, 'g');
+		}
+
+		if (c == 'c') {
+			m_dungeon.peekDungeon(x, y, 'c');
 		}
 
 		if (p.getHP() <= 0) {		// check if player is dead

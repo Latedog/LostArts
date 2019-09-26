@@ -50,7 +50,11 @@ public:
 	std::vector<Weapon> getInventory();
 	int getInventorySize() const;
 	void addInventory(Weapon w);
+	int getItemInvSize() const;
+	void addItem(Drops drop);
 	void wield();
+	void showItems();
+	void use();
 	int getMaxHP() const;
 	void rollHeal();
 	void setWin(bool win);
@@ -58,6 +62,9 @@ public:
 private:
 	std::vector<Weapon> m_inv;
 	int m_invsize;
+	std::vector<Drops> m_iteminv;
+	int m_iteminvsize;
+
 	int m_maxhp;
 	int m_maxarmor = 99;
 	int m_maxstr = 99;

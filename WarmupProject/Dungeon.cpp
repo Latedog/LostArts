@@ -1,3 +1,4 @@
+#include "global.h"
 #include "Dungeon.h"
 #include "GameObjects.h"
 #include "Actors.h"
@@ -16,8 +17,8 @@ Dungeon::Dungeon(int smelldist) {
 	for (i = 0; i < MAXROWS; i++) { //		initialize entire dungeon to blank space
 		for (j = 0; j < MAXCOLS; j++) {
 			tile = new Tile;
-			tile->top = ' ';
-			tile->bottom = ' ';
+			tile->top = SPACE;
+			tile->bottom = SPACE;
 			tile->marked = false;
 
 			m_maze[i][j] = *tile;
@@ -26,15 +27,15 @@ Dungeon::Dungeon(int smelldist) {
 
 	for (i = 0; i < MAXROWS; i++) { //	initialize top and bottom of dungeon to be #
 		for (j = 0; j < MAXCOLS; j++) {
-			m_maze[i][j].top = '#';
-			m_maze[i][j].bottom = '#';
+			m_maze[i][j].top = WALL;
+			m_maze[i][j].bottom = WALL;
 		}
 		i += 16;
 	}
 
 	for (i = 1; i < MAXROWS - 1; i++){ //		initialize edges of dungeon to be #
-		m_maze[i][0].top = m_maze[i][0].bottom = '#';
-		m_maze[i][69].top = m_maze[i][69].bottom = '#';
+		m_maze[i][0].top = m_maze[i][0].bottom = WALL;
+		m_maze[i][69].top = m_maze[i][69].bottom = WALL;
 	}
 
 	// RANDOMLY GENERATES LEVEL CHUNKS
@@ -69,51 +70,73 @@ Dungeon::Dungeon(int smelldist) {
 	player.push_back(p);
 
 	char toptile = m_maze[player.at(0).getPosY()][player.at(0).getPosX()].top;
-	while (toptile == '#') {
+	while (toptile == WALL) {
 		player.at(0).setrandPosX();
 		player.at(0).setrandPosY();
 
 		toptile = m_maze[player.at(0).getPosY()][player.at(0).getPosX()].top;
 	}
-	m_maze[player.at(0).getPosY()][player.at(0).getPosX()].top = '@'; // sets tile at this spot to be player position
+	m_maze[player.at(0).getPosY()][player.at(0).getPosX()].top = PLAYER; // sets tile at this spot to be player position
 
 
 	Idol idol;
 	toptile = m_maze[idol.getPosY()][idol.getPosX()].top;
-	while (toptile == '@' || toptile == '#') {
+	while (toptile == PLAYER || toptile == WALL) {
 		idol.setrandPosX();
 		idol.setrandPosY();
 
 		toptile = m_maze[idol.getPosY()][idol.getPosX()].top;
 	}
-	m_maze[idol.getPosY()][idol.getPosX()].bottom = '&';
+	m_maze[idol.getPosY()][idol.getPosX()].bottom = IDOL;
 
 
-	int numwep = 2 + randInt(2); // number of weapons to be placed
-	char bottomtile;
+	LifePotion lp;
+	char bottomtile = m_maze[lp.getPosY()][lp.getPosX()].bottom;
+	while (bottomtile == WALL) {
+		lp.setrandPosX();
+		lp.setrandPosY();
+
+		bottomtile = m_maze[lp.getPosY()][lp.getPosX()].bottom;
+	}
+	m_maze[lp.getPosY()][lp.getPosX()].bottom = LIFEPOT;
+
+
+	Chest chest;
+	bottomtile = m_maze[chest.getPosY()][chest.getPosX()].bottom;
+	while (bottomtile == WALL) {
+		chest.setrandPosX();
+		chest.setrandPosY();
+
+		bottomtile = m_maze[chest.getPosY()][chest.getPosX()].bottom;
+	}
+	m_maze[chest.getPosY()][chest.getPosX()].bottom = CHEST;
+
+
+	int numwep = 1 + randInt(2); // number of weapons to be placed
+	//char bottomtile;
 
 	while (numwep > 0) {
 		ShortSword s;
 		
 		bottomtile = m_maze[s.getPosY()][s.getPosX()].bottom;
-		while (bottomtile != ' ') { //while sword position clashes with idol
+		while (bottomtile != SPACE) { //while sword position clashes with idol
 			s.setrandPosX();				// reroll it
 			s.setrandPosY();
 
 			bottomtile = m_maze[s.getPosY()][s.getPosX()].bottom;
 		}
-		m_maze[s.getPosY()][s.getPosX()].bottom = ')';
+		m_maze[s.getPosY()][s.getPosX()].bottom = CUTLASS;
 		numwep--;
 	}
 
 
-	int m = 5 + randInt(12); // number of goblins to be placed
+	int m = 0 + randInt(1); // number of goblins to be placed
 
 	while (m > 0) { //generate goblins
 		Goblin g(smelldist);
 
 		toptile = m_maze[g.getPosY()][g.getPosX()].top;
-		while (toptile != ' ') { //while goblin position clashes with wall, player, or idol
+		while (toptile != SPACE) { //while goblin position clashes with wall, player, or idol
 			g.setrandPosX();				// reroll it
 			g.setrandPosY();
 
@@ -121,7 +144,7 @@ Dungeon::Dungeon(int smelldist) {
 		}
 
 		goblins.push_back(g);
-		m_maze[g.getPosY()][g.getPosX()].top = 'G';
+		m_maze[g.getPosY()][g.getPosX()].top = GOBLIN;
 		m--;
 	}
 
@@ -406,6 +429,11 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 		showDungeon();
 		player.at(0).wield();
 	}
+
+	if (move == 'c') {
+		showDungeon();
+		player.at(0).use();
+	}
 	
 
 	// move goblins
@@ -543,21 +571,33 @@ bool Dungeon::goblinInRange(int pos) {
 void Dungeon::foundItem(int x, int y) {
 	char c = m_maze[y][x].bottom;
 	switch (c) {
-	case ')':
+	case CUTLASS:
 		cout << "Rusty Cutlass.\n" << endl;
 		break;
-	case 'q':
+	case BONEAXE:
 		cout << "Bone Axe.\n" << endl;
+		break;
+	case LIFEPOT:
+		cout << "Life Potion.\n" << endl;
+		break;
+	case ARMOR:
+		cout << "Extra Armor.\n" << endl;
+		break;
+	case STATPOT:
+		cout << "Stat Potion.\n" << endl;
+		break;
+	case CHEST:
+		cout << "Chest!\n" << endl;
 		break;
 	default:
 		break;
 	}
 }
 void Dungeon::collectItem(int x, int y) {
-	if (m_maze[y][x].bottom == ')') {
-		if (player.at(0).getInventorySize() < 25) {
+	if (m_maze[y][x].bottom == CUTLASS) {
+		if (player.at(0).getInventorySize() <= 25) {
 			player.at(0).addInventory(RustyCutlass(x, y)); //adds short sword to inventory
-			m_maze[y][x].bottom = ' ';
+			m_maze[y][x].bottom = SPACE;
 
 			showDungeon();
 			cout << "You pick up the Rusty Cutlass.\n" << endl;
@@ -566,10 +606,10 @@ void Dungeon::collectItem(int x, int y) {
 			cout << "Your backpack is full!\n" << endl;
 		}
 	}
-	else if (m_maze[y][x].bottom == 'q') {
-		if (player.at(0).getInventorySize() < 25) {
+	else if (m_maze[y][x].bottom == BONEAXE) {
+		if (player.at(0).getInventorySize() <= 25) {
 			player.at(0).addInventory(BoneAxe(x,y)); //adds bone axe to inventory
-			m_maze[y][x].bottom = ' ';
+			m_maze[y][x].bottom = SPACE;
 
 			showDungeon();
 			cout << "You pick up the Bone Axe.\n" << endl;
@@ -578,12 +618,55 @@ void Dungeon::collectItem(int x, int y) {
 			cout << "Your backpack is full!\n" << endl;
 		}
 	}
-	else if (m_maze[y][x].bottom == '&') {
+	else if (m_maze[y][x].bottom == IDOL) {
 		player.at(0).setWin(true);
-		m_maze[y][x].bottom = ' ';
+		m_maze[y][x].bottom = SPACE;
 		showDungeon();
 
 		cout << "Victory is yours!" << endl;
+	}
+	else if (m_maze[y][x].bottom == LIFEPOT) {
+		if (player.at(0).getItemInvSize() <= 10) {
+			player.at(0).addItem(LifePotion());
+			m_maze[y][x].bottom = SPACE;
+
+			showDungeon();
+			cout << "You grab the Life Potion!" << endl;
+		}
+		else {
+			cout << "You can't hold any more items." << endl;
+		}
+	}
+	else if (m_maze[y][x].bottom == ARMOR) {
+		if (player.at(0).getItemInvSize() <= 10) {
+			player.at(0).addItem(ArmorDrop());
+			m_maze[y][x].bottom = SPACE;
+
+			showDungeon();
+			cout << "You grab the Armor!" << endl;
+		}
+		else {
+			cout << "You can't hold any more items." << endl;
+		}
+	}
+	else if (m_maze[y][x].bottom == STATPOT) {
+		if (player.at(0).getItemInvSize() <= 10) {
+			player.at(0).addItem(StatPotion());
+			m_maze[y][x].bottom = SPACE;
+
+			showDungeon();
+			cout << "You grab the Stat Potion!" << endl;
+		}
+		else {
+			cout << "You can't hold any more items." << endl;
+		}
+	}
+	else if (m_maze[y][x].bottom == CHEST) {
+		Chest c;
+
+		showDungeon();
+		cout << "You open the chest... ";
+		c.open(m_maze[y][x]);
 	}
 	else {
 		showDungeon();

@@ -73,6 +73,7 @@ void Actors::setWeapon(Weapon wep) {
 //		PLAYER FUNCTIONS
 Player::Player() : Actors(randInt(68) + 1, randInt(16) + 1, 20, 2, 2, 2, ShortSword()) {
 	m_invsize = 0;
+	m_iteminvsize = 0;
 	m_maxhp = 20;
 	m_winner = false;
 }
@@ -126,10 +127,17 @@ void Player::addInventory(Weapon w) {
 	m_inv.push_back(w);
 	m_invsize++;
 }
+int Player::getItemInvSize() const {
+	return m_iteminvsize;
+}
+void Player::addItem(Drops drop) {
+	m_iteminv.push_back(drop);
+	m_iteminvsize++;
+}
 void Player::wield() {
 
 	if (m_invsize == 0)
-		cout << "You have no items swap to.\n";
+		cout << "You have no weapons to swap to.\n";
 	else {
 		cout << "Choose an item to wield.\n" << endl;
 		showInventory();
@@ -145,6 +153,51 @@ void Player::wield() {
 		}
 		else
 			cout << "You still hold your " << getWeapon().getAction() << ".\n";
+	}
+}
+void Player::showItems() {
+	rollHeal();
+
+	cout << "Items:" << endl;
+	if (m_iteminvsize == 0)
+		cout << "You have no items." << endl;
+	else {
+		char c = 97;
+		for (int i = 0; i < m_iteminvsize; i++) {
+			c += i;
+			cout << c << ". " << m_iteminv.at(i).getItem() << endl;
+		}
+	}
+	cout << endl;
+}
+void Player::use() {
+	if (m_iteminvsize == 0)
+		cout << "You have no items to use.\n";
+	else {
+		cout << "Choose an item to use.\n" << endl;
+		showItems();
+
+		char c = getCharacter();
+
+		if (c >= 'a' && c < 'a' + m_iteminvsize) {
+			string item = m_iteminv.at(c - 97).getItem();
+			if (item == "Life Potion") {
+				LifePotion lp;
+				lp.restoreHP(*this);
+			}
+			else if (item == "Armor") {
+				ArmorDrop armor;
+				armor.increaseArmor(*this);
+			}
+			else if (item == "Stat Potion") {
+				StatPotion sp;
+				sp.buffStats(*this);
+			}
+			m_iteminv.erase(m_iteminv.begin() + (c - 97));	// remove item just used
+			m_iteminvsize--;
+		}
+		else
+			cout << "You decide not to use anything." << endl;
 	}
 }
 int Player::getMaxHP() const {
