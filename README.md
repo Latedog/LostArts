@@ -2,7 +2,7 @@
 MiniRogue Expansion
 
 9/25:
-  -Added item drops (life potion, armor, stat potion, chest) and most accompanying functions
+  - Added item drops (life potion, armor, stat potion, chest) and most accompanying functions
   
 10/04:
   - Created separate item inventory and item use menu
