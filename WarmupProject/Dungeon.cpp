@@ -70,7 +70,7 @@ Dungeon::Dungeon(int smelldist) {
 	player.push_back(p);
 
 	char toptile = m_maze[player.at(0).getPosY()][player.at(0).getPosX()].top;
-	while (toptile == WALL) {
+	while (toptile != SPACE) {
 		player.at(0).setrandPosX();
 		player.at(0).setrandPosY();
 
@@ -81,7 +81,7 @@ Dungeon::Dungeon(int smelldist) {
 
 	Idol idol;
 	toptile = m_maze[idol.getPosY()][idol.getPosX()].top;
-	while (toptile == PLAYER || toptile == WALL) {
+	while (toptile != SPACE) {
 		idol.setrandPosX();
 		idol.setrandPosY();
 
@@ -92,7 +92,7 @@ Dungeon::Dungeon(int smelldist) {
 
 	LifePotion lp;
 	char bottomtile = m_maze[lp.getPosY()][lp.getPosX()].bottom;
-	while (bottomtile == WALL) {
+	while (bottomtile != SPACE) {
 		lp.setrandPosX();
 		lp.setrandPosY();
 
@@ -103,7 +103,7 @@ Dungeon::Dungeon(int smelldist) {
 
 	Chest chest;
 	bottomtile = m_maze[chest.getPosY()][chest.getPosX()].bottom;
-	while (bottomtile == WALL) {
+	while (bottomtile != SPACE) {
 		chest.setrandPosX();
 		chest.setrandPosY();
 
@@ -119,7 +119,7 @@ Dungeon::Dungeon(int smelldist) {
 		ShortSword s;
 		
 		bottomtile = m_maze[s.getPosY()][s.getPosX()].bottom;
-		while (bottomtile != SPACE) { //while sword position clashes with idol
+		while (bottomtile != SPACE) { // while sword position clashes with anything
 			s.setrandPosX();				// reroll it
 			s.setrandPosY();
 
@@ -130,7 +130,7 @@ Dungeon::Dungeon(int smelldist) {
 	}
 
 
-	int m = 0 + randInt(1); // number of goblins to be placed
+	int m = 5 + randInt(12); // number of goblins to be placed
 
 	while (m > 0) { //generate goblins
 		Goblin g(smelldist);
@@ -192,21 +192,8 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 			player.at(0).setPosX(x - 1);
 
 			showDungeon();
-			cout << "You've found a ";
+			cout << "You've found ";
 			foundItem(x - 1, y);
-			
-			/*
-			char c = m_maze[y][x - 1].bottom;
-			switch (c) {
-			case ')':
-				cout << "Rusty Cutlass.\n" << endl;
-				break;
-			case 'q':
-				cout << "Bone Axe.\n" << endl;
-				break;
-			default:
-				break;
-			}*/
 		}
 		else if (top == 'G') {
 			showDungeon();
@@ -265,7 +252,7 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 			player.at(0).setPosX(x + 1);
 
 			showDungeon();
-			cout << "You've found a ";
+			cout << "You've found ";
 			foundItem(x + 1, y);
 		}
 		else if (top == 'G') {
@@ -323,7 +310,7 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 			player.at(0).setPosY(y + 1);
 
 			showDungeon();
-			cout << "You've found a ";
+			cout << "You've found ";
 			foundItem(x, y + 1);
 		}
 		else if (top == 'G') {
@@ -381,7 +368,7 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 			player.at(0).setPosY(y - 1);
 
 			showDungeon();
-			cout << "You've found a ";
+			cout << "You've found ";
 			foundItem(x, y - 1);
 		}
 		else if (top == 'G') {
@@ -572,22 +559,22 @@ void Dungeon::foundItem(int x, int y) {
 	char c = m_maze[y][x].bottom;
 	switch (c) {
 	case CUTLASS:
-		cout << "Rusty Cutlass.\n" << endl;
+		cout << "a Rusty Cutlass.\n" << endl;
 		break;
 	case BONEAXE:
-		cout << "Bone Axe.\n" << endl;
+		cout << "a Bone Axe.\n" << endl;
 		break;
 	case LIFEPOT:
-		cout << "Life Potion.\n" << endl;
+		cout << "a Life Potion.\n" << endl;
 		break;
 	case ARMOR:
-		cout << "Extra Armor.\n" << endl;
+		cout << "some extra Armor.\n" << endl;
 		break;
 	case STATPOT:
-		cout << "Stat Potion.\n" << endl;
+		cout << "a Stat Potion.\n" << endl;
 		break;
 	case CHEST:
-		cout << "Chest!\n" << endl;
+		cout << "a Chest!\n" << endl;
 		break;
 	default:
 		break;
@@ -595,8 +582,8 @@ void Dungeon::foundItem(int x, int y) {
 }
 void Dungeon::collectItem(int x, int y) {
 	if (m_maze[y][x].bottom == CUTLASS) {
-		if (player.at(0).getInventorySize() <= 25) {
-			player.at(0).addInventory(RustyCutlass(x, y)); //adds short sword to inventory
+		if (player.at(0).getInventorySize() + player.at(0).getItemInvSize() < 25) {
+			player.at(0).addWeapon(RustyCutlass(x, y)); //adds short sword to inventory
 			m_maze[y][x].bottom = SPACE;
 
 			showDungeon();
@@ -607,8 +594,8 @@ void Dungeon::collectItem(int x, int y) {
 		}
 	}
 	else if (m_maze[y][x].bottom == BONEAXE) {
-		if (player.at(0).getInventorySize() <= 25) {
-			player.at(0).addInventory(BoneAxe(x,y)); //adds bone axe to inventory
+		if (player.at(0).getInventorySize() + player.at(0).getItemInvSize() < 25) {
+			player.at(0).addWeapon(BoneAxe(x,y)); //adds bone axe to inventory
 			m_maze[y][x].bottom = SPACE;
 
 			showDungeon();
@@ -623,10 +610,12 @@ void Dungeon::collectItem(int x, int y) {
 		m_maze[y][x].bottom = SPACE;
 		showDungeon();
 
-		cout << "Victory is yours!" << endl;
+		//cout << "Victory is yours!" << endl;
 	}
+
+	//		BEGIN DROPS IF STATEMENTS
 	else if (m_maze[y][x].bottom == LIFEPOT) {
-		if (player.at(0).getItemInvSize() <= 10) {
+		if (player.at(0).getInventorySize() + player.at(0).getItemInvSize() < 25) {
 			player.at(0).addItem(LifePotion());
 			m_maze[y][x].bottom = SPACE;
 
@@ -638,7 +627,7 @@ void Dungeon::collectItem(int x, int y) {
 		}
 	}
 	else if (m_maze[y][x].bottom == ARMOR) {
-		if (player.at(0).getItemInvSize() <= 10) {
+		if (player.at(0).getInventorySize() + player.at(0).getItemInvSize() < 25) {
 			player.at(0).addItem(ArmorDrop());
 			m_maze[y][x].bottom = SPACE;
 
@@ -650,7 +639,7 @@ void Dungeon::collectItem(int x, int y) {
 		}
 	}
 	else if (m_maze[y][x].bottom == STATPOT) {
-		if (player.at(0).getItemInvSize() <= 10) {
+		if (player.at(0).getInventorySize() + player.at(0).getItemInvSize() < 25) {
 			player.at(0).addItem(StatPotion());
 			m_maze[y][x].bottom = SPACE;
 
@@ -698,9 +687,11 @@ void Dungeon::unmarkTiles() {
 		}
 	}
 }
+Player Dungeon::getPlayer() {
+	return player.at(0);
+}
 
-
-vector<char> chunks(vector<vector<vector<char>>> &c) {
+vector<char> Dungeon::chunks(vector<vector<vector<char>>> &c) {
 	vector<vector<char>> one = { {'#', '#', '#', '#'},
 								 {'#', ' ', ' ', ' '},
 								 {' ', ' ', ' ', '#'},
@@ -731,15 +722,15 @@ vector<char> chunks(vector<vector<vector<char>>> &c) {
 								  {' ', ' ', ' ', ' '},
 								  {' ', ' ', ' ', ' '} };
 
-	vector<vector<char>> seven = { {' ', ' ', ' ', ' '},
-								  {' ', ' ', ' ', ' '},
-								  {' ', ' ', ' ', ' '},
-								  {' ', ' ', ' ', ' '} };
-
-	vector<vector<char>> eight = { {' ', ' ', '#', '#'},
+	vector<vector<char>> seven = { {' ', ' ', '#', '#'},
 								   {' ', ' ', ' ', '#'},
 								   {'#', '#', ' ', ' '},
 								   {'#', '#', ' ', ' '} };
+
+	vector<vector<char>> eight = { {'#', ' ', '#', '#'},
+								  {'#', ' ', '#', '#'},
+								  {' ', ' ', ' ', ' '},
+								  {'#', ' ', '#', '#'} };
 
 	c.push_back(one);
 	c.push_back(two);
@@ -747,16 +738,15 @@ vector<char> chunks(vector<vector<vector<char>>> &c) {
 	c.push_back(four);
 	c.push_back(five);
 	c.push_back(six);
+	c.push_back(six);
 	c.push_back(seven);
 	c.push_back(eight);
 
-	//vector<vector<vector<char>>> v;
 	c = mixChunks(c);
 
-	//vector<char> combinedChunks = combineChunks(c);
 	return combineChunks(c);
 }
-vector<vector<vector<char>>> mixChunks(vector<vector<vector<char>>> c) {
+vector<vector<vector<char>>> Dungeon::mixChunks(vector<vector<vector<char>>> c) {
 	vector<vector<vector<char>>> v;
 
 	for (int i = 0; i < 17; i++)
@@ -764,7 +754,7 @@ vector<vector<vector<char>>> mixChunks(vector<vector<vector<char>>> c) {
 
 	return v;
 }
-vector<char> combineChunks(vector<vector<vector<char>>> &c) {
+vector<char> Dungeon::combineChunks(vector<vector<vector<char>>> &c) {
 	vector<char> v;
 	for (int i = 0; i < 4; i++) {			// iterate thru rows of 2d vector
 		for (int j = 0; j < c.size(); j++) {	// iterate thru vector of 2d vectors

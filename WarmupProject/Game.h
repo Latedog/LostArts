@@ -5,14 +5,18 @@
 #ifndef GAME_INCLUDED
 #define GAME_INCLUDED
 
-// You may add data members and other member functions to this class.
 
 class Game {
 public:
 	Game(int goblinSmellDistance);
+	int getSmellDistance() const;
 	void play();
+	bool gameOver();
+	bool win();
+	void reset();
 private:
 	Dungeon m_dungeon;
+	int m_smelldist;
 };
 
 #endif // GAME_INCLUDED

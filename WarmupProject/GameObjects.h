@@ -31,6 +31,8 @@ class Drops : public Objects {
 public:
 	Drops(int x, int y, std::string item);
 	std::string getItem() const;
+	virtual void changeStats(Drops &drop, Player &p);
+	virtual void useItem(Player &p) { return; };
 private:
 	std::string m_item;
 };
@@ -38,19 +40,19 @@ private:
 class LifePotion : public Drops {
 public:
 	LifePotion();
-	void restoreHP(Player &p);
+	void useItem(Player &p);
 };
 
 class ArmorDrop : public Drops {
 public:
 	ArmorDrop();
-	void increaseArmor(Player &p);
+	void useItem(Player &p);
 };
 
 class StatPotion : public Drops {
 public:
 	StatPotion();
-	void buffStats(Player &p);
+	void useItem(Player &p);
 };
 
 class Chest : public Drops {

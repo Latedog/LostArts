@@ -4,6 +4,7 @@ const char PLAYER = '@';
 const char GOBLIN = 'G';
 const char IDOL = '&';
 const char WALL = '#';
+const char STAIR = '=';
 
 const char CUTLASS = ')';
 const char BONEAXE = 'q';

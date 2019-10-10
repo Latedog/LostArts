@@ -4,6 +4,7 @@
 #ifndef ACTORS_H
 #define ACTORS_H
 
+class Objects;
 class Weapon;
 class Player;
 class Goblin;
@@ -47,14 +48,15 @@ public:
 	~Player();
 	void attack(Goblin &g);
 	void showInventory();
-	std::vector<Weapon> getInventory();
-	int getInventorySize() const;
-	void addInventory(Weapon w);
-	int getItemInvSize() const;
-	void addItem(Drops drop);
-	void wield();
+	void showWeapons();
 	void showItems();
+	int getInventorySize() const;
+	int getItemInvSize() const;
+	void addWeapon(Weapon w);
+	void wield();
+	void addItem(Drops drop);
 	void use();
+	void setMaxHP(int maxhp);
 	int getMaxHP() const;
 	void rollHeal();
 	void setWin(bool win);

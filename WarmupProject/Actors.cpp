@@ -106,29 +106,62 @@ void Player::showInventory() {
 	rollHeal();
 
 	cout << "Inventory:" << endl;
-	if (m_invsize == 0)
+	if (m_invsize + m_iteminvsize == 0)
 		cout << "You have no items." << endl;
 	else {
+		unsigned i, j;
 		char c = 97;
-		for (int i = 0; i < m_invsize; i++) {
-			c += i;
-			cout << c << ". " << m_inv.at(i).getAction() << endl;
+
+		if (m_invsize != 0) {
+			for (i = 0; i < m_invsize; i++) {
+				c += i;
+				cout << c << ". " << m_inv.at(i).getAction() << endl;
+			}
+			c++;
+		}
+
+		for (j = 0; j < m_iteminvsize; j++) {
+			c += j;
+			cout << c << ". " << m_iteminv.at(j).getItem() << endl;
 		}
 	}
 	cout << endl;	
 }
-std::vector<Weapon> Player::getInventory() {
-	return m_inv;
+void Player::showWeapons() {
+	rollHeal();
+
+	cout << "Weapons:" << endl;
+	
+	char c = 97;
+	for (unsigned i = 0; i < m_invsize; i++) {
+		c += i;
+		cout << c << ". " << m_inv.at(i).getAction() << endl;
+	}
+	
+	cout << endl;
+}
+void Player::showItems() {
+	rollHeal();
+
+	cout << "Items:" << endl;
+
+	char c = 97;
+	for (unsigned i = 0; i < m_iteminvsize; i++) {
+		c += i;
+		cout << c << ". " << m_iteminv.at(i).getItem() << endl;
+	}
+
+	cout << endl;
 }
 int Player::getInventorySize() const {
 	return m_invsize;
 }
-void Player::addInventory(Weapon w) {
-	m_inv.push_back(w);
-	m_invsize++;
-}
 int Player::getItemInvSize() const {
 	return m_iteminvsize;
+}
+void Player::addWeapon(Weapon w) {
+	m_inv.push_back(w);
+	m_invsize++;
 }
 void Player::addItem(Drops drop) {
 	m_iteminv.push_back(drop);
@@ -140,7 +173,7 @@ void Player::wield() {
 		cout << "You have no weapons to swap to.\n";
 	else {
 		cout << "Choose an item to wield.\n" << endl;
-		showInventory();
+		showWeapons();
 
 		char c = getCharacter();
 
@@ -155,21 +188,6 @@ void Player::wield() {
 			cout << "You still hold your " << getWeapon().getAction() << ".\n";
 	}
 }
-void Player::showItems() {
-	rollHeal();
-
-	cout << "Items:" << endl;
-	if (m_iteminvsize == 0)
-		cout << "You have no items." << endl;
-	else {
-		char c = 97;
-		for (int i = 0; i < m_iteminvsize; i++) {
-			c += i;
-			cout << c << ". " << m_iteminv.at(i).getItem() << endl;
-		}
-	}
-	cout << endl;
-}
 void Player::use() {
 	if (m_iteminvsize == 0)
 		cout << "You have no items to use.\n";
@@ -183,15 +201,15 @@ void Player::use() {
 			string item = m_iteminv.at(c - 97).getItem();
 			if (item == "Life Potion") {
 				LifePotion lp;
-				lp.restoreHP(*this);
+				lp.changeStats(lp, *this);
 			}
 			else if (item == "Armor") {
 				ArmorDrop armor;
-				armor.increaseArmor(*this);
+				armor.changeStats(armor, *this);
 			}
 			else if (item == "Stat Potion") {
 				StatPotion sp;
-				sp.buffStats(*this);
+				sp.changeStats(sp, *this);
 			}
 			m_iteminv.erase(m_iteminv.begin() + (c - 97));	// remove item just used
 			m_iteminvsize--;
@@ -199,6 +217,9 @@ void Player::use() {
 		else
 			cout << "You decide not to use anything." << endl;
 	}
+}
+void Player::setMaxHP(int maxhp) {
+	m_maxhp = maxhp;
 }
 int Player::getMaxHP() const {
 	return m_maxhp;
@@ -218,6 +239,7 @@ void Player::setWin(bool win) {
 bool Player::getWin() const {
 	return m_winner;
 }
+
 
 //		MONSTER FUNCTIONS
 Monster::Monster() {

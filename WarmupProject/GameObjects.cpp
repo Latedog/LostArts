@@ -52,19 +52,30 @@ Drops::Drops(int x, int y, string item) : Objects(x, y) {
 string Drops::getItem() const {
 	return m_item;
 }
+void Drops::changeStats(Drops &drop, Player &p) {
+	drop.useItem(p);
+}
 
 LifePotion::LifePotion() : Drops(randInt(68) + 1, randInt(16) + 1, "Life Potion") {
 	
 }
-void LifePotion::restoreHP(Player &p) {
-	p.setHP(p.getHP() + 10);
-	cout << "You feel replenished." << endl;
+void LifePotion::useItem(Player &p) {
+	if (p.getHP() < p.getMaxHP()) {			// if player hp is less than their max
+		if (p.getHP() + 10 <= p.getMaxHP()) // if player hp + effect of lifepot will refill less than or equal to max
+			p.setHP(p.getHP() + 10);
+		else	// just set player hp to max
+			p.setHP(p.getMaxHP());
+
+		cout << "You feel replenished." << endl;
+	}
+	else
+		cout << "Lively as ever..." << endl;
 }
 
 ArmorDrop::ArmorDrop() : Drops(randInt(68) + 1, randInt(16) + 1, "Armor") {
 
 }
-void ArmorDrop::increaseArmor(Player &p) {
+void ArmorDrop::useItem(Player &p) {
 	p.setArmor(p.getArmor() + 1);
 	cout << "You feel ready for battle." << endl;
 }
@@ -72,9 +83,10 @@ void ArmorDrop::increaseArmor(Player &p) {
 StatPotion::StatPotion() : Drops(randInt(68) + 1, randInt(16) + 1, "Stat Potion") {
 
 }
-void StatPotion::buffStats(Player &p) {
+void StatPotion::useItem(Player &p) {
 	p.setDex(p.getDex() + 1);
-	p.setStr(p.getStr() + 2);
+	p.setStr(p.getStr() + 1);
+	p.setMaxHP(p.getMaxHP() + 5);
 	cout << "You feel stronger." << endl;
 }
 
@@ -90,11 +102,11 @@ void Chest::open(Tile &tile) {
 		break;
 	case 2:
 		tile.bottom = ARMOR; // armor
-		cout << " and find armor!" << endl;
+		cout << " and find Armor!" << endl;
 		break;
 	case 3:
 		tile.bottom = STATPOT; // stat potion
-		cout << " and find a stat potion!" << endl;
+		cout << " and find a Stat Potion!" << endl;
 		break;
 	default:
 		break;
