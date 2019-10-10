@@ -1,17 +1,9 @@
 #include "GameObjects.h"
 #include "Actors.h"
-//#include <vector>
+#include <vector>
 
 #ifndef DUNGEON_H
 #define DUNGEON_H
-
-#include <vector>
-
-
-std::vector<char> chunks(std::vector<std::vector<std::vector<char>>> &c);
-std::vector<std::vector<std::vector<char>>> mixChunks(std::vector<std::vector<std::vector<char>>> c);
-std::vector<char> combineChunks(std::vector<std::vector<std::vector<char>>> &c);
-
 
 const int MAXROWS = 18;
 const int MAXCOLS = 70;
@@ -35,10 +27,15 @@ public:
 	void collectItem(int x, int y);
 	void showDungeon();
 	void unmarkTiles();
-	std::vector<Player> player;
-	std::vector<Goblin> goblins;
+	Player getPlayer();
+
+	std::vector<char> chunks(std::vector<std::vector<std::vector<char>>> &c);
+	std::vector<std::vector<std::vector<char>>> mixChunks(std::vector<std::vector<std::vector<char>>> c);
+	std::vector<char> combineChunks(std::vector<std::vector<std::vector<char>>> &c);
 private:
 	Tile m_maze[MAXROWS][MAXCOLS];
+	std::vector<Player> player;
+	std::vector<Goblin> goblins;
 };
 
 #endif

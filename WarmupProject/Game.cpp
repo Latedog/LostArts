@@ -9,25 +9,25 @@
 #include <iostream>
 using namespace std;
 
-// Implement these and other Game member functions you may have added.
+Game::Game(int goblinSmellDistance) : m_dungeon(goblinSmellDistance), m_smelldist(goblinSmellDistance) {
 
-Game::Game(int goblinSmellDistance) : m_dungeon(goblinSmellDistance) {
-	
+}
+
+int Game::getSmellDistance() const {
+	return m_smelldist;
 }
 
 void Game::play()
 {
 	m_dungeon.showDungeon();
 	cout << "Press q to exit game.\n" << endl;
-
 	char c = getCharacter();
 	clearScreen();
 
 	Player p;
 	int x, y;
-
 	while (c != 'q') {
-		p = m_dungeon.player.at(0);
+		p = m_dungeon.getPlayer();
 		x = p.getPosX(); y = p.getPosY();
 
 		if (c == ARROW_LEFT)
@@ -58,45 +58,82 @@ void Game::play()
 			m_dungeon.peekDungeon(x, y, 'c');
 		}
 
-		if (p.getHP() <= 0) {		// check if player is dead
-			cout << "You were slain by a Goblin!" << endl;
-			cout << "Game Over... " << endl;
-
-			c = getCharacter();
-			while (c != 'q') {
-				m_dungeon.showDungeon();
-				cout << "You were slain by a Goblin!" << endl;
-				cout << "Game Over... " << endl;
-
-				c = getCharacter();
-				clearScreen();
-			}
+		if (c == 'r') {
+			reset();
 		}
-		else if (p.getWin()) {		// check if player picked up the idol
-			cout << "You found the golden idol!" << endl;
-			cout << "Congratulations!" << endl;
+
+		if (m_dungeon.getPlayer().getHP() <= 0) {		// check if player is dead
+			if (!gameOver())
+				break;
+			clearScreen();
+			reset();
 
 			c = getCharacter();
-			while (c != 'q') {
-				m_dungeon.showDungeon();
-				cout << "You found the golden idol!" << endl;
-				cout << "Congratulations!" << endl;
-
-				c = getCharacter();
-				clearScreen();
-			}
+			clearScreen();
+		}
+		else if (m_dungeon.getPlayer().getWin()) {		// check if player picked up the idol
+			if (!win())
+				break;
+			clearScreen();
+			reset();
+			
+			c = getCharacter();
+			clearScreen();
 		}
 		else {
 			c = getCharacter();
 			clearScreen();
 		}
 	}
-	cout << "Thanks for playing MiniRogue.\n" << endl;
+
+	cout << "Thanks for playing Super Mini Rogue.\n" << endl;
 }
 
-// You will presumably add to this project other .h/.cpp files for the
-// various classes of objects you need to play the game:  player, monsters,
-// weapons, etc.  You might have a separate .h/.cpp pair for each class
-// (e.g., Player.h, Boegeyman.h, etc.), or you might put the class
-// declarations for all actors in Actor.h, all game objects in GameObject.h,
-// etc.
+bool Game::gameOver() {
+	char c;
+
+	cout << "You were slain by a Goblin!" << endl;
+	cout << "Game Over... " << endl;
+
+	c = getCharacter();
+	clearScreen();
+	while (c != 'q' && c != 'r') {
+		m_dungeon.showDungeon();
+		cout << "You were slain by a Goblin!" << endl;
+		cout << "Game Over... " << endl;
+
+		c = getCharacter();
+		clearScreen();
+	}
+	if (c == 'r')
+		return true;
+	return false;
+}
+bool Game::win() {
+	char c;
+
+	cout << "You found the golden idol!" << endl;
+	cout << "Congratulations!" << endl;
+
+	c = getCharacter();
+	clearScreen();
+	while (c != 'q' && c != 'r') {
+		m_dungeon.showDungeon();
+		cout << "You found the golden idol!" << endl;
+		cout << "Congratulations!" << endl;
+
+		c = getCharacter();
+		clearScreen();
+	}
+	if (c == 'r')
+		return true;
+	return false;
+}
+void Game::reset() {
+	Dungeon* d = new Dungeon(getSmellDistance());
+	m_dungeon = *d;
+	delete d;
+
+	m_dungeon.showDungeon();
+}
+
