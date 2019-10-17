@@ -23,3 +23,4 @@ More Monsters Branch
   - Fixed major bug that caused virtual functions to not work on the monster vector
   - Added archers with use of dynamic casting (checkArchers(), moveArchers(), wallCollision() )
   - Fixed small grammar issue when killed by monster that started with a vowel
+  - Added help menu
