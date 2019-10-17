@@ -24,3 +24,4 @@ More Monsters Branch
   - Added archers with use of dynamic casting (checkArchers(), moveArchers(), wallCollision() )
   - Fixed small grammar issue when killed by monster that started with a vowel
   - Added help menu
+  - Added chest hierarchy
