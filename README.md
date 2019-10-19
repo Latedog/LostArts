@@ -25,3 +25,6 @@ More Monsters Branch
   - Fixed small grammar issue when killed by monster that started with a vowel
   - Added help menu
   - Added chest hierarchy
+
+10/19:
+  !Game occasionally freezes when moving (upward)
