@@ -27,4 +27,5 @@ More Monsters Branch
   - Added chest hierarchy
 
 10/19:
-  !Game occasionally freezes when moving (upward)
+  - BUG! Game occasionally freezes when moving (upward)
+  - Added objects vector for bomb item (checkActive(), explosion()) and added monsterDeath()
