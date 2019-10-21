@@ -40,3 +40,6 @@ More Monsters Branch
   - Added new dungeon for Smasher boss, stairs to reach new level, and level variable
   - BUG: Reset button needs to be fixed
   - FIXED: Reset button
+
+10/21:
+  - BUG: Items can spawn on top of other objects and despawn them
