@@ -35,3 +35,5 @@ More Monsters Branch
   - FIXED: Game freeze caused by archers occasionally being surrounded by walls and monsters (no condition was set for being completely surrounded)
   - Player and idol now spawn on opposite sides of level
   - Added top and bottom layer chunk spawners and special chunks
+  - Player now spawns with one bomb
+  - RustyCutlasses were being spawned as ShortSwords
