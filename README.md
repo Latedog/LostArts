@@ -39,3 +39,4 @@ More Monsters Branch
   - RustyCutlasses were being spawned as ShortSwords
   - Added new dungeon for Smasher boss, stairs to reach new level, and level variable
   - BUG: Reset button needs to be fixed
+  - FIXED: Reset button
