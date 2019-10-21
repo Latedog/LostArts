@@ -31,4 +31,4 @@ More Monsters Branch
   - Added objects vector for bomb item (checkActive(), explosion()) and added monsterDeath()
 
 10/20:
-  - Allowed bombs to break walls; changed outer walls to be unbreakable
+  - Allowed bombs to break walls; changed level border walls to be unbreakable
