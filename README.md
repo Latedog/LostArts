@@ -33,3 +33,4 @@ More Monsters Branch
 10/20:
   - Allowed bombs to break walls; changed level border walls to be unbreakable
   - FIXED: Game freeze caused by archers occasionally being surrounded by walls and monsters (no condition was set for being completely surrounded)
+  - Player and idol now spawn on opposite sides of level
