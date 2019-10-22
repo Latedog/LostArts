@@ -44,4 +44,7 @@ More Monsters Branch
 10/21:
   - BUG: Items can spawn on top of other objects and despawn them
   
+ --Convert maps to 1d array--
  
+ 10/21:
+  - Removed need for goblinsmelldistance parameter in Game constructor and from other derived classes
