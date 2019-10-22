@@ -49,3 +49,5 @@ MiniRogue Expansion
  
  10/21:
   - Removed need for goblinsmelldistance parameter in Game constructor and from other derived classes
+  - Resolved up/down nuance where the representations for each move were reversed
+  - Converted 2d dungeon to 1d which allows ability to easily pass in dungeons to functions
