@@ -14,7 +14,8 @@ MiniRogue Expansion
   - Fixed bug that could cause idol to not appear
   - Added reset feature
 
-More Monsters Branch
+--More Monsters Branch--
+
 10/11:
   - Added wanderers by utilizing polymorphic Monster vector
   - gameOver() monster death no longer hardcoded
