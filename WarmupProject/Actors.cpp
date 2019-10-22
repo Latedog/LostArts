@@ -1,3 +1,4 @@
+#include "global.h"
 #include "Dungeon.h"
 #include "Actors.h"
 #include "GameObjects.h"
@@ -70,6 +71,7 @@ void Actors::setWeapon(Weapon wep) {
 	m_wep = wep;
 }
 
+
 //		PLAYER FUNCTIONS
 Player::Player() : Actors(randInt(68) + 1, randInt(16) + 1, 20, 2, 2, 2, ShortSword()) {
 	m_invsize = 0;
@@ -91,8 +93,29 @@ void Player::attack(Goblin &g) {
 		int damage = randInt(getStr() + getWeapon().getDmg());
 		if (damage > 0) {
 			g.setHP(g.getHP() - damage);
-			cout << "deal " << damage << " damage to the goblin!" << endl;
+			cout << "deal " << damage << " damage to the " << g.getName() << "!" << endl;
 			cout << "Goblin has " << g.getHP() << " HP remaining.\n" << endl;
+		}
+		else {
+			cout << "your attack fails!" << endl;
+		}
+	}
+	else {
+		cout << "miss.\n" << endl;
+	}
+}
+void Player::attack(vector<shared_ptr<Monster>> monsters, int pos) {
+	cout << "You swing your " << getWeapon().getAction() << " and... ";
+
+	int playerPoints = getDex() + getArmor();
+	int monsterPoints = monsters.at(pos)->getDex() + monsters.at(pos)->getArmor();
+
+	if (randInt(playerPoints) >= randInt(monsterPoints)) {
+		int damage = randInt(getStr() + getWeapon().getDmg());
+		if (damage > 0) {
+			monsters.at(pos)->setHP(monsters.at(pos)->getHP() - damage);
+			cout << "deal " << damage << " damage to the " << monsters.at(pos)->getName() << "!" << endl;
+			cout << "The " << monsters.at(pos)->getName() << " has " << monsters.at(pos)->getHP() << " HP remaining.\n" << endl;
 		}
 		else {
 			cout << "your attack fails!" << endl;
@@ -188,7 +211,7 @@ void Player::wield() {
 			cout << "You still hold your " << getWeapon().getAction() << ".\n";
 	}
 }
-void Player::use() {
+void Player::use(std::vector<std::shared_ptr<Objects>> &active, Tile &tile) {
 	if (m_iteminvsize == 0)
 		cout << "You have no items to use.\n";
 	else {
@@ -210,6 +233,18 @@ void Player::use() {
 			else if (item == "Stat Potion") {
 				StatPotion sp;
 				sp.changeStats(sp, *this);
+			}
+			else if (item == "Bomb") {
+				Bomb bomb;
+				tile.bottom = LITBOMB;
+				bomb.lightBomb();
+				bomb.setPosX(getPosX());
+				bomb.setPosY(getPosY());
+
+				active.emplace_back(new Bomb(bomb));
+				cout << "The bomb was placed.\n";
+
+				//bomb.changeStats(bomb, *this);
 			}
 			m_iteminv.erase(m_iteminv.begin() + (c - 97));	// remove item just used
 			m_iteminvsize--;
@@ -239,29 +274,69 @@ void Player::setWin(bool win) {
 bool Player::getWin() const {
 	return m_winner;
 }
+string Player::getDeath() const {
+	return m_death;
+}
+void Player::setDeath(string m) {
+	m_death = m;
+}
 
 
 //		MONSTER FUNCTIONS
 Monster::Monster() {
 
 }
-Monster::Monster(int x, int y, int hp, int armor, int str, int dex, Weapon wep)
-	: Actors(x, y, hp, armor, str, dex, wep) {
+Monster::Monster(int x, int y, int hp, int armor, int str, int dex, Weapon wep, string name)
+	: Actors(x, y, hp, armor, str, dex, wep), m_name(name) {
 
 }
 Monster::~Monster(){
 
 }
 
+void Monster::encounter(Player &p, Monster &m) {
+	m.attack(p);
+}
+void Monster::attack(Player &p) {
+	string weapon = this->getWeapon().getAction();
+	if (weapon == "Wood Bow")
+		cout << "The " << this->getName() << " fires their " << weapon << " at you... ";
+	else
+		cout << "The " << this->getName() << " slashes their " << weapon << " at you... ";
+
+	int monsterPoints = getDex() + getArmor();
+	int playerPoints = p.getDex() + p.getArmor();
+
+	if (randInt(monsterPoints) >= randInt(playerPoints)) {
+		int damage = randInt(getStr() + getWeapon().getDmg());
+		p.setHP(p.getHP() - damage);
+		if (damage > 0) {
+			cout << "and hits for " << damage << " damage!";
+			cout << (damage >= 3 ? " Ouch!\n" : "\n");
+		}
+		else {
+			cout << "fumbles their attack." << endl;
+		}
+		cout << endl;
+	}
+	else {
+		cout << "and misses!" << endl;
+	}
+}
+string Monster::getName() {
+	return m_name;
+}
+
 
 //		GOBLIN FUNCTIONS
-Goblin::Goblin(int smelldist) : Monster(randInt(68) + 1, randInt(16) + 1, randInt(5) + 16, 1, 3, 1, ShortSword()) {
+Goblin::Goblin(int smelldist) : Monster(randInt(68) + 1, randInt(16) + 1, randInt(5) + 16, 1, 3, 1, ShortSword(), "goblin") {
 	m_smelldist = smelldist;
 }
 Goblin::~Goblin() {
 
 }
 
+/*
 void Goblin::attack(Player &p) {
 	cout << "The goblin swings their " << getWeapon().getAction() << " at you... ";
 
@@ -283,7 +358,104 @@ void Goblin::attack(Player &p) {
 	else {
 		cout << "and misses!" << endl;
 	}
-}
+}*/
 int Goblin::getSmellDistance() const {
 	return m_smelldist;
+}
+
+
+//		WANDERER FUNCTIONS
+Wanderer::Wanderer() : Monster(randInt(68) + 1, randInt(16) + 1, 10, 2, 4, 0, ShortSword(), "wanderer") {
+
+}
+Wanderer::~Wanderer(){
+
+}
+
+/*
+void Wanderer::attack(Player &p) {
+	cout << "The wanderer slashes their claws at you... ";
+
+	int wandPoints = getDex() + getArmor();
+	int playerPoints = p.getDex() + p.getArmor();
+
+	if (randInt(wandPoints) >= randInt(playerPoints)) {
+		int damage = randInt(getStr() + getWeapon().getDmg());
+		p.setHP(p.getHP() - damage);
+		if (damage > 0) {
+			cout << "and hits for " << damage << " damage!";
+			cout << (damage >= 3 ? " Ouch!\n" : "\n");
+		}
+		else {
+			cout << "fumbles their attack." << endl;
+		}
+		cout << endl;
+	}
+	else {
+		cout << "and misses!" << endl;
+	}
+}*/
+
+
+//		ARCHER FUNCTIONS
+Archer::Archer() : Monster(randInt(68) + 1, randInt(16) + 1, randInt(5) + 7, 2, 3, 1, WoodBow(), "archer"), m_primed(false) {
+
+}
+bool Archer::doAction(Player &p) {
+	int px = p.getPosX(); int py = p.getPosY();
+	int mx = getPosX(); int my = getPosY();
+
+	if (isPrimed()) {
+		if (px - mx == 0 || py - my == 0)
+			attack(p);
+		prime(false);
+		return true;
+	}
+	// if archer is not adjacent to the player, then do not set prime to true
+	else if (mx+1 != px && mx-1 != px && my + 1 != py && my - 1 != py) {
+		return false;
+	}
+	else {
+		prime(true);
+		return false;
+	}
+}
+bool Archer::isPrimed() const {
+	return m_primed;
+}
+void Archer::prime(bool p) {
+	m_primed = p;
+}
+
+
+
+//
+//
+//		BOSS FIGHT FUNCTIONS
+
+Smasher::Smasher() : Monster(BOSSCOLS/2, BOSSROWS/2, 1, 2, 4, 0, SmashersFists(), "Smasher")  {
+
+}
+void Smasher::attack(Player &p) {
+	string weapon = this->getWeapon().getAction();
+	cout << this->getName() << " swings its fists at you... ";
+
+	int monsterPoints = getDex() + getArmor();
+	int playerPoints = p.getDex() + p.getArmor();
+
+	if (randInt(monsterPoints) >= randInt(playerPoints)) {
+		int damage = randInt(getStr() + getWeapon().getDmg());
+		p.setHP(p.getHP() - damage);
+		if (damage > 0) {
+			cout << "and smashes you for " << damage << " damage!";
+			cout << (damage >= 3 ? " Ouch!\n" : "\n");
+		}
+		else {
+			cout << "and smashes the ground beneath you!" << endl;
+		}
+		cout << endl;
+	}
+	else {
+		cout << "and smashes the ground beneath you!" << endl;
+	}
 }

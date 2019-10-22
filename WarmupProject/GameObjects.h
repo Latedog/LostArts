@@ -9,13 +9,17 @@ struct Tile;
 class Objects {
 public:
 	Objects();
-	Objects(int x, int y);
+	Objects(int x, int y, std::string item);
 	virtual ~Objects();
+	virtual std::string getItem() const;
 	int getPosX() const;
 	int getPosY() const;
+	void setPosX(int x);
+	void setPosY(int y);
 	void setrandPosX();
 	void setrandPosY();
 private:
+	std::string m_item;
 	int m_x;
 	int m_y;
 };
@@ -27,14 +31,29 @@ public:
 private:
 };
 
+class Stairs : public Objects {
+public:
+	Stairs();
+private:
+
+};
+
+
+//	BEGIN DROPS CLASSES
 class Drops : public Objects {
 public:
 	Drops(int x, int y, std::string item);
-	std::string getItem() const;
 	virtual void changeStats(Drops &drop, Player &p);
 	virtual void useItem(Player &p) { return; };
 private:
-	std::string m_item;
+	
+};
+
+class HeartPod : public Drops {
+public:
+	HeartPod();
+	HeartPod(int x, int y);
+	void useItem(Player &p);
 };
 
 class LifePotion : public Drops {
@@ -55,12 +74,47 @@ public:
 	void useItem(Player &p);
 };
 
-class Chest : public Drops {
+class Bomb : public Drops {
 public:
-	Chest();
+	Bomb();
+	void useItem(Player &p);
+	int getFuse() const;
+	void setFuse(int fuse);
+	void lightBomb();
+	bool isLit() const;
+private:
+	int m_fuse;
+	bool m_lit;
+};
+
+
+//		BEGIN CHESTS FUNCTIONS
+class Chests : public Drops {
+public:
+	Chests();
+	virtual void open(Tile &tile) = 0;
+};
+
+class BrownChest : public Drops {
+public:
+	BrownChest();
 	void open(Tile &tile);
 };
 
+class SilverChest : public Drops {
+public:
+	SilverChest();
+	void open(Tile &tile);
+};
+
+class GoldenChest : public Drops {
+public:
+	GoldenChest();
+	void open(Tile &tile);
+};
+
+
+//	BEGIN WEAPON CLASSES
 class Weapon : public Objects {
 public:
 	Weapon();
@@ -84,6 +138,7 @@ private:
 
 class RustyCutlass : public Weapon {
 public:
+	RustyCutlass();
 	RustyCutlass(int x, int y);
 };
 
@@ -94,4 +149,22 @@ public:
 private:
 };
 
+class WoodBow : public Weapon {
+public:
+	WoodBow();
+};
+
+class BronzeDagger : public Weapon {
+public:
+	BronzeDagger();
+};
+
+
+//	BOSS WEAPONS
+class SmashersFists : public Weapon {
+public:
+	SmashersFists();
+private:
+
+};
 #endif
