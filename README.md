@@ -56,3 +56,6 @@ MiniRogue Expansion
   ~~- BUG: Bombs don't damage the smasher and item inventory doesn't carry over~~
   - FIXED: Improper spawning of new players when entering new dungeons (used Player parameter for constructors)
   - BUG: Chests in the special room cause game to crash when trying to pick up
+
+10/27:
+  - Added dungeonText vector to properly display dungeon after a turn is completed
