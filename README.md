@@ -59,3 +59,5 @@ MiniRogue Expansion
 
 10/27:
   - Added dungeonText vector to properly display dungeon after a turn is completed
+  - Fixed bug that caused quit command to not work after dying
+  - Added help menu toggle
