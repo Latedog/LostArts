@@ -62,3 +62,6 @@ MiniRogue Expansion
   - Fixed bug that caused quit command to not work after dying
   - Added help menu toggle
   - Smasher move1 implemented (up and down thwomp style crushing)
+
+10/29:
+  - BUG: Falling spikes cause some tiles to make player and boss invisible
