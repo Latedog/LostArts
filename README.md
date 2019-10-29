@@ -64,4 +64,5 @@ MiniRogue Expansion
   - Smasher move1 implemented (up and down thwomp style crushing)
 
 10/29:
-  - BUG: Falling spikes cause some tiles to make player and boss invisible
+  ~~- BUG: Falling spikes cause some tiles to make player and boss invisible~~
+  - FIXED: Invisible player bug caused by falling spikes
