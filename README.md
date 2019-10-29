@@ -66,3 +66,5 @@ MiniRogue Expansion
 10/29:
   ~~- BUG: Falling spikes cause some tiles to make player and boss invisible~~
   - FIXED: Invisible player bug caused by falling spikes
+  - Traps class added
+  - Smasher move2 implemented (avalanche())
