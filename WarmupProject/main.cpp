@@ -18,7 +18,7 @@ int main()
 
 	srand(static_cast<unsigned int>(time(0)));
 
-	Game g(13);
+	Game g;
 	g.play();
 
 	system("pause");

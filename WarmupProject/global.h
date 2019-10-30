@@ -25,3 +25,8 @@ const char LITBOMB = '*';
 const char BROWN_CHEST = 'c';
 const char SILVER_CHEST = '+';
 const char GOLDEN_CHEST = '}';
+
+const char SPIKE = 'v';
+const char SPIKETRAP_ACTIVE = '!';
+const char SPIKETRAP_PRIMED = '~';
+const char SPIKETRAP_DEACTIVE = '_';

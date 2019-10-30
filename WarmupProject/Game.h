@@ -8,19 +8,16 @@
 
 class Game {
 public:
-	Game(int goblinSmellDistance);
-	int getSmellDistance() const;
+	Game();
+	
 	void play();
-	bool gameOver(Player p);
-	bool win();
+	bool gameOver(Player p, Dungeon &dungeon);
+	bool win(Dungeon &dungeon);
 	void reset();
-	void help();
+	void help(Dungeon dungeon);
 private:
 	Dungeon m_dungeon;
-	//FirstBoss m_firstBoss;
 	
-	int m_smelldist;
-	int m_level;
 };
 
 #endif // GAME_INCLUDED

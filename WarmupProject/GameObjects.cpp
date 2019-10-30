@@ -81,10 +81,12 @@ void HeartPod::useItem(Player &p) {
 		else	// just set player hp to max
 			p.setHP(p.getMaxHP());
 
-		cout << "You feel a little healthier." << endl;
+		cout << "You feel a little healthier.\n" << endl;
+		//text.push_back("You feel a little healthier.\n");
 	}
 	else
 		cout << "Lively as ever..." << endl;
+		//text.push_back("Lively as ever...\n");
 }
 
 LifePotion::LifePotion() : Drops(randInt(68) + 1, randInt(16) + 1, "Life Potion") {
@@ -98,9 +100,11 @@ void LifePotion::useItem(Player &p) {
 			p.setHP(p.getMaxHP());
 
 		cout << "You feel replenished." << endl;
+		//text.push_back("You feel replenished.\n");
 	}
 	else
 		cout << "Lively as ever..." << endl;
+		//text.push_back("Lively as ever...\n");
 }
 
 ArmorDrop::ArmorDrop() : Drops(randInt(68) + 1, randInt(16) + 1, "Armor") {
@@ -109,6 +113,7 @@ ArmorDrop::ArmorDrop() : Drops(randInt(68) + 1, randInt(16) + 1, "Armor") {
 void ArmorDrop::useItem(Player &p) {
 	p.setArmor(p.getArmor() + 1);
 	cout << "You feel ready for battle." << endl;
+	//text.push_back("You feel ready for battle.\n");
 }
 
 StatPotion::StatPotion() : Drops(randInt(68) + 1, randInt(16) + 1, "Stat Potion") {
@@ -119,6 +124,7 @@ void StatPotion::useItem(Player &p) {
 	p.setStr(p.getStr() + 1);
 	p.setMaxHP(p.getMaxHP() + 5);
 	cout << "You feel stronger." << endl;
+	//text.push_back("You feel stronger.\n");
 }
 
 Bomb::Bomb() : Drops(randInt(68) + 1, randInt(16) + 1, "Bomb"), m_fuse(3), m_lit(false) {
@@ -152,24 +158,28 @@ Chests::Chests() : Drops(randInt(68) + 1, randInt(16) + 1, "Chest") {
 BrownChest::BrownChest() : Drops(randInt(68) + 1, randInt(16) + 1, "Brown Chest") {
 
 }
-void BrownChest::open(Tile &tile) {
+void BrownChest::open(Tile &tile, std::vector<std::string> &text) {
 	int n = 1 + randInt(4);
 	switch (n) {
 	case 1:
 		tile.bottom = LIFEPOT; // life potion
-		cout << " and find a health potion!" << endl;
+		//cout << " and find a health potion!" << endl;
+		text.push_back(" and find a health potion!\n");
 		break;
 	case 2:
 		tile.bottom = ARMOR; // armor
-		cout << " and find Armor!" << endl;
+		//cout << " and find Armor!\n" << endl;
+		text.push_back(" and find Armor!\n");
 		break;
 	case 3:
 		tile.bottom = STATPOT; // stat potion
-		cout << " and find a Stat Potion!" << endl;
+		//cout << " and find a Stat Potion!\n" << endl;
+		text.push_back(" and find a Stat Potion!\n");
 		break;
 	case 4:
 		tile.bottom = BOMB; // stat potion
-		cout << " and find a Bomb!" << endl;
+		//cout << " and find a Bomb!\n" << endl;
+		text.push_back(" and find a Bomb!\n");
 		break;
 	default:
 		break;
@@ -179,7 +189,7 @@ void BrownChest::open(Tile &tile) {
 SilverChest::SilverChest() : Drops(randInt(68) + 1, randInt(16) + 1, "Silver Chest") {
 
 }
-void SilverChest::open(Tile & tile){
+void SilverChest::open(Tile & tile, std::vector<std::string> &text){
 	int n = randInt(3) + 1;
 	switch (n) {
 	case 1:
@@ -202,7 +212,7 @@ void SilverChest::open(Tile & tile){
 GoldenChest::GoldenChest() : Drops(randInt(68) + 1, randInt(16) + 1, "Golden Chest") {
 
 }
-void GoldenChest::open(Tile & tile) {
+void GoldenChest::open(Tile & tile, std::vector<std::string> &text) {
 
 }
 
@@ -271,6 +281,50 @@ BronzeDagger::BronzeDagger() : Weapon(randInt(68) + 1, randInt(16) + 1, "Bronze 
 //
 //
 //		BOSS WEAPONS
-SmashersFists::SmashersFists() : Weapon(1,1, "Smasher's Fists", 5, 0) {
+SmashersFists::SmashersFists() : Weapon(1,1, "his body", 5, 0) {
 
+}
+
+
+//		TRAPS
+Traps::Traps(int x, int y, string name, int damage) : Objects (x, y, name), m_trapdmg(damage) {
+
+}
+int Traps::getDmg() const {
+	return m_trapdmg;
+}
+void Traps::setDmg(int damage) {
+	m_trapdmg = damage;
+}
+
+//		FALLING SPIKES
+FallingSpike::FallingSpike(int x, int y, int speed) : Traps(x, y, "falling spike", 3), m_speed(speed) {
+
+}
+int FallingSpike::getSpeed() const {
+	return m_speed;
+}
+void FallingSpike::setSpeed(int speed) {
+	m_speed = speed;
+}
+
+//		SPIKE TRAPS
+SpikeTrap::SpikeTrap() : Traps(1 + randInt(BOSSCOLS - 2), BOSSROWS / 2 + randInt(BOSSROWS / 2 - 2), "spike trap", 5), m_cyclespeed(3 + randInt(3)) {
+
+}
+SpikeTrap::SpikeTrap(int x, int y, int speed) : Traps(x, y, "spike trap", 3), m_cyclespeed(speed), m_countdown(speed) {
+
+}
+
+int SpikeTrap::getSpeed() const {
+	return m_cyclespeed;
+}
+void SpikeTrap::setSpeed(int speed) {
+	m_cyclespeed = speed;
+}
+int SpikeTrap::getCountdown() const {
+	return m_countdown;
+}
+void SpikeTrap::setCountdown(int count) {
+	m_countdown = count;
 }

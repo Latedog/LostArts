@@ -14,7 +14,8 @@ MiniRogue Expansion
   - Fixed bug that could cause idol to not appear
   - Added reset feature
 
-More Monsters Branch
+--More Monsters Branch--
+
 10/11:
   - Added wanderers by utilizing polymorphic Monster vector
   - gameOver() monster death no longer hardcoded
@@ -27,7 +28,7 @@ More Monsters Branch
   - Added chest hierarchy
 
 10/19:
-  - BUG! Game occasionally freezes when moving (possibly related to archer movement)
+  - ~~BUG! Game occasionally freezes when moving (possibly related to archer movement)~~
   - Added objects vector for bomb item (checkActive(), explosion()) and added monsterDeath()
 
 10/20:
@@ -38,10 +39,35 @@ More Monsters Branch
   - Player now spawns with one bomb
   - RustyCutlasses were being spawned as ShortSwords
   - Added new dungeon for Smasher boss, stairs to reach new level, and level variable
-  - BUG: Reset button needs to be fixed
+  - ~~BUG: Reset button needs to be fixed~~
   - FIXED: Reset button
 
 10/21:
   - BUG: Items can spawn on top of other objects and despawn them
   
+ --Convert maps to 1d array--
  
+ 10/21:
+  - Removed need for goblinsmelldistance parameter in Game constructor and from other derived classes
+  - Resolved up/down nuance where the representations for each move were reversed
+  - Converted 2d dungeon to 1d which allows ability to easily pass in dungeons to functions
+
+10/22:
+  - ~~BUG: Bombs don't damage the smasher and item inventory doesn't carry over~~
+  - FIXED: Improper spawning of new players when entering new dungeons (used Player parameter for constructors)
+  - BUG: Chests in the special room cause game to crash when trying to pick up
+
+10/27:
+  - Added dungeonText vector to properly display dungeon after a turn is completed
+  - Fixed bug that caused quit command to not work after dying
+  - Added help menu toggle
+  - Smasher move1 implemented (up and down thwomp style crushing)
+
+10/29:
+  - ~~BUG: Falling spikes cause some tiles to make player and boss invisible~~
+  - FIXED: Invisible player bug caused by falling spikes
+  - Traps class added
+  - Smasher move2 implemented (avalanche())
+  - Smasher random movement implemented
+  - Added trap tiles to accomodate spike traps and other traps
+  - Added archer spawning to smasher boss fight

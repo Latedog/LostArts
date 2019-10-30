@@ -9,12 +9,8 @@
 #include <iostream>
 using namespace std;
 
-Game::Game(int goblinSmellDistance) : m_dungeon(goblinSmellDistance), m_smelldist(goblinSmellDistance) {
+Game::Game() {
 
-}
-
-int Game::getSmellDistance() const {
-	return m_smelldist;
 }
 
 void Game::play()
@@ -37,11 +33,11 @@ void Game::play()
 			if (c == ARROW_LEFT)
 				m_dungeon.peekDungeon(x, y, 'l');
 			if (c == ARROW_DOWN)
-				m_dungeon.peekDungeon(x, y, 'u');
+				m_dungeon.peekDungeon(x, y, 'd');
 			if (c == ARROW_RIGHT)
 				m_dungeon.peekDungeon(x, y, 'r');
 			if (c == ARROW_UP)
-				m_dungeon.peekDungeon(x, y, 'd');
+				m_dungeon.peekDungeon(x, y, 'u');
 
 			if (c == 'i') {
 				m_dungeon.showDungeon();
@@ -69,27 +65,34 @@ void Game::play()
 			}
 
 			if (c == 'h')
-				help();
+				help(m_dungeon);
 
 			if (m_dungeon.getPlayer().getHP() <= 0) {		// check if player is dead
-				if (!gameOver(m_dungeon.getPlayer()))
+				if (!gameOver(m_dungeon.getPlayer(), m_dungeon)) {
+					c = 'q';
 					break;
+				}
 				clearScreen();
 				reset();
 
 				c = getCharacter();
 				clearScreen();
+				break;
 			}
 			else if (m_dungeon.getPlayer().getWin()) {		// check if player picked up the idol
-				if (!win())
+				if (!win(m_dungeon)) {
+					c = 'q';
 					break;
+				}
 				clearScreen();
 				reset();
 
 				c = getCharacter();
 				clearScreen();
+				break;
 			}
 			else if (m_dungeon.getLevel() != 1) {
+				p = m_dungeon.getPlayer();
 				break;
 			}
 			else {
@@ -100,44 +103,44 @@ void Game::play()
 
 		//		BOSS LEVEL
 		if (m_dungeon.getLevel() == 2 && c != 'q') {
-			FirstBoss m_firstBoss(p);
+			FirstBoss firstBoss(m_dungeon.getPlayer());
 
-			m_firstBoss.showDungeon();
+			firstBoss.showDungeon();
 			c = getCharacter();
 			clearScreen();
 
 			while (c != 'q') {
-				p = m_firstBoss.getPlayer();
+				p = firstBoss.getPlayer();
 				x = p.getPosX(); y = p.getPosY();
 
 				if (c == ARROW_LEFT)
-					m_firstBoss.peekFirstBossDungeon(x, y, 'l');
+					firstBoss.peekFirstBossDungeon(x, y, 'l');
 				if (c == ARROW_DOWN)
-					m_firstBoss.peekFirstBossDungeon(x, y, 'u');
+					firstBoss.peekFirstBossDungeon(x, y, 'd');
 				if (c == ARROW_RIGHT)
-					m_firstBoss.peekFirstBossDungeon(x, y, 'r');
+					firstBoss.peekFirstBossDungeon(x, y, 'r');
 				if (c == ARROW_UP)
-					m_firstBoss.peekFirstBossDungeon(x, y, 'd');
+					firstBoss.peekFirstBossDungeon(x, y, 'u');
 
 				if (c == 'i') {
-					m_firstBoss.showDungeon();
+					firstBoss.showDungeon();
 					p.showInventory();
-					m_firstBoss.peekFirstBossDungeon(0, 0, '-'); // moves enemies
+					firstBoss.peekFirstBossDungeon(0, 0, '-'); // moves enemies
 				}
 
 				if (c == 'w') {
 					//	wield command
-					m_firstBoss.peekFirstBossDungeon(0, 0, 'w');
+					firstBoss.peekFirstBossDungeon(0, 0, 'w');
 				}
 
 				if (c == 'g') {
 					//	pickup command
-					m_firstBoss.peekFirstBossDungeon(x, y, 'g');
+					firstBoss.peekFirstBossDungeon(x, y, 'g');
 				}
 
 				if (c == 'c') {
 					//	items use menu
-					m_firstBoss.peekFirstBossDungeon(x, y, 'c');
+					firstBoss.peekFirstBossDungeon(x, y, 'c');
 				}
 
 				if (c == 'r') {
@@ -149,11 +152,13 @@ void Game::play()
 				}
 
 				if (c == 'h')
-					help();
+					help(firstBoss);
 
-				if (m_firstBoss.getPlayer().getHP() <= 0) {		// check if player is dead
-					if (!gameOver(m_dungeon.getPlayer()))
+				if (firstBoss.getPlayer().getHP() <= 0) {		// check if player is dead
+					if (!gameOver(firstBoss.getPlayer(), firstBoss)) {
+						c = 'q';
 						break;
+					}
 					clearScreen();
 					reset();
 
@@ -161,9 +166,11 @@ void Game::play()
 					clearScreen();
 					break;
 				}
-				else if (m_firstBoss.getPlayer().getWin()) {		// check if player picked up the idol
-					if (!win())
+				else if (firstBoss.getPlayer().getWin()) {		// check if player picked up the idol
+					if (!win(firstBoss)) {
+						c = 'q';
 						break;
+					}
 					clearScreen();
 					reset();
 
@@ -182,7 +189,7 @@ void Game::play()
 
 	cout << "Thanks for playing Super Mini Rogue.\n" << endl;
 }
-bool Game::gameOver(Player p) {
+bool Game::gameOver(Player p, Dungeon &dungeon) {
 	char c;
 
 	cout << "You were slain by ";
@@ -196,7 +203,7 @@ bool Game::gameOver(Player p) {
 	c = getCharacter();
 	clearScreen();
 	while (c != 'q' && c != 'r') {
-		m_dungeon.showDungeon();
+		dungeon.showDungeon();
 		cout << "You were slain by ";
 		if (p.getDeath()[0] == 'a' || p.getDeath()[0] == 'e' || p.getDeath()[0] == 'i' || p.getDeath()[0] == 'o' || p.getDeath()[0] == 'u')
 			cout << "an " << p.getDeath() << "!" << endl;
@@ -212,7 +219,7 @@ bool Game::gameOver(Player p) {
 		return true;
 	return false;
 }
-bool Game::win() {
+bool Game::win(Dungeon &dungeon) {
 	char c;
 
 	cout << "You found the golden idol!" << endl;
@@ -221,7 +228,7 @@ bool Game::win() {
 	c = getCharacter();
 	clearScreen();
 	while (c != 'q' && c != 'r') {
-		m_dungeon.showDungeon();
+		dungeon.showDungeon();
 		cout << "You found the golden idol!" << endl;
 		cout << "Congratulations!" << endl;
 
@@ -233,13 +240,13 @@ bool Game::win() {
 	return false;
 }
 void Game::reset() {
-	Dungeon* d = new Dungeon(getSmellDistance());
+	Dungeon* d = new Dungeon();
 	m_dungeon = *d;
 	delete d;
 
 	m_dungeon.showDungeon();
 }
-void Game::help() {
+void Game::help(Dungeon dungeon) {
 	cout << "How to play:\n" << endl;
 	cout << "Move with the arrow keys.\n";
 	cout << "i: Show inventory\n";
@@ -247,5 +254,24 @@ void Game::help() {
 	cout << "w: Equip weapon\n";
 	cout << "c: Use item\n" << endl;
 
-	cout << "q to quit and r to reset\n" << endl;;
+	cout << "q to quit and r to reset\n" << endl;
+
+	char c;
+	c = getCharacter();
+
+	while (c != 'h') {
+		cout << "How to play:\n" << endl;
+		cout << "Move with the arrow keys.\n";
+		cout << "i: Show inventory\n";
+		cout << "g: Collect item\n";
+		cout << "w: Equip weapon\n";
+		cout << "c: Use item\n" << endl;
+
+		cout << "q to quit and r to reset\n" << endl;
+
+		c = getCharacter();
+		clearScreen();
+	}
+	clearScreen();
+	dungeon.showDungeon();
 }

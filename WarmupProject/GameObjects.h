@@ -1,4 +1,5 @@
 #include <string>
+#include <vector>
 
 #ifndef GAMEOBJECTS_H
 #define GAMEOBJECTS_H
@@ -88,7 +89,7 @@ private:
 };
 
 
-//		BEGIN CHESTS FUNCTIONS
+//	BEGIN CHESTS CLASSES
 class Chests : public Drops {
 public:
 	Chests();
@@ -98,19 +99,19 @@ public:
 class BrownChest : public Drops {
 public:
 	BrownChest();
-	void open(Tile &tile);
+	void open(Tile &tile, std::vector<std::string> &text);
 };
 
 class SilverChest : public Drops {
 public:
 	SilverChest();
-	void open(Tile &tile);
+	void open(Tile &tile, std::vector<std::string> &text);
 };
 
 class GoldenChest : public Drops {
 public:
 	GoldenChest();
-	void open(Tile &tile);
+	void open(Tile &tile, std::vector<std::string> &text);
 };
 
 
@@ -167,4 +168,40 @@ public:
 private:
 
 };
+
+
+//	BEGIN TRAPS
+class Traps : public Objects {
+public:
+	Traps(int x, int y, std::string name, int damage);
+	int getDmg() const;
+	void setDmg(int damage);
+private:
+	int m_trapdmg;
+};
+
+class FallingSpike : public Traps {
+public:
+	FallingSpike(int x, int y, int speed);
+	int getSpeed() const;
+	void setSpeed(int speed);
+private:
+	int m_speed;
+};
+
+class SpikeTrap : public Traps {
+public:
+	SpikeTrap();
+	SpikeTrap(int x, int y, int speed);
+
+	int getSpeed() const;
+	void setSpeed(int speed);
+	int getCountdown() const;
+	void setCountdown(int count);
+private:
+	int m_cyclespeed;
+	int m_countdown;
+};
+
+
 #endif
