@@ -68,3 +68,4 @@ MiniRogue Expansion
   - FIXED: Invisible player bug caused by falling spikes
   - Traps class added
   - Smasher move2 implemented (avalanche())
+  - Smasmher random moving implemented
