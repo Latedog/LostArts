@@ -70,3 +70,4 @@ MiniRogue Expansion
   - Smasher move2 implemented (avalanche())
   - Smasher random movement implemented
   - Added trap tiles to accomodate spike traps and other traps
+  - Added archer spawning to smasher boss fight
