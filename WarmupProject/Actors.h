@@ -48,21 +48,20 @@ class Player : public Actors {
 public:
 	Player();
 	~Player();
-	void attack(Goblin &g);
-	//void attack(std::vector<Monster*> monsters, int pos);
-	void attack(std::vector<std::shared_ptr<Monster>> monsters, int pos);
+
+	void attack(std::vector<std::shared_ptr<Monster>> monsters, int pos, std::vector<std::string> &text);
 	void showInventory();
-	void showWeapons();
-	void showItems();
+	void showWeapons(std::vector<std::string> &text);
+	void showItems(std::vector<std::string> &text);
 	int getInventorySize() const;
 	int getItemInvSize() const;
 	void addWeapon(Weapon w);
-	void wield();
+	void wield(std::vector<std::string> &text);
 	void addItem(Drops drop);
-	void use(std::vector<std::shared_ptr<Objects>> &active, Tile &tile);
+	void use(std::vector<std::shared_ptr<Objects>> &active, Tile &tile, std::vector<std::string> &text);
 	void setMaxHP(int maxhp);
 	int getMaxHP() const;
-	void rollHeal();
+	void rollHeal(std::vector<std::string> &text);
 	void setWin(bool win);
 	bool getWin() const;
 	std::string getDeath() const;
@@ -86,9 +85,9 @@ public:
 	Monster();
 	Monster(int x, int y, int hp, int armor, int str, int dex, Weapon wep, std::string name);
 	~Monster();
-	virtual bool doAction(Player &p) { return false; };
-	virtual void encounter(Player &p, Monster &m);
-	void attack(Player &p);
+
+	virtual void encounter(Player &p, Monster &m, std::vector<std::string> &text);
+	virtual void attack(Player &p, std::vector<std::string> &text);
 	std::string getName();
 private:
 	std::string m_name;
@@ -112,7 +111,7 @@ public:
 class Archer : public Monster {
 public:
 	Archer();
-	bool doAction(Player &p);
+	
 	bool isPrimed() const;
 	void prime(bool p);
 private:
@@ -124,9 +123,20 @@ private:
 class Smasher : public Monster {
 public:
 	Smasher();
-	void attack(Player &p);
-private:
+	void attack(Player &p, std::vector<std::string> &text);
 
+	bool isActive() const;
+	void setActive(bool status);
+	bool isEnded() const;
+	void setEnded(bool status);
+	int getMove() const;
+	void setMove(int move);
+private:
+	bool m_moveActive;
+	bool m_moveEnding;
+	int m_moveType;
 };
+
+
 
 #endif
