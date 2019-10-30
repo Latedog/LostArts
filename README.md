@@ -28,7 +28,7 @@ MiniRogue Expansion
   - Added chest hierarchy
 
 10/19:
- ~~- BUG! Game occasionally freezes when moving (possibly related to archer movement)~~
+  - ~~BUG! Game occasionally freezes when moving (possibly related to archer movement)~~
   - Added objects vector for bomb item (checkActive(), explosion()) and added monsterDeath()
 
 10/20:
@@ -39,7 +39,7 @@ MiniRogue Expansion
   - Player now spawns with one bomb
   - RustyCutlasses were being spawned as ShortSwords
   - Added new dungeon for Smasher boss, stairs to reach new level, and level variable
-  ~~- BUG: Reset button needs to be fixed~~
+  - ~~BUG: Reset button needs to be fixed~~
   - FIXED: Reset button
 
 10/21:
@@ -53,7 +53,7 @@ MiniRogue Expansion
   - Converted 2d dungeon to 1d which allows ability to easily pass in dungeons to functions
 
 10/22:
-  ~~- BUG: Bombs don't damage the smasher and item inventory doesn't carry over~~
+  - ~~BUG: Bombs don't damage the smasher and item inventory doesn't carry over~~
   - FIXED: Improper spawning of new players when entering new dungeons (used Player parameter for constructors)
   - BUG: Chests in the special room cause game to crash when trying to pick up
 
@@ -64,7 +64,7 @@ MiniRogue Expansion
   - Smasher move1 implemented (up and down thwomp style crushing)
 
 10/29:
-  ~~- BUG: Falling spikes cause some tiles to make player and boss invisible~~
+  - ~~BUG: Falling spikes cause some tiles to make player and boss invisible~~
   - FIXED: Invisible player bug caused by falling spikes
   - Traps class added
   - Smasher move2 implemented (avalanche())
