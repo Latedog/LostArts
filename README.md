@@ -69,3 +69,4 @@ MiniRogue Expansion
   - Traps class added
   - Smasher move2 implemented (avalanche())
   - Smasher random movement implemented
+  - Added trap tiles to accomodate spike traps and other traps
