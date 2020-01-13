@@ -5,3 +5,6 @@
 - Flags for determining whether an actor can be burned, bled, etc. have been set in the constructors
 
 - HUGE: Added sprite action sequencing for monsters. This allows actions to be followed up one after another so that there is no more strangeness in sprite movement or conceived frame skipping during the smasher boss fight when archers are pushed around. To achieve this, every monster sprite is assigned the appropriate sprite upon its creation in GUI.cpp. Several additional sprite manipulation functions (prepended with 'queue') were added to accomodate this, and updateLighting() has, accordingly, been updated such that it does not use the monster_sprites vector anymore.
+
+1/13/2020:
+- Added intellect and luck stats to the Actors class
