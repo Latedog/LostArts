@@ -8,3 +8,4 @@
 
 1/13/2020:
 - Added intellect and luck stats to the Actors class
+- Added puddles, firebars, and double-sided firebars. Puddles can remove burning if stepped on while on fire.
