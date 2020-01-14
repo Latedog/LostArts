@@ -10,3 +10,4 @@
 - Added intellect and luck stats to the Actors class
 - Added puddles, firebars, and double-sided firebars. Puddles can remove burning if stepped on while on fire.
 - Resolved major issue involving firebars/spinners where they would incorrectly attack or not attack the player. Firebars now have Objects that keep track of where their fireballs are, instead of using the tile->projectile tile, which removes the need for map boundary checking.
+- Finished implementation of puddles and cleaned up the Spinner code
