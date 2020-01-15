@@ -12,7 +12,7 @@
 - Resolved major issue involving firebars/spinners where they would incorrectly attack or not attack the player. Firebars now have Objects that keep track of where their fireballs are, instead of using the tile->projectile tile, which removes the need for map boundary checking.
 - Finished implementation of puddles and cleaned up the Spinner code
 
-1/14:
+1/14/2020:
 - Auto spike traps and trigger spike traps moved to their own functions in their respective trap classes. Instead of constantly adding and removing the spike sprites, I've assigned each trap 3 of them (active, primed, and deactive) and set their visibility according to the state they're in.
 - Spike traps are now accurate when lighting is updated by using a new Traps vector given to each dungeon
 - Lava now shows additional lighting effects when players are nearby
