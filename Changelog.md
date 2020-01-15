@@ -18,3 +18,4 @@
 - Lava now shows additional lighting effects when players are nearby
 - Removed global dungeon variables (hiding in Game.h and Appdelegate.h, places they shouldn't be in) and added a new struct called Dungeons which holds one of each type of dungeon. However, this is almost entirely useless as there's really no need to pass around old dungeons, only the players of that dungeon. This can be removed to only include one type of each dungeon in each scene.
 - Sound effects for pits, missing ones for spiketraps, and additional ones for archers have been added
+- Stairs, buttons, and lava were all added to the new traps vector for lighting purposes
