@@ -19,5 +19,7 @@
 - Removed global dungeon variables (hiding in Game.h and Appdelegate.h, places they shouldn't be in) and added a new struct called Dungeons which holds one of each type of dungeon. However, this is almost entirely useless as there's really no need to pass around old dungeons, only the players of that dungeon. This can be removed to only include one type of each dungeon in each scene.
 - Sound effects for pits, missing ones for spiketraps, and additional ones for archers have been added
 - Stairs, buttons, and lava were all added to the new traps vector for lighting purposes. As a result, lava is now a trap object instead of a being a simple tile marker entity.
+- The peek() functions were all renamed to peekDungeon() to make use of inheritance
 - The getActives() and getDungeon() functions for the Dungeon class have been changed to return a reference instead of a const
 - Collapsed overuse of checkActive and openDoor into the Dungeon class
+- Added setName() to actors. Changed name of archers that spawn from using the fountain on floor two to the name "Guardian", which allows regular archers to be spawned.
