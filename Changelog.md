@@ -23,6 +23,7 @@
 - The getActives() and getDungeon() functions for the Dungeon class have been changed to return a reference instead of a const
 - Collapsed overuse of checkActive and openDoor into the Dungeon class
 - Added setName() to actors. Changed name of archers that spawn from using the fountain on floor two to the name "Guardian", which allows regular archers to be spawned.
+- Removed unused WeaponMenuScene and ItemMenuScene classes from GUI
 
 1/15/2020:
 - Removed redundant getName(), set and getMaxHP() functions from the Monster class
