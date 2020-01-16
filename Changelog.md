@@ -34,3 +34,8 @@
 - The "spawn" was changed from a multimap to a vector of pairs. This is so that the actions are run in the order that they were received.
 - Issue with boss dungeon pushing sprites was fixed by adding a bool variable (front) to insertActionToSpawn() which says to add the action to the front of the vector of actions instead of the back, thereby making it the first to execute. This uses a single queueMoveSprite() command instead of everywhere within the smasher move functions.
 - checkActives() now only checks spring traps if they are both a trigger type and have been triggered. Does not yet get triggered by monsters. Springs are now activated in trapEncounter() and actors can be chained onto other traps after being bounced.
+
+1/16/2020:
+- Tweaked wallCollision() algorithm to correctly detect walls. This error went previously undetected since archers do not use wallCollision for checking next to them
+- Sound effects added for turrets and spring traps
+- Added cooldown to turrets, allowed players to block their shots, and they now only hit the first target the shot comes in contact with
