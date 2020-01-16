@@ -39,3 +39,5 @@
 - Tweaked wallCollision() algorithm to correctly detect walls. This error went previously undetected since archers do not use wallCollision for checking next to them
 - Sound effects added for turrets and spring traps
 - Added cooldown to turrets, allowed players to block their shots, and they now only hit the first target the shot comes in contact with
+- Spinners now have a chance to burn, and firebars only have a chance to burn
+- Fixed bug where the isBurned flag was not being set when the player was burned
