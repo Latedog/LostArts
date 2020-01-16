@@ -41,3 +41,4 @@
 - Added cooldown to turrets, allowed players to block their shots, and they now only hit the first target the shot comes in contact with
 - Spinners now have a chance to burn, and firebars only have a chance to burn
 - Fixed bug where the isBurned flag was not being set when the player was burned
+- Added moving blocks (not finished); invisible wall bugs and square movement implementation not there
