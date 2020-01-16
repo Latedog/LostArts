@@ -31,3 +31,4 @@
 - Changed monsterTrapEncounter() to accept a Dungeon instead of everything else
 - Added an isFlying() check to the monsters class to check whether or not they are affected by things on the ground
 - Added the ability for monsters to bounce on spring traps
+- The "spawn" was changed from a multimap to a vector of pairs. This is so that the actions are run in the order that they were received.
