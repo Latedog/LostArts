@@ -27,4 +27,4 @@
 
 1/15/2020:
 - Removed redundant getName(), set and getMaxHP() functions from the Monster class
-- Added 22 different spring traps. 8 that bounce in a single direction, 1 that bounces in a random direction, 1 that bounces in a random cardinal direction, and 1 that bounces in a random diagonal direction. They can either be trigger or non-trigger so in total this is 22. Adjusted all (except the shop scene) player sprite updating to occur after the key press switch statements and updated the inaction lambdas as well to reflect this change since spring traps can move players when they don't press anything.
+- Added 22 different spring traps. 8 that bounce in a single direction, 1 that bounces in a random direction, 1 that bounces in a random cardinal direction, and 1 that bounces in a random diagonal direction. They can either be trigger or non-trigger so in total this is 22. Adjusted all player sprite updating to occur after the key press switch statements and updated the inaction lambdas as well to reflect this change since spring traps can move players when they don't press anything.
