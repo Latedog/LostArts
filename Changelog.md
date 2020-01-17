@@ -42,3 +42,6 @@
 - Spinners now have a chance to burn, and firebars only have a chance to burn
 - Fixed bug where the isBurned flag was not being set when the player was burned
 - Added moving blocks (not finished); invisible wall bugs and square movement implementation not there
+- Fixed invisible wall where trap flag was being set on the block's spawn and not removed, and the enemy flag in the block's move() function was not correctly set
+- Monsters are now killed instantly if pushed into a wall by a moving block
+- Added a function to take in a single monster for trap encounters, instead of the searching the entire monster vector again
