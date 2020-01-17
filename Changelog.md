@@ -57,3 +57,4 @@
 - Added sprite flashing to monster and player to give feedback on damage taken
 - Commented out callUse() from all dungeons except the base Dungeon since polymorphism is used
 - Added player hit sound effect for Bombee and fixed zapper sparks from being too small on the second and third floors
+- Added bloodletting sound effect and blood dripping when bleed is applied. The damage taking effects have been turned into functions.
