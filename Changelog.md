@@ -46,3 +46,4 @@
 - Monsters are now killed instantly if pushed into a wall by a moving block
 - Added a function to take in a single monster for trap encounters, instead of the searching the entire monster vector again
 - Changed trapEncounter() to accept just a Dungeon and the trap's coordinates as the arguments
+- Changed overloading []operator from m_maze[index] to this->getDungeon()[index] from new bug that surfaced after changing trapEncounter()
