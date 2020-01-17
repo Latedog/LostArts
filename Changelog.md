@@ -59,3 +59,4 @@
 - Added player hit sound effect for Bombee and fixed zapper sparks from being too small on the second and third floors
 - Added bloodletting sound effect and blood dripping when bleed is applied. The damage taking effects have been turned into functions.
 - Freeze was turned into its own affliction and monsters are now turned blue to indicate being frozen
+- Changed freeze attack damage to be the strength of the player minus twice the armor of the monster (increased armor because of ice)
