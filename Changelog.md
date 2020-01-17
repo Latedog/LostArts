@@ -50,3 +50,6 @@
 - Fixed repeating game over bug where the inaction scheduler was not being unscheduled. The HUDLayer gameOver() function now takes a scene as an argument to prevent this.
 - Corrected lack of polymorphism when using items as well as weapons, and added new Freeze Spell item
 - Removed unused Game.h and Game.cpp from the project and commented out all instances of showDungeon(), wield(), and use()
+
+1/17/2020:
+- Weapons now have ability functions to be called if the weapon has a special trait such as a bleed or freeze effect. Added m_hasAbility variable to Weapons.
