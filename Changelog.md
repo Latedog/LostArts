@@ -48,3 +48,5 @@
 - Changed trapEncounter() to accept just a Dungeon and the trap's coordinates as the arguments
 - Changed overloading []operator from m_maze[index] to this->getDungeon()[index] from new bug that surfaced after changing trapEncounter()
 - Fixed repeating game over bug where the inaction scheduler was not being unscheduled. The HUDLayer gameOver() function now takes a scene as an argument to prevent this.
+- Corrected lack of polymorphism when using items as well as weapons, and added new Freeze Spell item
+- Removed unused Game.h and Game.cpp from the project and commented out all instances of showDungeon(), wield(), and use()
