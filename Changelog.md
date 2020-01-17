@@ -55,3 +55,5 @@
 - Weapons now have ability functions to be called if the weapon has a special trait such as a bleed or freeze effect. Added m_hasAbility variable to Weapons.
 - Added new player attack() function which takes in a dungeon and an actor to allow flexibility for weapon abilities
 - Added sprite flashing to monster and player to give feedback on damage taken
+- Commented out callUse() from all dungeons except the base Dungeon since polymorphism is used
+- Added player hit sound effect for Bombee and fixed zapper sparks from being too small on the second and third floors
