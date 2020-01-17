@@ -62,3 +62,4 @@
 - Changed freeze attack damage to be the strength of the player minus twice the armor of the monster (increased armor because of ice)
 - Moved affliction flag setting inside the afflict functions
 - MovingBlocks now crush the player and stun them for 1 turn
+- Change monster and player str, dex, and hp values to make the gameplay more consistent
