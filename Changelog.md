@@ -45,3 +45,4 @@
 - Fixed invisible wall where trap flag was being set on the block's spawn and not removed, and the enemy flag in the block's move() function was not correctly set
 - Monsters are now killed instantly if pushed into a wall by a moving block
 - Added a function to take in a single monster for trap encounters, instead of the searching the entire monster vector again
+- Changed trapEncounter() to accept just a Dungeon and the trap's coordinates as the arguments
