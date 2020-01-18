@@ -65,3 +65,4 @@
 - Change monster and player str, dex, and hp values to make the gameplay more consistent
 - If player succeeded on the attack roll, damage is now guaranteed to be at least 1 instead of 0.
 - Changed Dungeon::callUse() to remove the extra bit just for bombs. Bomb's useItem() function does everything that needs to be taken care of now.
+- Added forPlayer flag to Drops class to check if item is meant to be used on the player or on surroundings
