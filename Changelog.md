@@ -70,3 +70,6 @@
 - Added function trapRemoval() which destroys any traps that were queued up in m_trapIndexes and created a new explosion function that takes in a Dungeon and coordinates. trapRemoval() was created since removing a trap immediately after explosion would create problems since checkActives is still iterating through the same vector.
 - Added earthquake spell and fixed boundary checking for 5x5 explosion attacks
 - Added fireblast spell and made Spinners immune to burning
+
+1/18/2020:
+- Finished implentation of wind spell by modifying the pushMonster and monsterHash functions. You can't really tell when a monster has been pushed into a hole currently other than the sound, hopefully I can fix this.
