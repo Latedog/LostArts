@@ -73,3 +73,4 @@
 
 1/18/2020:
 - Finished implentation of wind spell by modifying the pushMonster and monsterHash functions. You can't really tell when a monster has been pushed into a hole currently other than the sound, hopefully I can fix this. Need to fix spinner/zapper sprites as they become detached with the monster after being pushed.
+- Added invisibility, ethereal, and teleport spells and affliction statuses.
