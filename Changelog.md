@@ -76,3 +76,4 @@
 - Added invisibility, ethereal, and teleport spells and affliction statuses. Invisibility wears off early if the player damages or is damaged by something. Ethereal status allows the player to walk through walls.
 - Added flag to Monster class that checks if they chase the player as their style of attack. Used for ignoring player when they are invisible. Small "bug" where enemies (archers/knights) can move into the player if they are invisible.
 - Added confusion potion (DizzyElixir) and appropriate flags/functions which increases player's dex temporarily at the cost of reversed movement
+- Gave all items the image name to be used and changed item discovery to item_name which uses a string. This messes up level generation quite a bit, so it will need to be fixed later.
