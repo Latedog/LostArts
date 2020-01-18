@@ -68,3 +68,4 @@
 - Added forPlayer flag to Drops class to check if item is meant to be used on the player or on surroundings
 - Added destructibility flag to Objects class for checking if an object or trap can be destroyed by bombs, etc.
 - Added function trapRemoval() which destroys any traps that were queued up in m_trapIndexes and created a new explosion function that takes in a Dungeon and coordinates. trapRemoval() was created since removing a trap immediately after explosion would create problems since checkActives is still iterating through the same vector.
+- Added earthquake spell and fixed boundary checking for 5x5 explosion attacks
