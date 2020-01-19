@@ -4,16 +4,16 @@
 #include "ui/cocosGUI.h"
 #include "utilities.h"
 #include "global.h"
-//#include "Game.h"
 #include "Dungeon.h"
 #include "GameObjects.h"
 #include <vector>
 
 USING_NS_CC;
 
-SecondFloor DUNGEON2(DUNGEON.getPlayer());
-ThirdFloor DUNGEON3(DUNGEON2.getPlayer());
-FirstBoss BOSS1(DUNGEON3.getPlayer());
+//FirstShop SHOP1(DUNGEON.getPlayer());
+//SecondFloor DUNGEON2(DUNGEON.getPlayer());
+//ThirdFloor DUNGEON3(DUNGEON2.getPlayer());
+//FirstBoss BOSS1(DUNGEON3.getPlayer());
 
 Scene* StartScene::createScene()
 {
@@ -35,7 +35,6 @@ bool StartScene::init()
 	}
 
 
-	//auto music = CocosDenshion::SimpleAudioEngine::getInstance();
 	id = experimental::AudioEngine::play2d("Title Theme.mp3", true);
 
 
@@ -278,6 +277,9 @@ bool HUDLayer::init() {
 
 	std::string image;
 
+	// just used to initialize weapon
+	Dungeon dungeon;
+
 	//		RENDER HUD
 	image = "Health_Bar_Empty_Long.png";
 	Sprite* healthbar = Sprite::createWithSpriteFrameName(image);
@@ -293,16 +295,16 @@ bool HUDLayer::init() {
 	HUD.insert(std::pair<std::string, Sprite*>("hp", hp));
 
 	image = "Current_Weapon_Box_1.png";
-	Sprite* wepbox = Sprite::create(image);
+	Sprite* wepbox = Sprite::createWithSpriteFrameName(image);
 	wepbox->setPosition(-570, 240);
 	wepbox->setScale(.2);
 	wepbox->setOpacity(160);
 	this->addChild(wepbox, 2, "wepbox");
 	HUD.insert(std::pair<std::string, Sprite*>("wepbox", wepbox));
 
-	//load default weapon sprite
+	// load default weapon sprite
 	std::string weapon;
-	weapon = DUNGEON.getPlayer().getWeapon().getAction();
+	weapon = dungeon.getPlayer().getWeapon()->getAction();
 	if (weapon == "Short Sword")
 		image = "Short_Sword.png";
 	Sprite* currentwep = Sprite::createWithSpriteFrameName(image);
@@ -311,14 +313,30 @@ bool HUDLayer::init() {
 	currentwep->setScale(1.2);
 	HUD.insert(std::pair<std::string, Sprite*>("currentwep", currentwep));
 
+	// gold count
+	image = "Gold_Pile1_48x48.png";
+	Sprite* goldpile = Sprite::createWithSpriteFrameName(image);
+	this->addChild(goldpile, 3, "goldpile");
+	goldpile->setPosition(570, 300); // -190, 300
+	goldpile->setScale(0.8);
+	goldpile->setOpacity(230);
+	HUD.insert(std::pair<std::string, Sprite*>("goldpile", goldpile));
+
+	goldcount = Label::createWithTTF("0", "fonts/Marker Felt.ttf", 18);
+	goldcount->setPosition(600, 300); // -160, 300
+	this->addChild(goldcount, 3);
+
 	return true;
 }
 void HUDLayer::updateHUD(Dungeon &dungeon) {
 	p = dungeon.getPlayer();
 	int x = p.getPosX(); int y = p.getPosY();
 
+	// update gold count
+	goldcount->setString(std::to_string(p.getMoney()));
+
 	//check weapon equipped
-	std::string weapon = p.getWeapon().getAction();
+	std::string weapon = p.getWeapon()->getAction();
 	std::string image;
 	if (weapon == "Short Sword") image = "Short_Sword.png";
 	else if (weapon == "Rusty Cutlass") image = "Rusty_Broadsword.png";
@@ -332,17 +350,91 @@ void HUDLayer::updateHUD(Dungeon &dungeon) {
 		HUD.find("currentwep")->second->removeFromParent();
 		HUD.erase("currentwep");
 
-		Sprite* currentwep = Sprite::create(image);
+		Sprite* currentwep = Sprite::createWithSpriteFrameName(image);
 		this->addChild(currentwep, 3, weapon);
 		currentwep->setPosition(-570, 240);
 		currentwep->setScale(1.2);
 		HUD.insert(std::pair<std::string, Sprite*>("currentwep", currentwep));
 	}
 
+	// check if there's any shield equipped
+	std::string shield = p.getShield().getItem();
+	if (shield == "Wood Shield") image = "Wood_Shield_48x48.png";
+	else if (shield == "Iron Shield") image = "Iron_Shield_48x48.png";
+	else image = "";
+
+	// if there's no shield equipped and there was previously, deconstruct the shield HUD
+	if (image == "" && HUD.find("currentshield") != HUD.end()) {
+		deconstructShieldHUD();
+	}
+	// else if there is now a shield equipped, but there wasn't previously, construct the menu
+	else if (image != "" && HUD.find("currentshield") == HUD.end()) {
+		// shield HUD box
+		Sprite* shieldbox = Sprite::createWithSpriteFrameName("Current_Weapon_Box_1.png");
+		shieldbox->setPosition(-570, 180);
+		shieldbox->setScale(.2);
+		shieldbox->setOpacity(160);
+		shieldbox->setColor(cocos2d::Color3B(255, 175, 5));
+		this->addChild(shieldbox, 2, "shieldbox");
+		HUD.insert(std::pair<std::string, Sprite*>("shieldbox", shieldbox));
+
+		// shield sprite
+		Sprite* currentshield = Sprite::createWithSpriteFrameName(image);
+		this->addChild(currentshield, 3, shield);
+		currentshield->setPosition(-570, 180);
+		currentshield->setScale(0.5);
+		HUD.insert(std::pair<std::string, Sprite*>("currentshield", currentshield));
+
+		// shield durability bar
+		Sprite* shieldbar = Sprite::createWithSpriteFrameName("Shield_Durability_Bar_Empty2.png");
+		this->addChild(shieldbar, 3, "shieldbar");
+		shieldbar->setPosition(-550, 150);
+		shieldbar->setScale(1.0);
+		HUD.insert(std::pair<std::string, Sprite*>("shieldbar", shieldbar));
+
+		// shield bar points
+		Sprite* shieldpoints = Sprite::createWithSpriteFrameName("Shield_Durability_Bar_Points2.png");
+		this->addChild(shieldpoints, 4, "shieldpoints");
+		shieldpoints->setAnchorPoint(Vec2(0, 0.5)); // set anchor point to left side
+		shieldpoints->setPosition(-583, 150);
+		shieldpoints->setScale(0.4);
+		HUD.insert(std::pair<std::string, Sprite*>("shieldpoints", shieldpoints));
+	}
+	// else if current shield equipped is different, switch the sprite
+	else if (image != "" && HUD.find("currentshield")->second->getName() != shield) {
+		//remove sprite
+		HUD.find("currentshield")->second->removeFromParent();
+		HUD.erase("currentshield");
+
+		Sprite* currentshield = Sprite::createWithSpriteFrameName(image);
+		this->addChild(currentshield, 3, shield);
+		currentshield->setPosition(-570, 180);
+		currentshield->setScale(0.50);
+		HUD.insert(std::pair<std::string, Sprite*>("currentshield", currentshield));
+	}
+
+	// if player has a shield, update its shield bar
+	if (HUD.find("currentshield") != HUD.end()) {
+		double sx_scale = dungeon.getPlayer().getShield().getDurability() / (static_cast<double>(dungeon.getPlayer().getShield().getMaxDurability()) * 1.0);
+		cocos2d::Action* move = cocos2d::ScaleTo::create(.3, sx_scale, 1);
+		HUD.find("shieldpoints")->second->runAction(move);
+	}
+
 	//	Check HP bar
 	double x_scale = dungeon.getPlayer().getHP() / (static_cast<double>(dungeon.getPlayer().getMaxHP()) * 1.0);
 	cocos2d::Action* move = cocos2d::ScaleTo::create(.3, x_scale, 1);
 	HUD.find("hp")->second->runAction(move);
+
+}
+void HUDLayer::showShopHUD(Dungeon &dungeon, int x, int y) {
+	// pricing symbols, prices themselves, etc.
+	itemprice = Label::createWithTTF("$", "fonts/Marker Felt.ttf", 24);
+	itemprice->setPosition(x * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (dungeon.getRows() - y) - Y_OFFSET);
+	this->addChild(itemprice, 3);
+	itemprice->setColor(cocos2d::Color3B(255, 215, 0));
+	itemprice->setString("$" + std::to_string(dungeon.getDungeon()[(y-1)*dungeon.getCols() + x].price));
+}
+void HUDLayer::updateShopHUD() {
 
 }
 void HUDLayer::showBossHP() {
@@ -364,9 +456,9 @@ void HUDLayer::showBossHP() {
 }
 void HUDLayer::updateBossHUD(Dungeon &dungeon) {
 	// if there are still monsters, check for smasher
-	if (!BOSS1.getMonsters().empty()) {
+	if (!dungeon.getMonsters().empty()) {
 		// if smasher is still alive, update its hp
-		if (BOSS1.getMonsters().at(0)->getName() == "Smasher") {
+		if (dungeon.getMonsters().at(0)->getName() == "Smasher") {
 			//	Check Boss HP bar
 			double y_scale = dungeon.getMonsters()[0]->getHP() / (static_cast<double>(dungeon.getMonsters()[0]->getMaxHP()) * 1.0);
 			cocos2d::Action* move = cocos2d::ScaleTo::create(.3, 1, y_scale);
@@ -470,7 +562,9 @@ void HUDLayer::devilKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d:
 			index = 0;
 			deconstructMenu(weaponMenuSprites);
 
-			DUNGEON2.devilsWater(false);
+			//DUNGEON2.devilsWater(false);
+			SecondFloor* second = dynamic_cast<SecondFloor*>(dungeon);
+			second->devilsWater(false);
 
 			enableListener();
 			return;
@@ -479,7 +573,9 @@ void HUDLayer::devilKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d:
 			experimental::AudioEngine::play2d("Devils_Gift.mp3", false, 1.0f);
 
 			// drink the water
-			DUNGEON2.devilsWater(true);
+			//DUNGEON2.devilsWater(true);
+			SecondFloor* second = dynamic_cast<SecondFloor*>(dungeon);
+			second->devilsWater(true);
 
 			index = 0;
 			deconstructMenu(weaponMenuSprites);
@@ -498,7 +594,7 @@ void HUDLayer::weaponMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dun
 	activeListener = listener;
 
 	p = dungeon.getPlayer();
-	std::vector<Weapon> wepinv = p.getWeaponInv();
+	std::vector<std::shared_ptr<Weapon>> wepinv = p.getWeapons();
 
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
@@ -519,15 +615,13 @@ void HUDLayer::weaponMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dun
 	}
 
 	std::string image = "cheese.png";
-	for (int i = -2; i < p.getInventorySize() - 2; i++) {
-		if (wepinv.at(i + 2).getAction() == "Rusty Cutlass") image = "Rusty_Broadsword.png";
-		else if (wepinv.at(i + 2).getAction() == "Bone Axe") image = "Bone_Axe.png";
-		else if (wepinv.at(i + 2).getAction() == "Bronze Dagger") image = "Bronze_Dagger.png";
-		else if (wepinv.at(i + 2).getAction() == "Iron Lance") image = "Iron_Lance.png";
-		else if (wepinv.at(i + 2).getAction() == "Short Sword") image = "Short_Sword.png";
+	int size = wepinv.size();
+	for (int i = -2; i < size - 2; i++) {
+		image = wepinv.at(i + 2)->getImageName();
 
 		Sprite* weapon = Sprite::createWithSpriteFrameName(image);
 		this->addChild(weapon, 4);
+		weapon->setScale(0.6);
 		weapon->setPosition(i*MENU_SPACING, origin.y);
 		weaponMenuSprites.insert(std::pair<std::string, Sprite*>("weapon", weapon));
 	}
@@ -535,6 +629,7 @@ void HUDLayer::weaponMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dun
 	// arrow sprite for selection
 	auto sprite = Sprite::create("Down_Arrow.png");
 	sprite->setPosition(-2 * MENU_SPACING, MENU_SPACING);
+	sprite->setScale(2.0);
 	this->addChild(sprite, 4);
 	weaponMenuSprites.insert(std::pair<std::string, Sprite*>("sprite", sprite));
 
@@ -561,7 +656,7 @@ void HUDLayer::weaponMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, coc
 		break;
 	}
 	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
-		if (index < p.getInventorySize() - 1) {
+		if (index < (int)p.getWeapons().size() - 1) {
 			index++;
 			event->getCurrentTarget()->setPosition(pos.x + MENU_SPACING, MENU_SPACING);
 
@@ -572,13 +667,8 @@ void HUDLayer::weaponMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, coc
 	case EventKeyboard::KeyCode::KEY_SPACE:
 	case EventKeyboard::KeyCode::KEY_ENTER: {
 		cocos2d::experimental::AudioEngine::play2d("Confirm 1.mp3", false, 1.0f);
-		if (p.getInventorySize() != 0) {
-			switch (dungeon->getLevel()) {
-			case 1: DUNGEON.player.at(0).wield(index); break;
-			case 2: DUNGEON2.player.at(0).wield(index); break;
-			case 3: DUNGEON3.player.at(0).wield(index); break;
-			case 4: BOSS1.player.at(0).wield(index); break;
-			}
+		if (p.getWeapons().size() != 0) {
+			dungeon->player.at(0).wield(index);
 		}
 	}
 	case EventKeyboard::KeyCode::KEY_W:
@@ -586,29 +676,42 @@ void HUDLayer::weaponMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, coc
 		index = 0;
 		deconstructMenu(weaponMenuSprites);
 
-		switch (dungeon->getLevel()) {
-		case 1: DUNGEON.peekDungeon(0, 0, '-'); break;
-		case 2: DUNGEON2.peekSecondFloor(0, 0, '-'); break;
-		case 3: DUNGEON3.peekThirdFloor(0, 0, '-'); break;
-		case 4: {
-			BOSS1.peekFirstBossDungeon(0, 0, '-');
+		// if there are any lingering actions, finish them instantly
+		auto actions = this->getActionManager();
+		while (actions->getNumberOfRunningActions() > 1) { // >1 because follow player is always running
+			actions->update(1.0);
+		}
 
-			// Smasher moves player around, so need to update to true location by
-			// taking (new player pos - old player pos) * SpacingFactor
-			int px = BOSS1.getPlayer().getPosX() - p.getPosX();
-			int py = BOSS1.getPlayer().getPosY() - p.getPosY();
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px*SPACING_FACTOR, -py * SPACING_FACTOR));
-			dungeon->player_sprite->runAction(move);
+		switch (dungeon->getLevel()) {
+		case 1: 
+		case 2: 
+		case 3: 
+		case 4: 
+		case 5: {
+			
+			dungeon->peekDungeon(dungeon->getPlayer().getPosX(), dungeon->getPlayer().getPosY(), '-');
+
+			int px = dungeon->getPlayer().getPosX() - p.getPosX();
+			int py = dungeon->getPlayer().getPosY() - p.getPosY();
+
+			// play step sound effect if player moved
+			if (px != 0 || py != 0) {
+				playFootstepSound();
+			}
+
+			//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px*SPACING_FACTOR, -py * SPACING_FACTOR));
+			//dungeon->player_sprite->runAction(move);
 			
 			break;
 		}
 		}
 
+		updateHUD(*dungeon);
 		enableListener();
+
 		return;
 	}
-	default:
-		break;
+	default: break;
 	}
 }
 void HUDLayer::itemMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dungeon) {
@@ -616,7 +719,7 @@ void HUDLayer::itemMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dunge
 	activeListener = listener;
 
 	p = dungeon.getPlayer();
-	std::vector<Drops> iteminv = p.getItemInv();
+	std::vector<std::shared_ptr<Drops>> iteminv = p.getItems();
 
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
@@ -637,22 +740,22 @@ void HUDLayer::itemMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dunge
 	}
 
 	std::string image = "cheese.png";
-	for (int i = -2; i < p.getItemInvSize() - 2; i++) {
-		if (iteminv.at(i + 2).getItem() == "Life Potion") image = "Life_Potion.png";
-		else if (iteminv.at(i + 2).getItem() == "Stat Potion") image = "Stat_Potion.png";
-		else if (iteminv.at(i + 2).getItem() == "Bomb") image = "Bomb.png";
-		else if (iteminv.at(i + 2).getItem() == "Armor") image = "Armor.png";
-		else if (iteminv.at(i + 2).getItem() == "Mysterious Trinket") image = "Skeleton_Key.png";
+	int size = iteminv.size();
 
-		Sprite* weapon = Sprite::create(image);
-		this->addChild(weapon, 4);
-		weapon->setPosition(i*MENU_SPACING, origin.y);
-		itemMenuSprites.insert(std::pair<std::string, Sprite*>("weapon", weapon));
+	for (int i = -2; i < size - 2; i++) {
+		image = iteminv.at(i + 2)->getImageName();
+
+		Sprite* item = Sprite::createWithSpriteFrameName(image);
+		this->addChild(item, 4);
+		item->setPosition(i*MENU_SPACING, origin.y);
+		item->setScale(0.8);
+		itemMenuSprites.insert(std::pair<std::string, Sprite*>("item", item));
 	}
 
 	// arrow sprite for selection
 	auto sprite = Sprite::create("Down_Arrow.png");
 	sprite->setPosition(-2 * MENU_SPACING, MENU_SPACING);
+	sprite->setScale(2.0);
 	this->addChild(sprite, 4);
 	itemMenuSprites.insert(std::pair<std::string, Sprite*>("sprite", sprite));
 
@@ -681,7 +784,7 @@ void HUDLayer::itemMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 		break;
 	}
 	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
-		if (index < p.getItemInvSize() - 1) {
+		if (index < (int)p.getItems().size() - 1) {
 			index++;
 			event->getCurrentTarget()->setPosition(pos.x + MENU_SPACING, MENU_SPACING);
 
@@ -693,14 +796,15 @@ void HUDLayer::itemMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 	case EventKeyboard::KeyCode::KEY_ENTER: {
 		cocos2d::experimental::AudioEngine::play2d("Confirm 1.mp3", false, 1.0f);
 
-		if (p.getItemInvSize() != 0) {
-			switch (dungeon->getLevel()) {
+		if (p.getItems().size() != 0) {
+			/*switch (dungeon->getLevel()) {
 			case 1: DUNGEON.callUse(dungeon->getDungeon(), dungeon->getRows(), dungeon->getCols(), x, y, index); break;
-			case 2: DUNGEON2.callUse(dungeon->getDungeon(), dungeon->getRows(), dungeon->getCols(), x, y, index); break;
-			case 3: DUNGEON3.callUse(dungeon->getDungeon(), dungeon->getRows(), dungeon->getCols(), x, y, index); break;
-			case 4: BOSS1.callUse(dungeon->getDungeon(), dungeon->getRows(), dungeon->getCols(), x, y, index); break;
-			}
-			//dungeon.callUse(dungeon.getRows(), dungeon.getCols(), x, y, index); // use item
+			case 2: SHOP1.callUse(dungeon->getDungeon(), dungeon->getRows(), dungeon->getCols(), x, y, index); break;
+			case 3: DUNGEON2.callUse(dungeon->getDungeon(), dungeon->getRows(), dungeon->getCols(), x, y, index); break;
+			case 4: DUNGEON3.callUse(dungeon->getDungeon(), dungeon->getRows(), dungeon->getCols(), x, y, index); break;
+			case 5: BOSS1.callUse(dungeon->getDungeon(), dungeon->getRows(), dungeon->getCols(), x, y, index); break;
+			}*/
+			dungeon->callUse(dungeon->getDungeon(), dungeon->getRows(), dungeon->getCols(), x, y, index); // use item
 		}
 	}
 	case EventKeyboard::KeyCode::KEY_C:
@@ -708,37 +812,110 @@ void HUDLayer::itemMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 		index = 0;
 		deconstructMenu(itemMenuSprites);
 
+		// if there are any lingering actions, finish them instantly
+		auto actions = this->getActionManager();
+		while (actions->getNumberOfRunningActions() > 1) { // >1 because follow player is always running
+			actions->update(1.0);
+		}
+
 		switch (dungeon->getLevel()) {
-		case 1: DUNGEON.peekDungeon(0, 0, '-'); break;
-		case 2: DUNGEON2.peekSecondFloor(0, 0, '-'); break;
-		case 3: DUNGEON3.peekThirdFloor(0, 0, '-'); break;
-		case 4: {
-			BOSS1.peekFirstBossDungeon(0, 0, '-');
+		case 1: //DUNGEON.peekDungeon(0, 0, '-'); break;
+		case 2: //SHOP1.peekFirstShop(0, 0, '-'); break;
+		case 3: //DUNGEON2.peekSecondFloor(0, 0, '-'); break;
+		case 4: //DUNGEON3.peekThirdFloor(0, 0, '-'); break;
+			//dungeon->peekDungeon(dungeon->getPlayer().getPosX(), dungeon->getPlayer().getPosY(), '-'); break;
+		case 5: {
 			
-			// Smasher moves player around, so need to update to true location by
-			// taking (new player pos - old player pos) * SpacingFactor
-			int px = BOSS1.getPlayer().getPosX() - p.getPosX();
-			int py = BOSS1.getPlayer().getPosY() - p.getPosY();
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px*SPACING_FACTOR, -py * SPACING_FACTOR));
-			dungeon->player_sprite->runAction(move);
+			dungeon->peekDungeon(dungeon->getPlayer().getPosX(), dungeon->getPlayer().getPosY(), '-');
+			
+			int px = dungeon->getPlayer().getPosX() - p.getPosX();
+			int py = dungeon->getPlayer().getPosY() - p.getPosY();
+
+			// play step sound effect if player moved
+			if (px != 0 || py != 0) {
+				playFootstepSound();
+			}
+
+			//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px*SPACING_FACTOR, -py * SPACING_FACTOR));
+			//dungeon->player_sprite->runAction(move);
 
 			break;
 		}
 		}
+
+		updateHUD(*dungeon);
 		enableListener();
+
 		return;
 	}
-	default:
-		break;
+	default: break;
 	}
+
 }
 void HUDLayer::gameOver() {
 	// prevent player movement
 	this->_eventDispatcher->removeAllEventListeners();
-
+	//Director::getInstance()->getScheduler()->unscheduleAllForTarget(&scene);
 
 	// play game over tune
-	cocos2d::experimental::AudioEngine::stopAll();
+	//cocos2d::experimental::AudioEngine::stopAll();
+	cocos2d::experimental::AudioEngine::play2d("Fallen in Battle.mp3", false);
+
+
+	Vec2 origin = Director::getInstance()->getVisibleOrigin();
+	auto visibleSize = Director::getInstance()->getVisibleSize();
+
+
+	//       PAUSE
+	//    |---------|
+	// -> |  Resume |
+	//    | Restart |
+	//    |         |
+	//    |Exit Game|
+	//    |---------|
+
+
+	// menu border
+	Sprite* box = Sprite::create("Pause_Menu_Border_Red.png");
+	this->addChild(box, 2);
+	box->setPosition(0, 0);
+	box->setScale(.2);
+	box->setOpacity(170);
+
+	// arrow sprite for selection
+	auto sprite = Sprite::create("Right_Arrow.png");
+	sprite->setPosition(-2 * MENU_SPACING, 2 * MENU_SPACING);
+	this->addChild(sprite, 3);
+	sprite->setScale(2.0);
+
+	// Game over!
+	auto pause = Label::createWithTTF("YOU DIED", "fonts/Marker Felt.ttf", 48);
+	pause->setPosition(0, 4.8 * MENU_SPACING);
+	this->addChild(pause, 3);
+
+	// Resume option
+	auto resume = Label::createWithTTF("Restart", "fonts/Marker Felt.ttf", 36);
+	resume->setPosition(0, 2 * MENU_SPACING);
+	this->addChild(resume, 3);
+
+	// Quit option
+	auto exit = Label::createWithTTF("Exit Game", "fonts/Marker Felt.ttf", 36);
+	exit->setPosition(0, -1 * MENU_SPACING);
+	this->addChild(exit, 3);
+
+
+	// add new event listener for game over menu
+	auto eventListener = EventListenerKeyboard::create();
+	eventListener->onKeyPressed = CC_CALLBACK_2(HUDLayer::gameOverKeyPressed, this);
+	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(eventListener, sprite);
+}
+void HUDLayer::gameOver(cocos2d::Scene &scene) {
+	// prevent player movement
+	this->_eventDispatcher->removeAllEventListeners();
+	Director::getInstance()->getScheduler()->unscheduleAllForTarget(&scene);
+
+	// play game over tune
+	//cocos2d::experimental::AudioEngine::stopAll();
 	cocos2d::experimental::AudioEngine::play2d("Fallen in Battle.mp3", false);
 
 
@@ -816,10 +993,9 @@ void HUDLayer::gameOverKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 	case EventKeyboard::KeyCode::KEY_SPACE:
 		switch (index) {
 		case 0: { // Restart
-			// generates a new dungeon and replaces the current one
-			Dungeon d;
-			DUNGEON = d;
 
+			// generates a new dungeon and replaces the current one
+			
 			// stop music
 			cocos2d::experimental::AudioEngine::stopAll();
 			auto audio = experimental::AudioEngine::play2d("Confirm 1.mp3", false, 1.0f);
@@ -929,7 +1105,7 @@ void HUDLayer::winnerKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d
 		case 0: { // Restart
 			// generates a new dungeon and replaces the current one
 			Dungeon d;
-			DUNGEON = d;
+			//DUNGEON = d;
 
 			auto audio = experimental::AudioEngine::play2d("Confirm 1.mp3", false, 1.0f);
 
@@ -965,6 +1141,24 @@ void HUDLayer::deconstructMenu(std::multimap<std::string, cocos2d::Sprite*> &spr
 		it.second->removeFromParent();
 	}
 	labels.clear();
+}
+void HUDLayer::deconstructShieldHUD() {
+	if (HUD.find("shieldbox") != HUD.end()) {
+		// deconstruct the shield HUD because there's no shield equipped
+		HUD.find("currentshield")->second->removeFromParent();
+		HUD.find("shieldbox")->second->removeFromParent();
+		HUD.find("shieldbar")->second->removeFromParent();
+		HUD.find("shieldpoints")->second->removeFromParent();
+
+		HUD.erase(HUD.find("currentshield"));
+		HUD.erase(HUD.find("shieldbox"));
+		HUD.erase(HUD.find("shieldbar"));
+		HUD.erase(HUD.find("shieldpoints"));
+	}
+}
+void HUDLayer::deconstructShopHUD() {
+	itemprice->removeFromParent();
+	itemprice = nullptr;
 }
 void HUDLayer::deconstructBossHUD() {
 	if (HUD.find("bosshp") != HUD.end()) {
@@ -1072,11 +1266,21 @@ bool Level1Scene::init()
 		return false;
 	}
 
+	Dungeons dungeons;
+	m_dungeons = dungeons;
+	//delete dungeons;
+
+	//Dungeon dungeon;
+	m_dungeons.DUNGEON1 = &DUNGEON;
+	//*m_dungeons.DUNGEON1 = dungeon;
+	//delete dungeon;
+
 	// set dungeon map
-	DUNGEON = dungeon;
+	//DUNGEON = dungeon;
 
 	// music
-	id = experimental::AudioEngine::play2d("Abandoned Hopes.mp3", true);
+	//id = experimental::AudioEngine::play2d("Abandoned Hopes.mp3", true);
+	bg_music_id = experimental::AudioEngine::play2d("Exploring a cave.mp3", true, 0.8f);
 
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
@@ -1093,19 +1297,87 @@ bool Level1Scene::init()
 	//this->addChild(gameboard, 0);
 	
 
+	///lighting garbage
+	//// lighting?
+	//m_lighting = LightEffect::create();
+	//m_lighting->retain();
+
+	//Vec3 lightPos(visibleSize.width / 2, visibleSize.height, 10);
+	//m_lighting->setLightPos(lightPos);
+	//m_lighting->setLightCutoffRadius(10000);
+	////m_lighting->setLightHalfRadius(0.5);
+	//m_lighting->setBrightness(3.0);
+	//m_lighting->setLightColor(Color3B(200, 170, 200));
+
+
 	// set player sprite position
 	m_player = Sprite::create("Player1_48x48.png");
 	m_player->setPosition(0, 0);
 	this->addChild(m_player, 2);
 	this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
-	//this->runAction(Follow::createWithOffset(m_player, 0, 0, Rect::ZERO));
 
 	m_player->visit();
 
 	// Render all the sprites on the first floor
 	int px = 0, py = 0; // player's position; to be set by renderDungeon
-	renderDungeon(DUNGEON, MAXROWS, MAXCOLS, px, py);
+	//renderDungeon(DUNGEON, MAXROWS, MAXCOLS, px, py);
+	renderDungeon(*(m_dungeons.DUNGEON1), m_dungeons.DUNGEON1->getRows(), m_dungeons.DUNGEON1->getCols(), px, py);
 	m_player->setPosition(px, py);
+
+	/*
+	// create the light manager
+	lightManager = DynamicLightManager::create();
+	// use a "large" z-order to make sure this is drawn on top of everything
+	this->addChild(lightManager, 20);
+
+	// load the image used as the shadow casters, solid pixels block the lights
+	auto shadowCasters = Sprite::createWithSpriteFrameName("D_Wall_Terrain1_48x48.png");
+	shadowCasters->setPosition(px, py);
+	shadowCasters->visit();
+	this->addChild(shadowCasters, 1);
+
+	// add some lights
+
+	// light without using a light texture
+	auto light1 = DynamicLight::create();
+	light1->setShadowCasters(shadowCasters);
+	light1->setSoftShadows(false);
+	light1->setAdditive(true);
+	light1->setLightSize(100);
+	light1->setColor(Color4B(158, 255, 121, 230));
+	light1->setPosition(Vec2(px - 50, py));
+	lightManager->addLightSource(light1);
+
+	// create(direction, position, color, innerAngle, outerAngle, Range)
+	auto spotLight = SpotLight::create(Vec3(-1.0f, -1.0f, 10.0f), Vec3(px, py, 0.0f),
+		Color3B::RED, 0.0, 0.5, 1000.0f);
+	addChild(spotLight);
+	*/
+
+	//// light with light texture. Can be used to create spotLights (see light2.png inside images folder)
+	//auto lightSpr = Sprite::create("PointLight4-0.png");
+	//auto light2 = DynamicLight::create(lightSpr->getTexture());
+	//light2->setShadowCasters(shadowCasters);
+	//light2->setSoftShadows(true);
+	//light2->setAdditive(true);
+	//light2->setLightSize(10000);
+	//light2->setColor(Color4B(158, 255, 121, 230));
+	//light2->setPosition(Vec2(px, py));
+	////light2->setRotation(45); // textured lights can be rotated
+	//lightManager->addLightSource(light2);
+
+	
+	// new effect sprite
+	/*
+	auto spriteFrame = SpriteFrameCache::getInstance()->getSpriteFrameByName("Player1_48x48.png");
+	m_playerLight = EffectSprite::createWithSpriteFrame(spriteFrame);
+	m_playerLight->setPosition(px, py);
+	m_lighting->setLightPos(Vec3(px, py, 5));
+	m_playerLight->setEffect(m_lighting, "1_Spritesheet_48x48.png");
+	//this->addChild(m_playerLight, 2);
+	//this->runAction(Follow::createWithOffset(m_playerLight, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+	*/
+
 
 	renderTexture->end();
 
@@ -1126,20 +1398,40 @@ bool Level1Scene::init()
 	//this->addChild(gameCamera);
 
 	// gives the sprite vectors to the dungeon
+	/*DUNGEON.setPlayerSprite(m_player);
+	DUNGEON.getPlayerVector().at(0).setSprite(m_player);
+
 	DUNGEON.setMonsterSprites(monsters);
 	DUNGEON.setItemSprites(items);
+	DUNGEON.setMoneySprites(money);
 	DUNGEON.setTrapSprites(traps);
 	DUNGEON.setProjectileSprites(projectiles);
 	DUNGEON.setSpinnerSprites(spinner_buddies);
 	DUNGEON.setZapperSprites(zapper_sparks);
 	DUNGEON.setWallSprites(walls);
-	DUNGEON.setScene(this);
+	DUNGEON.setFloorSprites(floors);
+	DUNGEON.setScene(this);*/
+
+	//
+	m_dungeons.DUNGEON1->setPlayerSprite(m_player);
+	m_dungeons.DUNGEON1->getPlayerVector().at(0).setSprite(m_player);
+
+	m_dungeons.DUNGEON1->setMonsterSprites(monsters);
+	m_dungeons.DUNGEON1->setItemSprites(items);
+	m_dungeons.DUNGEON1->setMoneySprites(money);
+	m_dungeons.DUNGEON1->setTrapSprites(traps);
+	m_dungeons.DUNGEON1->setProjectileSprites(projectiles);
+	m_dungeons.DUNGEON1->setSpinnerSprites(spinner_buddies);
+	m_dungeons.DUNGEON1->setZapperSprites(zapper_sparks);
+	m_dungeons.DUNGEON1->setWallSprites(walls);
+	m_dungeons.DUNGEON1->setFloorSprites(floors);
+	m_dungeons.DUNGEON1->setScene(this);
 
 
 	// add keyboard event listener for actions
 	kbListener = EventListenerKeyboard::create();
 	kbListener->onKeyPressed = CC_CALLBACK_2(Level1Scene::Level1KeyPressed, this);
-	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(kbListener, m_player);
+	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(kbListener, m_player); // check this for player
 
 	/*
 	eventListener->onKeyPressed = [timer, x, y, c, this](EventKeyboard::KeyCode keyCode, Event* event) mutable {
@@ -1254,10 +1546,72 @@ bool Level1Scene::init()
 	};
 	*/
 
-	/*auto listener = EventListenerCustom::create("NoKeyPressed", [=](EventCustom* event) {
-		DUNGEON.peekDungeon(0, 0, '-');
-	});
-	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(listener, this);*/
+	/*
+	auto inactionListener = [this](EventCustom* event) mutable {
+		auto actions = this->getActionManager();
+
+		// resumes follow if it was paused
+		if (actions->getNumberOfRunningActions() == 0) {
+			auto visibleSize = Director::getInstance()->getVisibleSize();
+			this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+		}
+		// if there are any lingering actions, finish them instantly
+		while (actions->getNumberOfRunningActions() > 1) { // >1 because follow player is always running
+			actions->update(1.0);
+		}
+
+		m_dungeons.DUNGEON1->peekDungeon(m_dungeons.DUNGEON1->getPlayer().getPosX(), m_dungeons.DUNGEON1->getPlayer().getPosY(), '-');
+		m_hud->updateHUD(*m_dungeons.DUNGEON1);
+
+		// Check if player is dead, if so, run game over screen
+		if (m_dungeons.DUNGEON1->getPlayer().getHP() <= 0) {
+			m_hud->gameOver();
+		}
+	};
+	
+	
+	//inactionListener = EventListenerCustom::create("NoKeyPressed", const &Level1Scene::NoKeyPressed);
+	//this->_eventDispatcher->addEventListenerWithSceneGraphPriority(inactionListener, this);
+	*/
+
+	Director::getInstance()->getScheduler()->schedule([this](float) {
+		auto actions = this->getActionManager();
+
+		// resumes follow if it was paused
+		if (actions->getNumberOfRunningActions() == 0) {
+			auto visibleSize = Director::getInstance()->getVisibleSize();
+			this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+		}
+		// if there are any lingering actions, finish them instantly
+		while (actions->getNumberOfRunningActions() > 1) { // >1 because follow player is always running
+			actions->update(1.0);
+		}
+
+		p = m_dungeons.DUNGEON1->getPlayer();
+		int x = p.getPosX(); int y = p.getPosY();
+
+		m_dungeons.DUNGEON1->peekDungeon(m_dungeons.DUNGEON1->getPlayer().getPosX(), m_dungeons.DUNGEON1->getPlayer().getPosY(), '-');
+
+		// Player can be pushed around (by springs), so need to update to true location by
+		// taking (new player pos - old player pos) * SpacingFactor
+		int px = m_dungeons.DUNGEON1->getPlayer().getPosX() - x;
+		int py = m_dungeons.DUNGEON1->getPlayer().getPosY() - y;
+
+		// play step sound effect if player moved
+		if (px != 0 || py != 0) {
+			playFootstepSound();
+		}
+		//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px * SPACING_FACTOR, -py * SPACING_FACTOR));
+		//m_player->runAction(move);
+
+		// update HUD
+		m_hud->updateHUD(*m_dungeons.DUNGEON1);
+
+		// Check if player is dead, if so, run game over screen
+		if (m_dungeons.DUNGEON1->getPlayer().getHP() <= 0) {
+			m_hud->gameOver(*this);
+		}
+	}, this, 0.75, false, "level 1 timer");
 
 	return true;
 }
@@ -1275,9 +1629,10 @@ void Level1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 	//		Actors/Walls				 1
 	//		Projectiles					 0
 	//		Items						-1
-	//		Stairs/Traps				-2
 	//		Extras						 x
-	//		Floor		: BOTTOM		-4
+	//	    Gold/Money					-3
+	//		Stairs/Traps				-4
+	//		Floor		: BOTTOM		-5
 	//
 
 
@@ -1285,7 +1640,9 @@ void Level1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 	
 	// BEGIN DUNGEON RENDER
 	std::vector<std::shared_ptr<Monster>> monster = dungeon.getMonsters();
+	std::vector<std::shared_ptr<Objects>> dungeonTraps = dungeon.getTraps();
 	int rand;
+	int z;
 	for (int i = 0; i < maxrows; i++) {
 		for (int j = 0; j < maxcols; j++) {
 			tile = &maze[i*maxcols + j];
@@ -1302,10 +1659,29 @@ void Level1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 			case 8: image = "FloorTile8_48x48.png"; break;
 			}
 
-			Sprite* floor = createSprite(image, maxrows, j, i, -3);
-			floor->setOpacity(245);
+			Sprite* floor = createSprite(image, maxrows, j, i, -10);
+			//EffectSprite* floor = createEffectSprite(image, maxrows, j, i, -5);
+			floor->setOpacity(252);
+			//floor->setColor(Color3B(25, 70, 70));
+			floors.push_back(floor);
 
-			if (tile->top != SPACE) {
+			if (tile->hero) {
+				x = j * SPACING_FACTOR - X_OFFSET;
+				y = SPACING_FACTOR * (maxrows - i) - Y_OFFSET;
+			}
+			if (tile->gold != 0) {
+				switch (tile->gold) {
+				case 1: image = "Gold_Coin1_48x48.png"; break;
+				case 2: image = "Gold_Coin2_48x48.png"; break;
+				case 3: image = "Gold_Coin3_48x48.png"; break;
+				case 4: image = "Gold_Pile1_48x48.png"; break;
+				case 5: image = "Gold_Pile2_48x48.png"; break;
+				default: image = "Gold_Pile2_48x48.png"; break;
+				}
+				Sprite* gold = createSprite(image, maxrows, j, i, -3);
+				money.push_back(gold);
+			}
+			if (tile->wall) {
 				switch (tile->top) {
 				case WALL: {
 					rand = randInt(13) + 1;
@@ -1412,6 +1788,22 @@ void Level1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 					}*/
 					break;
 				}
+				}
+				if (tile->top == WALL) {
+					Sprite* wall = createSprite(image, maxrows, j, i, 1);
+
+					wall->setColor(Color3B(210, 200, 255));
+					//wall->setColor(Color3B(10, 0, 25));
+					walls.push_back(wall);
+				}
+				else if (tile->top == UNBREAKABLE_WALL) {
+					Sprite* wall = createSprite(image, maxrows, j, i, 1);
+					wall->setColor(Color3B(170, 90, 40));
+					//wall->setColor(Color3B(10, 0, 25));
+				}
+			}
+			if (tile->enemy) {
+				switch (tile->top) {
 				case GOBLIN: image = "Goblin_48x48.png"; break;
 				case WANDERER: image = "Wanderer_48x48.png";	break;
 				case ARCHER: image = "Archer_48x48.png"; break;
@@ -1492,7 +1884,7 @@ void Level1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 								case 6: zapper->getSparks()[i]->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottomleft
 								case 7: zapper->getSparks()[i]->setPosition((x + 1)* SPACING_FACTOR - X_OFFSET, (maxrows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottomright
 								}
-								zapper->getSparks()[i]->setScale(0.09375);
+								zapper->getSparks()[i]->setScale(0.75);
 								zapper->getSparks()[i]->setVisible(false);
 							}
 							zapper.reset();
@@ -1516,39 +1908,15 @@ void Level1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 				case BOMBEE: image = "Bombee_48x48.png"; break;
 				default: image = "cheese.png"; break;
 				}
-				if (tile->top == PLAYER) {
-					x = j * SPACING_FACTOR - X_OFFSET;
-					y = SPACING_FACTOR * (maxrows - i) - Y_OFFSET;
-				}
-				else if (tile->top == WALL) {
-					Sprite* wall = createSprite(image, maxrows, j, i, 1);
-					//Sprite* wall = Sprite::createWithSpriteFrameName(image);
-					//this->addChild(wall, 1);
-					//wall->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
-					//
-					wall->setColor(Color3B(210, 200, 255));
-					walls.push_back(wall);
-				}
-				else if (tile->top == UNBREAKABLE_WALL) {
-					Sprite* wall = createSprite(image, maxrows, j, i, 1);
-					//Sprite* wall = Sprite::createWithSpriteFrameName(image);
-					//this->addChild(wall, 1);
-					//wall->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
-					wall->setColor(Color3B(170, 90, 40));
-				}
-				else {
-					Sprite* monster = createSprite(image, maxrows, j, i, 1);
-					//Sprite* monster = Sprite::createWithSpriteFrameName(image);
-					//this->addChild(monster, 1);
-					//monster->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
-					monsters.push_back(monster);
-				}
+				Sprite* monsterSprite = createSprite(image, maxrows, j, i, 1);
+				monsters.push_back(monsterSprite);
+
+				int pos = dungeon.findMonster(j, i, monster);
+				dungeon.getMonsters()[pos]->setSprite(monsterSprite);
 			}
-			if (tile->bottom != SPACE) {
+			if (tile->item) {
+				/*
 				switch (tile->bottom) {
-				case WALL:
-				case UNBREAKABLE_WALL: image = "Wall_Face1.png"; break;
-				//case STAIRS: image = "Stairs_48x48.png"; break;
 				case SKELETON_KEY: image = "Skeleton_Key_48x48.png"; break;
 				case BROWN_CHEST: image = "Brown_Chest_48x48.png"; break;
 				case SILVER_CHEST: image = "Silver_Chest_48x48.png"; break;
@@ -1561,12 +1929,340 @@ void Level1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 				case CUTLASS: image = "Rusty_Broadsword_48x48.png"; break;
 				case BONEAXE: image = "Bone_Axe_48x48.png"; break;
 				case BRONZE_DAGGER: image = "Bronze_Dagger_48x48.png"; break;
+				case WOOD_SHIELD: image = "Wood_Shield_48x48.png"; break;
 				default: image = "cheese.png"; break;
 				}
-				if (!tile->wall && tile->bottom != LAVA) {
-					Sprite* object = createSprite(image, maxrows, j, i, -1);
-					items.push_back(object);
+				if (tile->item_name == FREEZE_SPELL) {
+					image = "Freeze_Spell_48x48.png";
 				}
+				else if (tile->item_name == EARTHQUAKE_SPELL) {
+					image = "Earthquake_Spell_48x48.png";
+				}
+				else if (tile->item_name == FIREBLAST_SPELL) {
+					image = "Fireblast_Spell_48x48.png";
+				}
+				else if (tile->item_name == WIND_SPELL) {
+					image = "Wind_Spell_48x48.png";
+				}
+				else if (tile->item_name == INVISIBILITY_SPELL) {
+					image = "Invisibility_Spell_48x48.png";
+				}
+				else if (tile->item_name == ETHEREAL_SPELL) {
+					image = "Ethereal_Spell_48x48.png";
+				}
+				else if (tile->item_name == TELEPORT) {
+					image = "Teleport_Scroll_48x48.png";
+				}
+				else if (tile->item_name == DIZZY_ELIXIR) {
+					image = "Dizzy_Elixir_48x48.png";
+				}
+				*/
+
+				image = tile->object->getImageName();
+
+				Sprite* object = createSprite(image, maxrows, j, i, -1);
+				items.push_back(object);
+			}
+			if (tile->trap) {
+
+				if (tile->trap_name == FIREBAR) {
+					image = "Firebar_Totem_48x48.png";
+					z = 1;
+					// set firebar buddy positions
+					for (int n = 0; n < dungeonTraps.size(); n++) {
+						if (dungeonTraps.at(n)->getPosX() == j && dungeonTraps.at(n)->getPosY() == i) {
+							std::shared_ptr<Firebar> firebar = std::dynamic_pointer_cast<Firebar>(dungeonTraps.at(n));
+
+							this->addChild(firebar->getInner(), 0);
+							this->addChild(firebar->getOuter(), 0);
+
+							if (firebar->isClockwise()) {
+								switch (firebar->getAngle()) {
+								case 1:
+									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 2:
+									firebar->getInner()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 3:
+									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 4:
+									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 5:
+									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 6:
+									firebar->getInner()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 7:
+									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 8:
+									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								}
+							}
+							else {
+								switch (firebar->getAngle()) {
+								case 1:
+									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 2:
+									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 3:
+									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 4:
+									firebar->getInner()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 5:
+									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 6:
+									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 7:
+									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 8:
+									firebar->getInner()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								}
+							}
+
+							firebar->getInner()->setVisible(false);
+							firebar->getOuter()->setVisible(false);
+
+							firebar.reset();
+						}
+					}
+				}
+				else if (tile->trap_name == DOUBLE_FIREBAR) {
+					z = 1;
+					image = "Firebar_Totem_48x48.png";
+					// set firebar buddy positions
+					for (int n = 0; n < dungeonTraps.size(); n++) {
+						if (dungeonTraps.at(n)->getPosX() == j && dungeonTraps.at(n)->getPosY() == i) {
+							std::shared_ptr<DoubleFirebar> firebar = std::dynamic_pointer_cast<DoubleFirebar>(dungeonTraps.at(n));
+
+							this->addChild(firebar->getInner(), 0);
+							this->addChild(firebar->getInnerMirror(), 0);
+							this->addChild(firebar->getOuter(), 0);
+							this->addChild(firebar->getOuterMirror(), 0);
+
+							if (firebar->isClockwise()) {
+								switch (firebar->getAngle()) {
+								case 1:
+									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 2:
+									firebar->getInner()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 3:
+									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 4:
+									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 5:
+									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 6:
+									firebar->getInner()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 7:
+									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 8:
+									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
+									break;
+								}
+							}
+							else {
+								switch (firebar->getAngle()) {
+								case 1:
+									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 2:
+									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 3:
+									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 4:
+									firebar->getInner()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 5:
+									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 6:
+									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 7:
+									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								case 8:
+									firebar->getInner()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuter()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+									// opposite
+									firebar->getInnerMirror()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+									firebar->getOuterMirror()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+									break;
+								}
+							}
+
+							firebar->setSpriteVisibility(false);
+
+							firebar.reset();
+						}
+					}
+				}
+				else if (tile->trap_name == PUDDLE) {
+					image = "Puddle.png";
+					z = -4;
+				}
+				else if (tile->trap_name == PIT) {
+					image = "Pit_48x48.png";
+					z = -4;
+				}
+				else if (tile->trap_name == SPRING) {
+					z = -4;
+					std::shared_ptr<Spring> spring = std::dynamic_pointer_cast<Spring>(dungeonTraps.at(dungeon.findTrap(j, i, dungeonTraps)));
+					char type = spring->getDirection();
+					switch (type) {
+					case 'l': image = "Spring_Arrow_Left_48x48.png"; break;
+					case 'r': image = "Spring_Arrow_Right_48x48.png"; break;
+					case 'u': image = "Spring_Arrow_Up_48x48.png"; break;
+					case 'd': image = "Spring_Arrow_Down_48x48.png"; break;
+					case '1': image = "Spring_Arrow_UpRight_48x48.png"; break;
+					case '2': image = "Spring_Arrow_UpLeft_48x48.png"; break;
+					case '3': image = "Spring_Arrow_DownLeft_48x48.png"; break;
+					case '4': image = "Spring_Arrow_DownRight_48x48.png"; break;
+					case '#': 
+					case '+': 
+					case 'x': 
+					default: image = "cheese.png"; break;
+					}
+					spring.reset();
+				}
+				else if (tile->trap_name == TURRET) {
+					z = 1;
+					std::shared_ptr<Turret> turret = std::dynamic_pointer_cast<Turret>(dungeonTraps.at(dungeon.findTrap(j, i, dungeonTraps)));
+					char type = turret->getDirection();
+					switch (type) {
+					case 'l': image = "Spring_Arrow_Left_48x48.png"; break;
+					case 'r': image = "Spring_Arrow_Right_48x48.png"; break;
+					case 'u': image = "Spring_Arrow_Up_48x48.png"; break;
+					case 'd': image = "Spring_Arrow_Down_48x48.png"; break;
+					default: image = "cheese.png"; break;
+					}
+					turret.reset();
+				}
+				else if (tile->trap_name == MOVING_BLOCK) {
+					image = "Breakable_Crate_48x48.png";
+					z = 2;
+
+					// change this tile to not be a trap because of invisible wall bug
+					dungeon.getDungeon()[i*maxcols + j].trap = false;
+				}
+				else {
+					switch (tile->traptile) {
+					case STAIRS: image = "Stairs_48x48.png"; z = -4; break;
+					case SPIKETRAP_DEACTIVE: image = "Spiketrap_Deactive_48x48.png"; z = -4; break;
+					case SPIKETRAP_PRIMED: image = "Spiketrap_Primed_48x48.png"; z = -4; break;
+					case SPIKETRAP_ACTIVE: image = "Spiketrap_Active_48x48.png"; z = -4; break;
+						//case SPIKE: image = "CeilingSpike.png"; break;
+
+					default: image = "cheese.png";  z = -4; break;
+					}
+				}
+				Sprite* trap = createSprite(image, maxrows, j, i, z);
+				if (tile->trap_name == SPRING) {
+					trap->setScale(0.5);
+				}
+				traps.push_back(trap);
+
+				int pos = dungeon.findTrap(j, i, dungeonTraps);
+				dungeonTraps.at(pos)->setSprite(trap);
 			}
 			if (tile->projectile != SPACE) {
 				switch (tile->projectile) {
@@ -1579,35 +2275,7 @@ void Level1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 				proj->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
 				projectiles.push_back(proj);
 			}
-			if (tile->traptile != SPACE) {
-				switch (tile->traptile) {
-				case STAIRS: image = "Stairs_48x48.png"; break;
-				case SPIKETRAP_DEACTIVE: image = "Spiketrap_Deactive_48x48.png"; break;
-				case SPIKETRAP_PRIMED: image = "Spiketrap_Primed_48x48.png"; break;
-				case SPIKETRAP_ACTIVE: image = "Spiketrap_Active_48x48.png"; break;
-				case SPIKE: image = "CeilingSpike.png"; break;
-				default: image = "cheese.png"; break;
-				}
-				if (!tile->wall) {
-					Sprite* trap = createSprite(image, maxrows, j, i, -2);
-					traps.push_back(trap);
-				}
-			}
 
-			/*rand = randInt(8) + 1;
-			switch (rand) {
-			case 1: image = "FloorTile1_48x48.png"; break;
-			case 2: image = "FloorTile2_48x48.png"; break;
-			case 3: image = "FloorTile3_48x48.png"; break;
-			case 4: image = "FloorTile4_48x48.png"; break;
-			case 5: image = "FloorTile5_48x48.png"; break;
-			case 6: image = "FloorTile6_48x48.png"; break;
-			case 7: image = "FloorTile7_48x48.png"; break;
-			case 8: image = "FloorTile8_48x48.png"; break;
-			}
-			
-			Sprite* floor = createSprite(image, maxrows, j, i, -3);
-			floor->setOpacity(245);*/
 		}
 	}
 
@@ -1620,18 +2288,13 @@ cocos2d::Sprite* Level1Scene::createSprite(std::string image, int maxrows, int x
 
 	// Original image
 	Sprite* sprite = Sprite::createWithSpriteFrameName(image);
-	//auto oWidth = sprite->getContentSize().width;
-	//auto oHeight = sprite->getContentSize().height;
-	//sprite->setScale(3, 3); // backOrig scaled to screen size
 	sprite->setPosition(x * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - y) - Y_OFFSET);
 
-	// Create new texture with background in the exact size of the screen
-	//renderTexture = RenderTexture::create(vWidth/2, vHeight/2, Texture2D::PixelFormat::RGBA8888);
-	//renderTexture->begin();
 	sprite->visit();
-	//renderTexture->end();
 
 	this->addChild(sprite, z);
+	//graySprite(sprite);
+
 	return sprite;
 
 	//// Create new Sprite without scale, which perfoms much better
@@ -1639,7 +2302,36 @@ cocos2d::Sprite* Level1Scene::createSprite(std::string image, int maxrows, int x
 	//newSprite->setPosition(x * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - y) - Y_OFFSET);
 	//addChild(newSprite, z);
 }
+
+void Level1Scene::graySprite(Sprite* sprite) {
+	if (sprite)
+	{
+		GLProgram * p = new GLProgram();
+		p->initWithFilenames("pass.vsh", "shadowMap.fsh");
+		p->bindAttribLocation(GLProgram::ATTRIBUTE_NAME_POSITION, GLProgram::VERTEX_ATTRIB_POSITION);
+		p->bindAttribLocation(GLProgram::ATTRIBUTE_NAME_COLOR, GLProgram::VERTEX_ATTRIB_COLOR);
+		p->bindAttribLocation(GLProgram::ATTRIBUTE_NAME_TEX_COORD, GLProgram::VERTEX_ATTRIB_TEX_COORDS);
+		p->link();
+		p->updateUniforms();
+		sprite->setShaderProgram(p);
+	}
+}
+EffectSprite* Level1Scene::createEffectSprite(std::string image, int maxrows, int x, int y, int z) {
+	auto spriteFrame = SpriteFrameCache::getInstance()->getSpriteFrameByName(image);
+	EffectSprite* sprite = EffectSprite::createWithSpriteFrame(spriteFrame);
+	sprite->setPosition(x * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - y) - Y_OFFSET);
+	//sprite->visit();
+	this->addChild(sprite, z);
+
+	sprite->setEffect(m_lighting, "1_Spritesheet_48x48.png");
+
+	return sprite;
+}
+
 void Level1Scene::Level1KeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
+	// unschedule the inaction timer
+	Director::getInstance()->getScheduler()->unschedule("level 1 timer", this);
+
 	int x, y;
 	char c;
 
@@ -1655,80 +2347,69 @@ void Level1Scene::Level1KeyPressed(EventKeyboard::KeyCode keyCode, Event* event)
 		actions->update(1.0);
 	}
 
-	
 
-	p = DUNGEON.getPlayer();
+	p = m_dungeons.DUNGEON1->getPlayer();
 	x = p.getPosX(); y = p.getPosY();
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 
 	switch (keyCode) {
 	case EventKeyboard::KeyCode::KEY_LEFT_ARROW: {
-		DUNGEON.peekDungeon(x, y, 'l');
-		if (x != DUNGEON.getPlayer().getPosX()) {
-			//event->getCurrentTarget()->setPosition(pos.x - SPACING_FACTOR, pos.y);
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(-SPACING_FACTOR, 0));
-			event->getCurrentTarget()->runAction(move);
+		m_dungeons.DUNGEON1->peekDungeon(x, y, 'l');
+		
+		if (p.facingDirection() != 'l') {
+			m_player->setScaleX(-1);
 		}
 		break;
 	}
 	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
-		DUNGEON.peekDungeon(x, y, 'r');
-		if (x != DUNGEON.getPlayer().getPosX()) {
-			//event->getCurrentTarget()->setPosition(pos.x + SPACING_FACTOR, pos.y);
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(SPACING_FACTOR, 0));
-			event->getCurrentTarget()->runAction(move);
+		m_dungeons.DUNGEON1->peekDungeon(x, y, 'r');
+		
+		if (p.facingDirection() != 'r') {
+			m_player->setScaleX(1);
 		}
 		break;
 	}
 	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
-		DUNGEON.peekDungeon(x, y, 'u');
-		if (y != DUNGEON.getPlayer().getPosY()) {
-			//event->getCurrentTarget()->setPosition(pos.x, pos.y + SPACING_FACTOR);
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(0, SPACING_FACTOR));
-			event->getCurrentTarget()->runAction(move);
-		}
+		m_dungeons.DUNGEON1->peekDungeon(x, y, 'u');
+		
 		break;
 	}
 	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
-		DUNGEON.peekDungeon(x, y, 'd');
-		if (y != DUNGEON.getPlayer().getPosY()) {
-			//event->getCurrentTarget()->setPosition(pos.x, pos.y - SPACING_FACTOR);
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(0, -SPACING_FACTOR));
-			event->getCurrentTarget()->runAction(move);
-		}
+		m_dungeons.DUNGEON1->peekDungeon(x, y, 'd');
+		
 		break;
 	}
 
 	//		Non-movement actions
-
+	case EventKeyboard::KeyCode::KEY_SPACE:
+		m_dungeons.DUNGEON1->peekDungeon(x, y, 'b');
+		break;
 	case EventKeyboard::KeyCode::KEY_I: // open inventory/stats screen for viewing
 
-		DUNGEON.peekDungeon(0, 0, '-'); // moves monsters
+		m_dungeons.DUNGEON1->peekDungeon(x, y, '-'); // moves monsters
 		break;
 	case EventKeyboard::KeyCode::KEY_E: // pick up item/interact
-		DUNGEON.peekDungeon(x, y, 'e');
-		if (DUNGEON.getLevel() == 2) {
+		m_dungeons.DUNGEON1->peekDungeon(x, y, 'e');
+		if (m_dungeons.DUNGEON1->getLevel() == 2) {
 			advanceLevel();
 		}
 		break;
 	case EventKeyboard::KeyCode::KEY_W: // open weapon menu
 		kbListener->setEnabled(false);
-		m_hud->weaponMenu(kbListener, DUNGEON);
+		m_hud->weaponMenu(kbListener, *m_dungeons.DUNGEON1);
 
 		break;
 	case EventKeyboard::KeyCode::KEY_C: // open item menu
 		kbListener->setEnabled(false);
-		m_hud->itemMenu(kbListener, DUNGEON);
+		m_hud->itemMenu(kbListener, *m_dungeons.DUNGEON1);
 
 		break;
 	case EventKeyboard::KeyCode::KEY_M: { // toggle music on/off
-		/// USE OTHER AUDIO ENGINE; SIMPLE AUDIO ENGINE IS INCOMPLETE
-		//auto music = CocosDenshion::SimpleAudioEngine::getInstance();
-		if (cocos2d::experimental::AudioEngine::getVolume(id) > 0) {
-			cocos2d::experimental::AudioEngine::setVolume(id, 0.0);
+		if (cocos2d::experimental::AudioEngine::getVolume(bg_music_id) > 0) {
+			cocos2d::experimental::AudioEngine::setVolume(bg_music_id, 0.0);
 		}
 		else {
-			cocos2d::experimental::AudioEngine::setVolume(id, 1.0);
+			cocos2d::experimental::AudioEngine::setVolume(bg_music_id, 1.0);
 		}
 		break;
 	}
@@ -1738,26 +2419,102 @@ void Level1Scene::Level1KeyPressed(EventKeyboard::KeyCode keyCode, Event* event)
 		pauseMenu();
 		break;
 	default:
-		DUNGEON.peekDungeon(x, y, '-');
+		m_dungeons.DUNGEON1->peekDungeon(x, y, '-');
 		break;
 	}
 
+	// Player can be pushed around (by springs), so need to update to true location by
+	// taking (new player pos - old player pos) * SpacingFactor
+	int px = m_dungeons.DUNGEON1->getPlayer().getPosX() - x;
+	int py = m_dungeons.DUNGEON1->getPlayer().getPosY() - y;
+
+	// play step sound effect if player moved
+	if (px != 0 || py != 0) {
+		playFootstepSound();
+	}
+	//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px * SPACING_FACTOR, -py * SPACING_FACTOR));
+	//event->getCurrentTarget()->runAction(move);
+
+
 	// update the HUD
-	m_hud->updateHUD(DUNGEON);
+	m_hud->updateHUD(*m_dungeons.DUNGEON1);
+
 
 	// Check if player is dead, if so, run game over screen
-	if (DUNGEON.getPlayer().getHP() <= 0) {
-		//gameOver();
+	if (m_dungeons.DUNGEON1->getPlayer().getHP() <= 0) {
+		cocos2d::experimental::AudioEngine::stop(bg_music_id);
+		m_hud->gameOver();
+		return; // prevents timer from being scheduled
+	}
+
+	// reschedule the inaction timer
+	Director::getInstance()->getScheduler()->schedule([this](float) {
+		auto actions = this->getActionManager();
+
+		// resumes follow if it was paused
+		if (actions->getNumberOfRunningActions() == 0) {
+			auto visibleSize = Director::getInstance()->getVisibleSize();
+			this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+		}
+		// if there are any lingering actions, finish them instantly
+		while (actions->getNumberOfRunningActions() > 1) { // >1 because follow player is always running
+			actions->update(1.0);
+		}
+
+		p = m_dungeons.DUNGEON1->getPlayer();
+		int x = p.getPosX(); int y = p.getPosY();
+
+		m_dungeons.DUNGEON1->peekDungeon(m_dungeons.DUNGEON1->getPlayer().getPosX(), m_dungeons.DUNGEON1->getPlayer().getPosY(), '-');
+
+		// Player can be pushed around (by springs), so need to update to true location by
+		// taking (new player pos - old player pos) * SpacingFactor
+		int px = m_dungeons.DUNGEON1->getPlayer().getPosX() - x;
+		int py = m_dungeons.DUNGEON1->getPlayer().getPosY() - y;
+
+		// play step sound effect if player moved
+		if (px != 0 || py != 0) {
+			playFootstepSound();
+		}
+		//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px * SPACING_FACTOR, -py * SPACING_FACTOR));
+		//m_player->runAction(move);
+
+		// update HUD
+		m_hud->updateHUD(*m_dungeons.DUNGEON1);
+
+		// Check if player is dead, if so, run game over screen
+		if (m_dungeons.DUNGEON1->getPlayer().getHP() <= 0) {
+			m_hud->gameOver(*this);
+			//Director::getInstance()->getScheduler()->unschedule("level 1 timer", this);
+		}
+	}, this, 0.75, false, "level 1 timer");
+}
+/*
+void Level1Scene::NoKeyPressed(Event* event) {
+	auto actions = this->getActionManager();
+
+	// resumes follow if it was paused
+	if (actions->getNumberOfRunningActions() == 0) {
+		auto visibleSize = Director::getInstance()->getVisibleSize();
+		this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+	}
+	// if there are any lingering actions, finish them instantly
+	while (actions->getNumberOfRunningActions() > 1) { // >1 because follow player is always running
+		actions->update(1.0);
+	}
+	m_dungeons.DUNGEON1->peekDungeon(m_dungeons.DUNGEON1->getPlayer().getPosX(), m_dungeons.DUNGEON1->getPlayer().getPosY(), '-');
+	m_hud->updateHUD(*m_dungeons.DUNGEON1);
+
+	// Check if player is dead, if so, run game over screen
+	if (m_dungeons.DUNGEON1->getPlayer().getHP() <= 0) {
 		m_hud->gameOver();
 	}
 
-	return;
-
-	// no action event: not implemented yet
-	EventCustom event2("NoKeyPressed");
-	_eventDispatcher->dispatchEvent(&event2);
+	//m_timer.start();
+	//keyPressed = false;
+	//NoKeyPressed(event);
+	//Level1KeyPressed(EventKeyboard::KeyCode::KEY_MINUS, event);
 }
-
+*/
 void Level1Scene::pauseMenu() {
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
@@ -1769,438 +2526,21 @@ void Level1Scene::pauseMenu() {
 void Level1Scene::advanceLevel() {
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
-	auto level2Scene = Boss1Scene::createScene();
+	auto level2Scene = Shop1Scene::createScene(m_dungeons.DUNGEON1->getPlayer());
 	level2Scene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
 
 	// stop music
-	cocos2d::experimental::AudioEngine::stop(id);
+	cocos2d::experimental::AudioEngine::stop(bg_music_id);
 
 	Director::getInstance()->replaceScene(level2Scene);
 }
-/*
-void Level1Scene::play() {
-	m_dungeon.showDungeon();
-
-	//std::cout << "\n\n\n";
-	//std::cout << std::setw(63) << "Press H for controls, or P/ESC to pause\n" << endl;
-
-	_Timer timer;
-	char c;
-
-	c = getCharacter();
-	clearScreen();
-
-	Player p;
-	int x, y;
-
-	while (!quit) {
-
-		//		FIRST LEVEL
-		while (!quit) {
-			p = m_dungeon.getPlayer();
-			x = p.getPosX(); y = p.getPosY();
-
-			if (c == ARROW_LEFT)
-				m_dungeon.peekDungeon(x, y, 'l');
-			else if (c == ARROW_DOWN)
-				m_dungeon.peekDungeon(x, y, 'd');
-			else if (c == ARROW_RIGHT)
-				m_dungeon.peekDungeon(x, y, 'r');
-			else if (c == ARROW_UP)
-				m_dungeon.peekDungeon(x, y, 'u');
-
-			else if (c == 'i') {
-				p.showInventory();
-				waitForInverse(c);
-				m_dungeon.peekDungeon(0, 0, '-'); // moves monsters
-			}
-
-			else if (c == 'w') {
-				//	wield command
-				m_dungeon.peekDungeon(0, 0, 'w');
-			}
-
-			else if (c == 'e') {
-				//	pickup command
-				m_dungeon.peekDungeon(x, y, 'e');
-			}
-
-			else if (c == 'c') {
-				//	items use menu
-				m_dungeon.peekDungeon(x, y, 'c');
-			}
-
-			else if (c == 'h')
-				help(m_dungeon, c);
-
-			else if (c == ESC || c == PAUSE) {
-				pause(c);
-				if (c == 'r') {
-					reset();
-					c = getCharacter();
-					clearScreen();
-					continue;
-				}
-				else if (c == 'q') {
-					quit = true;
-					clearScreen();
-					break;
-				}
-				m_dungeon.peekDungeon(x, y, '-');
-			}
-
-			// null move from no action
-			else {
-				m_dungeon.peekDungeon(x, y, '-');
-			}
-
-			if (m_dungeon.getPlayer().getHP() <= 0) {		// check if player is dead
-				if (!gameOver(m_dungeon.getPlayer(), m_dungeon)) {
-					c = 'q';
-					break;
-				}
-				clearScreen();
-				reset();
-
-				c = getCharacter();
-				clearScreen();
-				break;
-			}
-			else if (m_dungeon.getLevel() != 1) {
-				p = m_dungeon.getPlayer();
-				break;
-			}
-			else {
-				timer.start();
-				while (timer.elapsed() < 750) {
-					if (getCharIfAny(c))
-						break;
-					else
-						c = '-';
-				}
-				//c = getCharacter();
-				clearScreen();
-			}
-		}
-
-		//		SECOND LEVEL
-		if (m_dungeon.getLevel() == 2 && !quit) {
-			SecondFloor secondfloor(m_dungeon.getPlayer());
-
-			secondfloor.showDungeon();
-			c = getCharacter();
-			clearScreen();
-
-			while (!quit) {
-				p = secondfloor.getPlayer();
-				x = p.getPosX(); y = p.getPosY();
-
-				if (c == ARROW_LEFT)
-					secondfloor.peekSecondFloor(x, y, 'l');
-				else if (c == ARROW_DOWN)
-					secondfloor.peekSecondFloor(x, y, 'd');
-				else if (c == ARROW_RIGHT)
-					secondfloor.peekSecondFloor(x, y, 'r');
-				else if (c == ARROW_UP)
-					secondfloor.peekSecondFloor(x, y, 'u');
-
-				else if (c == 'i') {
-					p.showInventory();
-					waitForInverse(c);
-					secondfloor.peekSecondFloor(x, y, '-'); // moves enemies
-				}
-
-				else if (c == 'w') {
-					//	wield command
-					secondfloor.peekSecondFloor(x, y, 'w');
-				}
-
-				else if (c == 'e') {
-					//	pickup command
-					secondfloor.peekSecondFloor(x, y, 'e');
-				}
-
-				else if (c == 'c') {
-					//	items use menu
-					secondfloor.peekSecondFloor(x, y, 'c');
-				}
-
-				else if (c == 'r') {
-					reset();
-					c = getCharacter();
-					clearScreen();
-
-					break;
-				}
-
-				else if (c == 'h')
-					help(secondfloor, c);
-
-				else if (c == ESC || c == PAUSE) {
-					pause(c);
-					if (c == 'r') {
-						reset();
-						c = getCharacter();
-						clearScreen();
-						break;
-					}
-					else if (c == 'q') {
-						quit = true;
-						clearScreen();
-						break;
-					}
-					secondfloor.peekSecondFloor(x, y, '-');
-				}
-
-				else {
-					secondfloor.peekSecondFloor(x, y, '-');
-				}
 
 
-				if (secondfloor.getPlayer().getHP() <= 0) {		// check if player is dead
-					if (!gameOver(secondfloor.getPlayer(), secondfloor)) {
-						c = 'q';
-						break;
-					}
-					clearScreen();
-					reset();
-
-					c = getCharacter();
-					clearScreen();
-					break;
-				}
-				else if (secondfloor.getLevel() != 2) {
-					//p = secondfloor.getPlayer();
-					m_dungeon.setPlayer(p);
-					m_dungeon.setLevel(3);
-					break;
-				}
-				else {
-					timer.start();
-					while (timer.elapsed() < 700) {
-						if (getCharIfAny(c))
-							break;
-						else
-							c = '-';
-					}
-					//c = getCharacter();
-					clearScreen();
-				}
-			}
-		}
-
-		//		THIRD LEVEL
-		if (m_dungeon.getLevel() == 3 && !quit) {
-			ThirdFloor thirdfloor(m_dungeon.getPlayer());
-
-			thirdfloor.showDungeon();
-			c = getCharacter();
-			clearScreen();
-
-			while (!quit) {
-				p = thirdfloor.getPlayer();
-				x = p.getPosX(); y = p.getPosY();
-
-				if (c == ARROW_LEFT)
-					thirdfloor.peekThirdFloor(x, y, 'l');
-				else if (c == ARROW_DOWN)
-					thirdfloor.peekThirdFloor(x, y, 'd');
-				else if (c == ARROW_RIGHT)
-					thirdfloor.peekThirdFloor(x, y, 'r');
-				else if (c == ARROW_UP)
-					thirdfloor.peekThirdFloor(x, y, 'u');
-
-				else if (c == 'i') {
-					p.showInventory();
-					waitForInverse(c);
-					thirdfloor.peekThirdFloor(x, y, '-'); // moves enemies
-				}
-
-				else if (c == 'w') {
-					//	wield command
-					thirdfloor.peekThirdFloor(x, y, 'w');
-				}
-
-				else if (c == 'e') {
-					//	pickup command
-					thirdfloor.peekThirdFloor(x, y, 'e');
-				}
-
-				else if (c == 'c') {
-					//	items use menu
-					thirdfloor.peekThirdFloor(x, y, 'c');
-				}
-
-				else if (c == 'h') {
-					help(thirdfloor, c);
-				}
-				else if (c == ESC || c == PAUSE) {
-					pause(c);
-					if (c == 'r') {
-						reset();
-						c = getCharacter();
-						clearScreen();
-						break;
-					}
-					else if (c == 'q') {
-						quit = true;
-						clearScreen();
-						break;
-					}
-					thirdfloor.peekThirdFloor(x, y, '-');
-				}
-
-				else {
-					thirdfloor.peekThirdFloor(x, y, '-');
-				}
-
-				if (thirdfloor.getPlayer().getHP() <= 0) {		// check if player is dead
-					if (!gameOver(thirdfloor.getPlayer(), thirdfloor)) {
-						c = 'q';
-						break;
-					}
-					clearScreen();
-					reset();
-
-					c = getCharacter();
-					clearScreen();
-					break;
-				}
-				else if (thirdfloor.getLevel() != 3) {
-					//p = thirdfloor.getPlayer();
-					m_dungeon.setPlayer(p);
-					m_dungeon.setLevel(4);
-					break;
-				}
-				else {
-					timer.start();
-					while (timer.elapsed() < 750) {
-						if (getCharIfAny(c))
-							break;
-						else
-							c = '-';
-					}
-					//c = getCharacter();
-					clearScreen();
-				}
-			}
-		}
-
-		//		BOSS LEVEL
-		if (m_dungeon.getLevel() == 4 && !quit) {
-			FirstBoss firstBoss(p);
-
-			firstBoss.showDungeon();
-			c = getCharacter();
-			clearScreen();
-
-			while (!quit) {
-				p = firstBoss.getPlayer();
-				x = p.getPosX(); y = p.getPosY();
-
-				if (c == ARROW_LEFT)
-					firstBoss.peekFirstBossDungeon(x, y, 'l');
-				else if (c == ARROW_DOWN)
-					firstBoss.peekFirstBossDungeon(x, y, 'd');
-				else if (c == ARROW_RIGHT)
-					firstBoss.peekFirstBossDungeon(x, y, 'r');
-				else if (c == ARROW_UP)
-					firstBoss.peekFirstBossDungeon(x, y, 'u');
-
-				else if (c == 'i') {
-					p.showInventory();
-					waitForInverse(c);
-					firstBoss.peekFirstBossDungeon(x, y, '-'); // moves enemies
-				}
-
-				else if (c == 'w') {
-					//	wield command
-					firstBoss.peekFirstBossDungeon(x, y, 'w');
-				}
-
-				else if (c == 'e') {
-					//	pickup command
-					firstBoss.peekFirstBossDungeon(x, y, 'e');
-				}
-
-				else if (c == 'c') {
-					//	items use menu
-					firstBoss.peekFirstBossDungeon(x, y, 'c');
-				}
-
-				else if (c == 'h') {
-					help(firstBoss, c);
-				}
-				else if (c == ESC || c == PAUSE) {
-					pause(c);
-					if (c == 'r') {
-						reset();
-						c = getCharacter();
-						clearScreen();
-						break;
-					}
-					else if (c == 'q') {
-						quit = true;
-						clearScreen();
-						break;
-					}
-					firstBoss.peekFirstBossDungeon(x, y, '-');
-				}
-
-				else {
-					firstBoss.peekFirstBossDungeon(x, y, '-');
-				}
-
-
-				if (firstBoss.getPlayer().getHP() <= 0) {		// check if player is dead
-					if (!gameOver(firstBoss.getPlayer(), firstBoss)) {
-						c = 'q';
-						break;
-					}
-					clearScreen();
-					reset();
-
-					c = getCharacter();
-					clearScreen();
-					break;
-				}
-				else if (firstBoss.getPlayer().getWin()) {		// check if player picked up the idol
-					if (!win(firstBoss)) {
-						c = 'q';
-						break;
-					}
-					clearScreen();
-					reset();
-
-					c = getCharacter();
-					clearScreen();
-					break;
-				}
-				else {
-					timer.start();
-					while (timer.elapsed() < 250) {
-						if (getCharIfAny(c))
-							break;
-						else
-							c = '-';
-					}
-					//c = getCharacter();
-					clearScreen();
-				}
-			}
-		}
-	}
-
-	//std::cout << "Thanks for playing Super Mini Rogue.\n" << endl;
-}
-*/
-
-
-//		LEVEL 2 SCENE
-Level2Scene::Level2Scene(HUDLayer* hud) : m_hud(hud) {
+//		SHOP 1 SCENE
+Shop1Scene::Shop1Scene(HUDLayer* hud, Player p) : m_hud(hud), p(p) {
 
 }
-Scene* Level2Scene::createScene()
+Scene* Shop1Scene::createScene(Player p)
 {
 	auto scene = Scene::create();
 
@@ -2213,14 +2553,543 @@ Scene* Level2Scene::createScene()
 	scene->addChild(bglayer, -10);
 
 	// calls Level1Scene init()
-	auto layer = Level2Scene::create(hud);
+	auto layer = Shop1Scene::create(hud, p);
 	scene->addChild(layer);
 
 	return scene;
 }
-Level2Scene* Level2Scene::create(HUDLayer* hud)
+Shop1Scene* Shop1Scene::create(HUDLayer* hud, Player p)
 {
-	Level2Scene *pRet = new(std::nothrow) Level2Scene(hud);
+	Shop1Scene *pRet = new(std::nothrow) Shop1Scene(hud, p);
+	if (pRet && pRet->init())
+	{
+		pRet->autorelease();
+		return pRet;
+	}
+	else
+	{
+		delete pRet;
+		pRet = NULL;
+		return NULL;
+	}
+}
+bool Shop1Scene::init()
+{
+	if (!Scene::init()) {
+		return false;
+	}
+
+	//FirstShop dungeon(DUNGEON.getPlayer());
+	//SHOP1 = dungeon;
+
+	Dungeons dungeons;
+	m_dungeons = dungeons;
+	//delete dungeons;
+
+	FirstShop* SHOP1 = new FirstShop(p);
+	m_dungeons.SHOP1 = SHOP1;
+
+	// music
+	id = experimental::AudioEngine::play2d("mistical.mp3", true);
+
+	auto visibleSize = Director::getInstance()->getVisibleSize();
+
+	// board for rendering textures into
+	renderTexture = RenderTexture::create(visibleSize.width, visibleSize.height, Texture2D::PixelFormat::RGBA8888);
+	renderTexture->retain();
+	renderTexture->beginWithClear(0.0, 0.0, 0.0, 0.0);
+
+	//gameboard = Sprite::create();
+	//gameboard->setFlippedY(true);
+	//gameboard->setPosition(visibleSize.width / 2, visibleSize.height / 2);
+	//this->addChild(gameboard, 0);
+
+	// create player sprite and follow
+	m_player = Sprite::createWithSpriteFrameName("Player1_48x48.png");
+	m_player->setPosition(0, 0);
+	this->addChild(m_player, 1);
+	this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+	m_player->visit();
+
+	// Render all the sprites on the first floor
+	int px = 0, py = 0;
+	//renderDungeon(SHOP1, MAXROWS_SHOP1, MAXCOLS_SHOP1, px, py);
+	renderDungeon(*m_dungeons.SHOP1, m_dungeons.SHOP1->getRows(), m_dungeons.SHOP1->getCols(), px, py);
+	m_player->setPosition(px, py);
+
+	renderTexture->end();
+	// load board with the rendered sprites
+	//gameboard->initWithTexture(renderTexture->getSprite()->getTexture());
+
+
+	// Hides the extra game layer!!
+	auto defaultCamera = this->getDefaultCamera();
+	defaultCamera->setCameraFlag(CameraFlag::USER1); // flag on camera
+
+
+	// gives the sprite vectors to the dungeon
+	/*SHOP1.setPlayerSprite(m_player);
+	SHOP1.getPlayerVector().at(0).setSprite(m_player);
+
+	SHOP1.setMonsterSprites(monsters);
+	SHOP1.setItemSprites(items);
+	SHOP1.setTrapSprites(traps);
+	SHOP1.setProjectileSprites(projectiles);
+	SHOP1.setSpinnerSprites(spinner_buddies);
+	SHOP1.setZapperSprites(zapper_sparks);
+	SHOP1.setWallSprites(walls);
+	SHOP1.setDoorSprites(doors);
+	SHOP1.setScene(this);*/
+
+	m_dungeons.SHOP1->setPlayerSprite(m_player);
+	m_dungeons.SHOP1->getPlayerVector().at(0).setSprite(m_player);
+
+	m_dungeons.SHOP1->setMonsterSprites(monsters);
+	m_dungeons.SHOP1->setItemSprites(items);
+	m_dungeons.SHOP1->setTrapSprites(traps);
+	m_dungeons.SHOP1->setProjectileSprites(projectiles);
+	m_dungeons.SHOP1->setSpinnerSprites(spinner_buddies);
+	m_dungeons.SHOP1->setZapperSprites(zapper_sparks);
+	m_dungeons.SHOP1->setWallSprites(walls);
+	m_dungeons.SHOP1->setDoorSprites(doors);
+	m_dungeons.SHOP1->setScene(this);
+
+
+	kbListener = EventListenerKeyboard::create();
+	kbListener->onKeyPressed = CC_CALLBACK_2(Shop1Scene::Shop1KeyPressed, this);
+	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(kbListener, m_player);
+
+	return true;
+}
+void Shop1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &x, int &y) {
+	std::vector<_Tile> maze = dungeon.getDungeon();
+	_Tile *tile;
+
+	Vec2 origin = Director::getInstance()->getVisibleOrigin();
+
+	// :::: HIERARCHY OF TILE LAYER CONTENTS ::::
+	//		-----------------------------
+	//		Smasher		: TOP			 2
+	//		Actors/Walls				 1
+	//		Projectiles					 0
+	//		Items						-1
+	//		Stairs/Traps				-2
+	//		Extras						 x
+	//		Floor		: BOTTOM		-4
+	//
+
+	std::string image;
+
+	// Begin dungeon render
+	std::vector<std::shared_ptr<Monster>> monster = dungeon.getMonsters();
+	int rand;
+	for (int i = 0; i < maxrows; i++) {
+		for (int j = 0; j < maxcols; j++) {
+			tile = &maze[i*maxcols + j];
+
+			if (tile->hero) {
+				x = j * SPACING_FACTOR - X_OFFSET;
+				y = SPACING_FACTOR * (maxrows - i) - Y_OFFSET;
+			}
+			if (tile->shop_action != "") {
+				if (tile->shop_action == "countertop") image = "Countertop_48x48.png";
+				else if (tile->shop_action == "shopkeeper") image = "Shopkeeper_48x48.png";
+				else if (tile->shop_action == "breakable") image = "Breakable_Crate_48x48.png";
+				else if (tile->shop_action == "secret") image = "Stairs_48x48.png";
+				// if tile is labeled shop_item, puts a countertop image underneath the item, as a shop does
+				else if (tile->shop_action == "shop_item") image = "Countertop_48x48.png";
+				
+				if (tile->shop_action != "purchase")
+					Sprite* item = createSprite(image, maxrows, j, i, 1);
+			}
+			if (tile->top != SPACE) {
+				switch (tile->top) {
+				case WALL: {
+					rand = randInt(13) + 1;
+					switch (rand) {
+						/*case 1: image = "Wall_Face1.png"; break;
+						case 2: image = "Wall_Face2.png"; break;
+						case 3: image = "Wall_Face3.png"; break;
+						case 4: image = "Wall_Face4.png"; break;*/
+						/*case 1: image = "Wall_Terrain1_A.png"; break;
+						case 2: image = "Wall_Terrain2_A.png"; break;
+						case 3: image = "Wall_Terrain3_A.png"; break;
+						case 4: image = "Wall_Terrain4_A.png"; break;
+						case 5: image = "Wall_Terrain5_A.png"; break;
+						case 6: image = "Wall_Terrain6_A.png"; break;
+						case 7: image = "Wall_Terrain7_A.png"; break;
+						case 8: image = "Wall_Terrain8_A.png"; break;
+						case 9: image = "Wall_Terrain9_A.png"; break;
+						case 10: image = "Wall_Terrain10_A.png"; break;
+						case 11: image = "Wall_Terrain11_A.png"; break;
+						case 12: image = "Wall_Terrain12_A.png"; break;*/
+					case 1: image = "D_Wall_Terrain1_48x48.png"; break;
+					case 2: image = "D_Wall_Terrain2_48x48.png"; break;
+					case 3: image = "D_Wall_Terrain3_48x48.png"; break;
+					case 4: image = "D_Wall_Terrain4_48x48.png"; break;
+					case 5: image = "D_Wall_Terrain5_48x48.png"; break;
+					case 6: image = "D_Wall_Terrain6_48x48.png"; break;
+					case 7: image = "D_Wall_Terrain7_48x48.png"; break;
+					case 8: image = "D_Wall_Terrain8_48x48.png"; break;
+					case 9: image = "D_Wall_Terrain9_48x48.png"; break;
+					case 10: image = "D_Wall_Terrain10_48x48.png"; break;
+					case 11: image = "D_Wall_Terrain11_48x48.png"; break;
+					case 12: image = "D_Wall_Terrain12_48x48.png"; break;
+					case 13: image = "D_Wall_Terrain13_48x48.png"; break;
+					}
+					break;
+				}
+				case UNBREAKABLE_WALL: {
+					if (i == 0) rand = randInt(3) + 1 + (randInt(2) * 12); // upper border
+					else if (j == maxcols - 1) rand = randInt(3) + 4;// + (randInt(2) * 9); // right border
+					else if (i == maxrows - 1) rand = randInt(3) + 7 + (randInt(2) * 6); // lower border
+					else if (j == 0) rand = randInt(3) + 10;// + (randInt(2) * 3); // left border
+
+					switch (rand) {
+					case 1: image = "C_Wall_Terrain1_48x48.png"; break;
+					case 2: image = "C_Wall_Terrain2_48x48.png"; break;
+					case 3: image = "C_Wall_Terrain3_48x48.png"; break;
+					case 4: image = "C_Wall_Terrain4_48x48.png"; break;
+					case 5: image = "C_Wall_Terrain5_48x48.png"; break;
+					case 6: image = "C_Wall_Terrain6_48x48.png"; break;
+					case 7: image = "C_Wall_Terrain7_48x48.png"; break;
+					case 8: image = "C_Wall_Terrain8_48x48.png"; break;
+					case 9: image = "C_Wall_Terrain9_48x48.png"; break;
+					case 10: image = "C_Wall_Terrain10_48x48.png"; break;
+					case 11: image = "C_Wall_Terrain11_48x48.png"; break;
+					case 12: image = "C_Wall_Terrain12_48x48.png"; break;
+						//
+					case 13: image = "C_Wall_Terrain13_48x48.png"; break;
+					case 14: image = "C_Wall_Terrain14_48x48.png"; break;
+					case 15: image = "C_Wall_Terrain15_48x48.png"; break;
+
+						/*switch (rand) {
+						case 1: image = "Wall_Terrain1_A.png"; break;
+						case 2: image = "Wall_Terrain2_A.png"; break;
+						case 3: image = "Wall_Terrain3_A.png"; break;
+						case 4: image = "Wall_Terrain4_A.png"; break;
+						case 5: image = "Wall_Terrain5_A.png"; break;
+						case 6: image = "Wall_Terrain6_A.png"; break;
+						case 7: image = "Wall_Terrain7_A.png"; break;
+						case 8: image = "Wall_Terrain8_A.png"; break;
+						case 9: image = "Wall_Terrain9_A.png"; break;
+						case 10: image = "Wall_Terrain19_A.png"; break;
+						case 11: image = "Wall_Terrain20_A.png"; break;
+						case 12: image = "Wall_Terrain21_A.png"; break;
+						case 13: image = "Wall_Terrain22_A.png"; break;*/
+						/*case 10: image = "Wall_Terrain10_A.png"; break;
+						case 11: image = "Wall_Terrain11_A.png"; break;
+						case 12: image = "Wall_Terrain12_A.png"; break;
+						case 13: image = "Wall_Terrain13_A.png"; break;
+						case 14: image = "Wall_Terrain14_A.png"; break;
+						case 15: image = "Wall_Terrain15_A.png"; break;
+						case 16: image = "Wall_Terrain16_A.png"; break;
+						case 17: image = "Wall_Terrain17_A.png"; break;
+						case 18: image = "Wall_Terrain18_A.png"; break;*/
+						//case 19: image = "Wall_Terrain19_A.png"; break;
+						//case 20: image = "Wall_Terrain20_A.png"; break;
+						//case 21: image = "Wall_Terrain21_A.png"; break;
+						//case 22: image = "Wall_Terrain22_A.png"; break;
+					}
+					/*
+					switch (rand) {
+					case 1: image = "Wall_Terrain1.png"; break;
+					case 2: image = "Wall_Terrain2.png"; break;
+					case 3: image = "Wall_Terrain3.png"; break;
+					case 4: image = "Wall_Terrain4.png"; break;
+					case 5: image = "Wall_Terrain5.png"; break;
+					case 6: image = "Wall_Terrain6.png"; break;
+					case 7: image = "Wall_Terrain7.png"; break;
+					case 8: image = "Wall_Terrain8.png"; break;
+					case 9: image = "Wall_Terrain9.png"; break;
+					case 10: image = "Wall_Terrain10.png"; break;
+					case 11: image = "Wall_Terrain11.png"; break;
+					case 12: image = "Wall_Terrain12.png"; break;
+					case 13: image = "Wall_Terrain13.png"; break;
+					}*/
+					break;
+				}
+				case DOOR_V: image = "Door_Vertical_Closed_48x48.png"; break;
+				default: image = "cheese.png"; break;
+				}
+				if (tile->top == WALL) {
+					Sprite* wall = Sprite::createWithSpriteFrameName(image);
+					this->addChild(wall, 1);
+					wall->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
+					wall->setColor(Color3B(210, 200, 255));
+					walls.push_back(wall);
+				}
+				else if (tile->top == UNBREAKABLE_WALL) {
+					Sprite* wall = Sprite::createWithSpriteFrameName(image);
+					this->addChild(wall, 2);
+					wall->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
+					wall->setColor(Color3B(170, 90, 40));
+				}
+				else if (tile->top == DOOR_H || tile->top == DOOR_V) {
+					Sprite* door = createSprite(image, maxrows, j, i, 1);
+					doors.push_back(door);
+				}
+				else {
+					Sprite* monster = createSprite(image, maxrows, j, i, 1);
+					monsters.push_back(monster);
+				}
+			}
+			if (tile->item) {
+				/*switch (tile->bottom) {
+				case BROWN_CHEST: image = "Brown_Chest_48x48.png"; break;
+				case SILVER_CHEST: image = "Silver_Chest_48x48.png"; break;
+				case GOLDEN_CHEST: image = "Golden_Chest_48x48.png"; break;
+				case LIFEPOT: image = "Life_Potion_48x48.png"; break;
+				case SHIELD_REPAIR: image = "Shield_Repair_48x48.png"; break;
+				case STATPOT: image = "Stat_Potion_48x48.png"; break;
+				case ARMOR: image = "Armor_48x48.png"; break;
+				case BOMB: image = "Bomb_48x48.png"; break;
+				case HEART_POD: image = "Heart_Pod_48x48.png"; break;
+				case CUTLASS: image = "Rusty_Broadsword_48x48.png"; break;
+				case BONEAXE: image = "Bone_Axe_48x48.png"; break;
+				case BRONZE_DAGGER: image = "Bronze_Dagger_48x48.png"; break;
+				case IRON_LANCE: image = "Iron_Lance_48x48.png"; break;
+				case WOOD_SHIELD: image = "Wood_Shield_48x48.png"; break;
+				case IRON_SHIELD: image = "Iron_Shield_48x48.png"; break;
+				default: image = "cheese.png"; break;
+				}*/
+				if (tile->object != nullptr)
+					image = tile->object->getImageName();
+
+				//if (tile->bottom != UNBREAKABLE_WALL && tile->bottom != WALL) {
+					Sprite* object = createSprite(image, maxrows, j, i, 2);
+					items.push_back(object);
+				//}
+			}
+			if (tile->projectile != SPACE) {
+				switch (tile->projectile) {
+				case CHAIN: image = "Spinner_Buddy.png"; break;
+				case SPARK: image = "Spark.png"; break;
+				default: image = "cheese.png"; break;
+				}
+				Sprite* proj = Sprite::createWithSpriteFrameName(image);
+				this->addChild(proj, 0);
+				proj->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
+				projectiles.push_back(proj);
+			}
+			if (tile->traptile != SPACE) {
+				switch (tile->traptile) {
+				case LOCKED_STAIRS: image = "Locked_Stairs_48x48.png"; break;
+				case STAIRS: image = "Stairs_48x48.png"; break;
+				case BUTTON: image = "Button_Unpressed_48x48.png"; break;
+				case LAVA: image = "Lava_Tile1_48x48.png"; break;
+				case SPIKETRAP_DEACTIVE: image = "Spiketrap_Deactive_48x48.png"; break;
+				case SPIKETRAP_PRIMED: image = "Spiketrap_Primed_48x48.png"; break;
+				case SPIKETRAP_ACTIVE: image = "Spiketrap_Active_48x48.png"; break;
+				default: image = "cheese.png"; break;
+				}
+				if (!tile->wall && tile->traptile != DOOR_H && tile->traptile != DOOR_V) {
+					Sprite* trap = createSprite(image, maxrows, j, i, -4);
+					traps.push_back(trap);
+				}
+			}
+
+			rand = randInt(8) + 1;
+			switch (rand) {
+			case 1: image = "FloorTile1_48x48.png"; break;
+			case 2: image = "FloorTile2_48x48.png"; break;
+			case 3: image = "FloorTile3_48x48.png"; break;
+			case 4: image = "FloorTile4_48x48.png"; break;
+			case 5: image = "FloorTile5_48x48.png"; break;
+			case 6: image = "FloorTile6_48x48.png"; break;
+			case 7: image = "FloorTile7_48x48.png"; break;
+			case 8: image = "FloorTile8_48x48.png"; break;
+			}
+
+			Sprite* floor = createSprite(image, maxrows, j, i, -5);
+			floor->setOpacity(240);
+		}
+	}
+}
+cocos2d::Sprite* Shop1Scene::createSprite(std::string image, int maxrows, int x, int y, int z) {
+	Sprite* sprite = Sprite::createWithSpriteFrameName(image);
+	sprite->setPosition(x * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - y) - Y_OFFSET);
+	sprite->visit();
+	this->addChild(sprite, z);
+
+	return sprite;
+}
+
+void Shop1Scene::Shop1KeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
+	int x, y;
+
+	auto actions = this->getActionManager();
+
+	// resumes follow if it was paused
+	if (actions->getNumberOfRunningActions() == 0) {
+		auto visibleSize = Director::getInstance()->getVisibleSize();
+		this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+	}
+	// if there are any lingering actions, finish them instantly
+	while (actions->getNumberOfRunningActions() > 1) {
+		actions->update(1.0);
+	}
+
+	p = m_dungeons.SHOP1->getPlayer();
+	x = p.getPosX(); y = p.getPosY();
+	Vec2 pos = event->getCurrentTarget()->getPosition();
+
+	switch (keyCode) {
+	case EventKeyboard::KeyCode::KEY_LEFT_ARROW: {
+		m_dungeons.SHOP1->peekDungeon(x, y, 'l');
+		
+		if (p.facingDirection() != 'l') {
+			m_player->setScaleX(-1);
+		}
+		
+		break;
+	}
+	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
+		m_dungeons.SHOP1->peekDungeon(x, y, 'r');
+		
+		if (p.facingDirection() != 'r') {
+			m_player->setScaleX(1);
+		}
+
+		break;
+	}
+	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
+		m_dungeons.SHOP1->peekDungeon(x, y, 'u');
+		
+		break;
+	}
+	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
+		m_dungeons.SHOP1->peekDungeon(x, y, 'd');
+		
+		break;
+	}
+
+				//		Non-movement actions
+	case EventKeyboard::KeyCode::KEY_SPACE:
+		m_dungeons.SHOP1->peekDungeon(0, 0, 'b');
+		break;
+	case EventKeyboard::KeyCode::KEY_I: // open inventory/stats screen for viewing
+
+		m_dungeons.SHOP1->peekDungeon(0, 0, '-'); // moves monsters
+		break;
+	case EventKeyboard::KeyCode::KEY_E: // pick up item/interact
+		m_dungeons.SHOP1->peekDungeon(x, y, 'e');
+		if (m_dungeons.SHOP1->getLevel() == 3) {
+			advanceLevel();
+		}
+		break;
+	case EventKeyboard::KeyCode::KEY_W: // open weapon menu
+		kbListener->setEnabled(false);
+		m_hud->weaponMenu(kbListener, *m_dungeons.SHOP1);
+
+		break;
+	case EventKeyboard::KeyCode::KEY_C: // open item menu
+		kbListener->setEnabled(false);
+		m_hud->itemMenu(kbListener, *m_dungeons.SHOP1);
+
+		break;
+	case EventKeyboard::KeyCode::KEY_M: { // toggle music on/off
+		if (cocos2d::experimental::AudioEngine::getVolume(id) > 0) {
+			cocos2d::experimental::AudioEngine::setVolume(id, 0.0);
+		}
+		else {
+			cocos2d::experimental::AudioEngine::setVolume(id, 1.0);
+		}
+		break;
+	}
+	case EventKeyboard::KeyCode::KEY_P:
+	case EventKeyboard::KeyCode::KEY_ESCAPE: // open pause menu
+		Director::getInstance()->pushScene(this);
+		pauseMenu();
+		//this->pauseSchedulerAndActions();
+		break;
+	default:
+		m_dungeons.SHOP1->peekDungeon(x, y, '-');
+		break;
+	}
+
+	// Update player sprite position
+	int px = m_dungeons.SHOP1->getPlayer().getPosX() - x;
+	int py = m_dungeons.SHOP1->getPlayer().getPosY() - y;
+
+	// play step sound effect if player moved
+	if (px != 0 || py != 0) {
+		playFootstepSound();
+	}
+	cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px * SPACING_FACTOR, -py * SPACING_FACTOR));
+	event->getCurrentTarget()->runAction(move);
+
+	// update the HUD
+	m_hud->updateHUD(*m_dungeons.SHOP1);
+
+	// Check if player is dead, if so, run game over screen
+	if (m_dungeons.SHOP1->getPlayer().getHP() <= 0) {
+		cocos2d::experimental::AudioEngine::stop(id);
+		m_hud->gameOver(*this);
+	}
+}
+
+void Shop1Scene::showShopHUD(Dungeon &dungeon, int x, int y) {
+	// x and y are below the item's coordinates,
+	// we want to the price to show two above that
+
+	// pricing symbols, prices themselves, etc.
+	itemprice = Label::createWithTTF("$", "fonts/Marker Felt.ttf", 24);
+	itemprice->setPosition(x * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (dungeon.getRows() - (y-2)) - Y_OFFSET);
+	this->addChild(itemprice, 3);
+	itemprice->setColor(cocos2d::Color3B(255, 215, 0));
+	itemprice->setString("$" + std::to_string(dungeon.getDungeon()[(y - 1)*dungeon.getCols() + x].price));
+}
+void Shop1Scene::deconstructShopHUD() {
+	itemprice->removeFromParent();
+	itemprice = nullptr;
+}
+void Shop1Scene::pauseMenu() {
+	auto visibleSize = Director::getInstance()->getVisibleSize();
+
+	auto pauseMenuScene = PauseMenuScene::createScene();
+	pauseMenuScene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
+
+	Director::getInstance()->replaceScene(pauseMenuScene);
+}
+void Shop1Scene::advanceLevel() {
+	auto visibleSize = Director::getInstance()->getVisibleSize();
+
+	auto level2Scene = Level2Scene::createScene(m_dungeons.SHOP1->getPlayer());
+	level2Scene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
+
+	// stop music
+	cocos2d::experimental::AudioEngine::stop(id);
+
+	Director::getInstance()->replaceScene(level2Scene);
+}
+
+
+//		LEVEL 2 SCENE
+Level2Scene::Level2Scene(HUDLayer* hud, Player p) : m_hud(hud), p(p) {
+
+}
+Scene* Level2Scene::createScene(Player p)
+{
+	auto scene = Scene::create();
+
+	// create HUD layer
+	HUDLayer* hud = HUDLayer::create();
+	scene->addChild(hud, 10);
+
+	// create background layer
+	BackgroundLayer* bglayer = BackgroundLayer::create();
+	scene->addChild(bglayer, -10);
+
+	// calls Level1Scene init()
+	auto layer = Level2Scene::create(hud, p);
+	scene->addChild(layer);
+
+	return scene;
+}
+Level2Scene* Level2Scene::create(HUDLayer* hud, Player p)
+{
+	Level2Scene *pRet = new(std::nothrow) Level2Scene(hud, p);
 	if (pRet && pRet->init())
 	{
 		pRet->autorelease();
@@ -2239,8 +3108,15 @@ bool Level2Scene::init()
 		return false;
 	}
 
-	SecondFloor dungeon(DUNGEON.getPlayer());
-	DUNGEON2 = dungeon;
+	//SecondFloor dungeon(SHOP1.getPlayer());
+	//DUNGEON2 = dungeon;
+
+	Dungeons dungeons;
+	m_dungeons = dungeons;
+	//delete dungeons;
+
+	SecondFloor* DUNGEON2 = new SecondFloor(p);
+	m_dungeons.DUNGEON2 = DUNGEON2;
 
 	// music
 	id = experimental::AudioEngine::play2d("Sunstrider.mp3", true);
@@ -2252,13 +3128,13 @@ bool Level2Scene::init()
 	renderTexture->retain();
 	renderTexture->beginWithClear(0.0, 0.0, 0.0, 0.0);
 
-	gameboard = Sprite::create();
-	gameboard->setFlippedY(true);
-	gameboard->setPosition(visibleSize.width / 2, visibleSize.height / 2);
-	this->addChild(gameboard, 0);
+	//gameboard = Sprite::create();
+	//gameboard->setFlippedY(true);
+	//gameboard->setPosition(visibleSize.width / 2, visibleSize.height / 2);
+	//this->addChild(gameboard, 0);
 
 	// create player sprite and follow
-	m_player = Sprite::create("Player1_48x48.png");
+	m_player = Sprite::createWithSpriteFrameName("Player1_48x48.png");
 	m_player->setPosition(0, 0);
 	this->addChild(m_player, 1);
 	this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
@@ -2266,12 +3142,13 @@ bool Level2Scene::init()
 
 	// Render all the sprites on the first floor
 	int px = 0, py = 0;
-	renderDungeon(DUNGEON2, MAXROWS2, MAXCOLS2, px, py);
+	//renderDungeon(DUNGEON2, MAXROWS2, MAXCOLS2, px, py);
+	renderDungeon(*m_dungeons.DUNGEON2, m_dungeons.DUNGEON2->getRows(), m_dungeons.DUNGEON2->getCols(), px, py);
 	m_player->setPosition(px, py);
 
 	renderTexture->end();
 	// load board with the rendered sprites
-	gameboard->initWithTexture(renderTexture->getSprite()->getTexture());
+	//gameboard->initWithTexture(renderTexture->getSprite()->getTexture());
 
 
 	// Hides the extra game layer!!
@@ -2280,6 +3157,9 @@ bool Level2Scene::init()
 
 
 	// gives the sprite vectors to the dungeon
+	/*DUNGEON2.setPlayerSprite(m_player);
+	DUNGEON2.getPlayerVector().at(0).setSprite(m_player);
+
 	DUNGEON2.setMonsterSprites(monsters);
 	DUNGEON2.setItemSprites(items);
 	DUNGEON2.setTrapSprites(traps);
@@ -2287,12 +3167,71 @@ bool Level2Scene::init()
 	DUNGEON2.setSpinnerSprites(spinner_buddies);
 	DUNGEON2.setZapperSprites(zapper_sparks);
 	DUNGEON2.setWallSprites(walls);
-	DUNGEON2.setScene(this);
+	DUNGEON2.setFloorSprites(floors);
+	DUNGEON2.setScene(this);*/
+
+	m_dungeons.DUNGEON2->setPlayerSprite(m_player);
+	m_dungeons.DUNGEON2->getPlayerVector().at(0).setSprite(m_player);
+
+	m_dungeons.DUNGEON2->setMonsterSprites(monsters);
+	m_dungeons.DUNGEON2->setItemSprites(items);
+	m_dungeons.DUNGEON2->setTrapSprites(traps);
+	m_dungeons.DUNGEON2->setProjectileSprites(projectiles);
+	m_dungeons.DUNGEON2->setSpinnerSprites(spinner_buddies);
+	m_dungeons.DUNGEON2->setZapperSprites(zapper_sparks);
+	m_dungeons.DUNGEON2->setWallSprites(walls);
+	m_dungeons.DUNGEON2->setFloorSprites(floors);
+	m_dungeons.DUNGEON2->setScene(this);
 
 	
 	kbListener = EventListenerKeyboard::create();
 	kbListener->onKeyPressed = CC_CALLBACK_2(Level2Scene::Level2KeyPressed, this);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(kbListener, m_player);
+
+
+	// schedule inaction timer
+	Director::getInstance()->getScheduler()->schedule([this](float) {
+		auto actions = this->getActionManager();
+
+		// resumes follow if it was paused
+		if (actions->getNumberOfRunningActions() == 0) {
+			auto visibleSize = Director::getInstance()->getVisibleSize();
+			this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+		}
+		// if there are any lingering actions, finish them instantly
+		while (actions->getNumberOfRunningActions() > 1) { // >1 because follow player is always running
+			actions->update(1.0);
+		}
+		
+		p = m_dungeons.DUNGEON2->getPlayer();
+		int x = p.getPosX(); int y = p.getPosY();
+
+		m_dungeons.DUNGEON2->peekDungeon(m_dungeons.DUNGEON2->getPlayer().getPosX(), m_dungeons.DUNGEON2->getPlayer().getPosY(), '-');
+
+		// Update player sprite position
+		int px = m_dungeons.DUNGEON2->getPlayer().getPosX() - x;
+		int py = m_dungeons.DUNGEON2->getPlayer().getPosY() - y;
+
+		// play step sound effect if player moved
+		if (px != 0 || py != 0) {
+			playFootstepSound();
+		}
+		//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px * SPACING_FACTOR, -py * SPACING_FACTOR));
+		//m_player->runAction(move);
+
+		// update the HUD
+		m_hud->updateHUD(*m_dungeons.DUNGEON2);
+
+		// check if player interacted with the fountain
+		if (m_dungeons.DUNGEON2->getWaterPrompt()) {
+			kbListener->setEnabled(false);
+		}
+
+		// Check if player is dead, if so, run game over screen
+		if (m_dungeons.DUNGEON2->getPlayer().getHP() <= 0) {
+			m_hud->gameOver(*this);
+		}
+	}, this, 0.65, false, "level 2 timer");
 
 	return true;
 }
@@ -2317,11 +3256,18 @@ void Level2Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 
 	// Begin dungeon render
 	std::vector<std::shared_ptr<Monster>> monster = dungeon.getMonsters();
+	std::vector<std::shared_ptr<Objects>> dungeonTraps = dungeon.getTraps();
 	int rand;
+
 	for (int i = 0; i < maxrows; i++) {
 		for (int j = 0; j < maxcols; j++) {
 			tile = &maze[i*maxcols + j];
-			if (tile->top != SPACE) {
+
+			if (tile->hero) {
+				x = j * SPACING_FACTOR - X_OFFSET;
+				y = SPACING_FACTOR * (maxrows - i) - Y_OFFSET;
+			}
+			if (tile->wall) {
 				switch (tile->top) {
 				case WALL: {
 					rand = randInt(13) + 1;
@@ -2428,120 +3374,9 @@ void Level2Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 					}*/
 					break;
 				}
-				//case LAVA: image = "Lava_Tile1_48x48.png"; break;
-				//case DEVILS_WATER: image = "Water_Tile1_48x48.png"; break;
 				case FOUNTAIN: image = "Fountain_Down_48x48.png"; break;
-				case GOBLIN: image = "Goblin_48x48.png"; break;
-				case WANDERER: image = "Wanderer_48x48.png";	break;
-				case ARCHER: image = "Archer_48x48.png"; break;
-				case SEEKER: image = "Seeker_48x48.png"; break;
-				case ROUNDABOUT: image = "Roundabout_48x48.png"; break;
-				case SPINNER: {
-					// add projectile sprites
-					for (int n = 0; n < monster.size(); n++) {
-						if (monster.at(n)->getPosX() == j && monster.at(n)->getPosY() == i) {
-							std::shared_ptr<Spinner> spinner = std::dynamic_pointer_cast<Spinner>(monster.at(n));
-
-
-							this->addChild(spinner->getInner(), 0);
-							this->addChild(spinner->getOuter(), 0);
-
-							switch (spinner->getAngle()) {
-							case 1:
-								spinner->getInner()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-								spinner->getOuter()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-								break;
-							case 2:
-								spinner->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-								spinner->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-								break;
-							case 3:
-								spinner->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
-								spinner->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
-								break;
-							case 4:
-								spinner->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-								spinner->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-								break;
-							case 5:
-								spinner->getInner()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-								spinner->getOuter()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-								break;
-							case 6:
-								spinner->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-								spinner->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-								break;
-							case 7:
-								spinner->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
-								spinner->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
-								break;
-							case 8:
-								spinner->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-								spinner->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-								break;
-							}
-
-							spinner->getInner()->setVisible(false);
-							spinner->getOuter()->setVisible(false);
-							//spinner_buddies.push_back(spinner->getInner());
-							//spinner_buddies.push_back(spinner->getOuter());
-							spinner_buddies.insert(std::pair<cocos2d::Vec2, cocos2d::Sprite*>(Vec2(j, i), spinner->getInner()));
-							spinner_buddies.insert(std::pair<cocos2d::Vec2, cocos2d::Sprite*>(Vec2(j, i), spinner->getOuter()));
-
-							spinner.reset();
-						}
-					}
-					image = "Spinner_48x48.png"; break;
 				}
-				case MOUNTED_KNIGHT: image = "Knight_Level1_48x48.png"; break;
-				case ZAPPER: {
-					for (int n = 0; n < monster.size(); n++) {
-						if (monster.at(n)->getPosX() == j && monster.at(n)->getPosY() == i) {
-							// add zapper projectile sprites
-							std::shared_ptr<Zapper> zapper = std::dynamic_pointer_cast<Zapper>(monster.at(n));
-							int x = zapper->getPosX();
-							int y = zapper->getPosY();
-							for (int i = 0; i < 8; i++) {
-								switch (i) {
-									// cardinals
-								case 0: zapper->getSparks()[i]->setPosition(x * SPACING_FACTOR - X_OFFSET, (maxrows - (y - 1))*SPACING_FACTOR - Y_OFFSET); break; // top
-								case 1: zapper->getSparks()[i]->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (y))*SPACING_FACTOR - Y_OFFSET); break;// left
-								case 2: zapper->getSparks()[i]->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (y))*SPACING_FACTOR - Y_OFFSET); break;// right
-								case 3: zapper->getSparks()[i]->setPosition((x)* SPACING_FACTOR - X_OFFSET, (maxrows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottom
-								// diagonals
-								case 4: zapper->getSparks()[i]->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (y - 1))*SPACING_FACTOR - Y_OFFSET); break;// topleft
-								case 5: zapper->getSparks()[i]->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (y - 1))*SPACING_FACTOR - Y_OFFSET); break;// topright
-								case 6: zapper->getSparks()[i]->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottomleft
-								case 7: zapper->getSparks()[i]->setPosition((x + 1)* SPACING_FACTOR - X_OFFSET, (maxrows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottomright
-								}
-								zapper->getSparks()[i]->setScale(0.09375);
-								zapper->getSparks()[i]->setVisible(false);
-							}
-							zapper.reset();
-						}
-					}
-
-					for (int n = 0; n < monster.size(); n++) {
-						if (monster.at(n)->getPosX() == j && monster.at(n)->getPosY() == i) {
-							std::shared_ptr<Zapper> zapper = std::dynamic_pointer_cast<Zapper>(monster.at(n));
-							for (int m = 0; m < 8; m++) {
-								this->addChild(zapper->getSparks()[m], 0);
-								//zapper_sparks.push_back(zapper->getSparks()[m]);
-								zapper_sparks.insert(std::pair<cocos2d::Vec2, cocos2d::Sprite*>(Vec2(j, i), zapper->getSparks()[m]));
-							}
-							zapper.reset();
-						}
-					}
-					image = "Zapper_48x48.png"; break;
-				}
-				case BOMBEE: image = "Bombee_48x48.png"; break;
-				default: image = "cheese.png"; break;
-				}
-				if (tile->top == PLAYER) {
-					x = j * SPACING_FACTOR - X_OFFSET;
-					y = SPACING_FACTOR * (maxrows - i) - Y_OFFSET;
-				}
-				else if (tile->top == WALL) {
+				if (tile->top == WALL) {
 					Sprite* wall = Sprite::createWithSpriteFrameName(image);
 					this->addChild(wall, 1);
 					wall->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
@@ -2557,468 +3392,117 @@ void Level2Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 				else if (tile->top == FOUNTAIN) {
 					Sprite* fountain = Sprite::createWithSpriteFrameName(image);
 					this->addChild(fountain, 1);
-					fountain->visit();
 					fountain->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
-				}
-				else {
-					Sprite* monster = createSprite(image, maxrows, j, i, 1);
-					monsters.push_back(monster);
+					walls.push_back(fountain); // fountain is a wall
 				}
 			}
-			if (tile->bottom != SPACE) {
-				switch (tile->bottom) {
-				case WALL:
-				case UNBREAKABLE_WALL: image = "Wall_Face1_48x48.png"; break;
-				//case LAVA: image = "Lava_Tile1_48x48.png"; break;
-				//case LOCKED_STAIRS: image = "Locked_Stairs_48x48.png"; break;
-				//case STAIRS: image = "Stairs_48x48.png"; break;
-				//case DEVILS_WATER: image = "Water_Tile1_48x48.png"; break;
-				//case BUTTON: image = "Button_Unpressed_48x48.png"; break;
-				case SKELETON_KEY: image = "Skeleton_Key_48x48.png"; break;
-				case BROWN_CHEST: image = "Brown_Chest_48x48.png"; break;
-				case SILVER_CHEST: image = "Silver_Chest_48x48.png"; break;
-				case GOLDEN_CHEST: image = "Golden_Chest_48x48.png"; break;
-				case LIFEPOT: image = "Life_Potion_48x48.png"; break;
-				case STATPOT: image = "Stat_Potion_48x48.png"; break;
-				case ARMOR: image = "Armor_48x48.png"; break;
-				case BOMB: image = "Bomb_48x48.png"; break;
-				case HEART_POD: image = "Heart_Pod_48x48.png"; break;
-				case CUTLASS: image = "Rusty_Broadsword_48x48.png"; break;
-				case BONEAXE: image = "Bone_Axe_48x48.png"; break;
-				case BRONZE_DAGGER: image = "Bronze_Dagger_48x48.png"; break;
-				default: image = "cheese.png"; break;
-				}
-				if (!tile->wall && tile->bottom != LAVA) {
-					Sprite* object = createSprite(image, maxrows, j, i, -1);
-					items.push_back(object);
-				}
-			}
-			if (tile->projectile != SPACE) {
-				switch (tile->projectile) {
-				case CHAIN: image = "Spinner_Buddy.png"; break;
-				case SPARK: image = "Spark.png"; break;
-				default: image = "cheese.png"; break;
-				}
-				Sprite* proj = Sprite::createWithSpriteFrameName(image);
-				this->addChild(proj, 0);
-				proj->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
-				projectiles.push_back(proj);
-			}
-			if (tile->traptile != SPACE) {
-				switch (tile->traptile) {
-				case LOCKED_STAIRS: image = "Locked_Stairs_48x48.png"; break;
-				case STAIRS: image = "Stairs_48x48.png"; break;
-				case BUTTON: image = "Button_Unpressed_48x48.png"; break;
-				case LAVA: image = "Lava_Tile1_48x48.png"; break;
-				case DEVILS_WATER: image = "Water_Tile1_48x48.png"; break;
-				case SPIKETRAP_DEACTIVE: image = "Spiketrap_Deactive_48x48.png"; break;
-				case SPIKETRAP_PRIMED: image = "Spiketrap_Primed_48x48.png"; break;
-				case SPIKETRAP_ACTIVE: image = "Spiketrap_Active_48x48.png"; break;
-				case SPIKE: image = "CeilingSpike.png"; break;
-				default: image = "cheese.png"; break;
-				}
-				Sprite* trap = createSprite(image, maxrows, j, i, -2);
-				traps.push_back(trap);
-			}
-
-			rand = randInt(8) + 1;
-			switch (rand) {
-			case 1: image = "FloorTile1_48x48.png"; break;
-			case 2: image = "FloorTile2_48x48.png"; break;
-			case 3: image = "FloorTile3_48x48.png"; break;
-			case 4: image = "FloorTile4_48x48.png"; break;
-			case 5: image = "FloorTile5_48x48.png"; break;
-			case 6: image = "FloorTile6_48x48.png"; break;
-			case 7: image = "FloorTile7_48x48.png"; break;
-			case 8: image = "FloorTile8_48x48.png"; break;
-			}
-
-			Sprite* floor = createSprite(image, maxrows, j, i, -3);
-			floor->setOpacity(240);
-		}
-	}
-}
-cocos2d::Sprite* Level2Scene::createSprite(std::string image, int maxrows, int x, int y, int z) {
-	Sprite* sprite = Sprite::createWithSpriteFrameName(image);
-	sprite->setPosition(x * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - y) - Y_OFFSET);
-	sprite->visit();
-	this->addChild(sprite, z);
-
-	return sprite;
-}
-
-void Level2Scene::Level2KeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
-	int x, y;
-	char c;
-
-	auto actions = this->getActionManager();
-
-	// resumes follow if it was paused
-	if (actions->getNumberOfRunningActions() == 0) {
-		auto visibleSize = Director::getInstance()->getVisibleSize();
-		this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
-	}
-	// if there are any lingering actions, finish them instantly
-	while (actions->getNumberOfRunningActions() > 1) {
-		actions->update(1.0);
-	}
-
-	p = DUNGEON2.getPlayer();
-	x = p.getPosX(); y = p.getPosY();
-	Vec2 pos = event->getCurrentTarget()->getPosition();
-
-	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_LEFT_ARROW: {
-		DUNGEON2.peekSecondFloor(x, y, 'l');
-		if (x != DUNGEON2.getPlayer().getPosX()) {
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(-SPACING_FACTOR, 0));
-			event->getCurrentTarget()->runAction(move);
-		}
-		break;
-	}
-	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
-		DUNGEON2.peekSecondFloor(x, y, 'r');
-		if (x != DUNGEON2.getPlayer().getPosX()) {
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(SPACING_FACTOR, 0));
-			event->getCurrentTarget()->runAction(move);
-		}
-		break;
-	}
-	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
-		DUNGEON2.peekSecondFloor(x, y, 'u');
-		if (y != DUNGEON2.getPlayer().getPosY()) {
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(0, SPACING_FACTOR));
-			event->getCurrentTarget()->runAction(move);
-		}
-		break;
-	}
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
-		DUNGEON2.peekSecondFloor(x, y, 'd');
-		if (y != DUNGEON2.getPlayer().getPosY()) {
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(0, -SPACING_FACTOR));
-			event->getCurrentTarget()->runAction(move);
-		}
-		break;
-	}
-
-		//		Non-movement actions
-
-	case EventKeyboard::KeyCode::KEY_I: // open inventory/stats screen for viewing
-
-		DUNGEON2.peekSecondFloor(0, 0, '-'); // moves monsters
-		break;
-	case EventKeyboard::KeyCode::KEY_E: // pick up item/interact
-		DUNGEON2.peekSecondFloor(x, y, 'e');
-		if (DUNGEON2.getLevel() == 3) {
-			advanceLevel();
-		}
-		break;
-	case EventKeyboard::KeyCode::KEY_W: // open weapon menu
-		kbListener->setEnabled(false);
-		m_hud->weaponMenu(kbListener, DUNGEON2);
-		
-		break;
-	case EventKeyboard::KeyCode::KEY_C: // open item menu
-		kbListener->setEnabled(false);
-		m_hud->itemMenu(kbListener, DUNGEON2);
-
-		break;
-	case EventKeyboard::KeyCode::KEY_M: { // toggle music on/off
-		if (cocos2d::experimental::AudioEngine::getVolume(id) > 0) {
-			cocos2d::experimental::AudioEngine::setVolume(id, 0.0);
-		}
-		else {
-			cocos2d::experimental::AudioEngine::setVolume(id, 1.0);
-		}
-		break;
-	}
-	case EventKeyboard::KeyCode::KEY_P:
-	case EventKeyboard::KeyCode::KEY_ESCAPE: // open pause menu
-		Director::getInstance()->pushScene(this);
-		pauseMenu();
-		this->pauseSchedulerAndActions();
-		break;
-	default:
-		DUNGEON2.peekSecondFloor(x, y, '-');
-		break;
-	}
-
-	// update the HUD
-	m_hud->updateHUD(DUNGEON2);
-
-	// check if player interacted with the fountain
-	if (DUNGEON2.getWaterPrompt()) {
-		kbListener->setEnabled(false);
-	}
-
-	// Check if player is dead, if so, run game over screen
-	if (DUNGEON2.getPlayer().getHP() <= 0) {
-		m_hud->gameOver();
-	}
-}
-
-void Level2Scene::pauseMenu() {
-	auto visibleSize = Director::getInstance()->getVisibleSize();
-
-	auto pauseMenuScene = PauseMenuScene::createScene();
-	pauseMenuScene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
-
-	Director::getInstance()->replaceScene(pauseMenuScene);
-}
-void Level2Scene::advanceLevel() {
-	auto visibleSize = Director::getInstance()->getVisibleSize();
-
-	auto level3Scene = Level3Scene::createScene();
-	level3Scene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
-
-	// stop music
-	cocos2d::experimental::AudioEngine::stop(id);
-
-	Director::getInstance()->replaceScene(level3Scene);
-}
-
-
-//		LEVEL 3 SCENE
-Level3Scene::Level3Scene(HUDLayer* hud) : m_hud(hud) {
-
-}
-Scene* Level3Scene::createScene()
-{
-	auto scene = Scene::create();
-
-	// create HUD layer
-	HUDLayer* hud = HUDLayer::create();
-	scene->addChild(hud, 10);
-
-	// create background layer
-	BackgroundLayer* bglayer = BackgroundLayer::create();
-	scene->addChild(bglayer, -10);
-
-	// calls Level1Scene init()
-	auto layer = Level3Scene::create(hud);
-	scene->addChild(layer);
-
-	return scene;
-}
-Level3Scene* Level3Scene::create(HUDLayer* hud)
-{
-	Level3Scene *pRet = new(std::nothrow) Level3Scene(hud);
-	if (pRet && pRet->init())
-	{
-		pRet->autorelease();
-		return pRet;
-	}
-	else
-	{
-		delete pRet;
-		pRet = NULL;
-		return NULL;
-	}
-}
-bool Level3Scene::init()
-{
-	if (!Scene::init()) {
-		return false;
-	}
-
-	ThirdFloor dungeon(DUNGEON2.getPlayer());
-	DUNGEON3 = dungeon;
-
-	// music
-	id = experimental::AudioEngine::play2d("Zero Respect.mp3", true, 1.0f);
-
-	auto visibleSize = Director::getInstance()->getVisibleSize();
-
-	// board for rendering textures into
-	renderTexture = RenderTexture::create(visibleSize.width, visibleSize.height, Texture2D::PixelFormat::RGBA8888);
-	renderTexture->retain();
-	renderTexture->beginWithClear(0.0, 0.0, 0.0, 0.0);
-
-	gameboard = Sprite::create();
-	gameboard->setFlippedY(true);
-	gameboard->setPosition(visibleSize.width / 2, visibleSize.height / 2);
-	this->addChild(gameboard, 0);
-
-	// create player sprite and follow
-	m_player = Sprite::create("Player1_48x48.png");
-	m_player->setPosition(0, 0);
-	this->addChild(m_player, 1);
-	this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
-	m_player->visit();
-
-	// Render all the sprites on the first floor
-	int px = 0, py = 0;
-	renderDungeon(DUNGEON3, MAXROWS3, MAXCOLS3, px, py);
-	m_player->setPosition(px, py);
-
-	renderTexture->end();
-	// load board with the rendered sprites
-	gameboard->initWithTexture(renderTexture->getSprite()->getTexture());
-
-	// Hides the extra game layer!!
-	auto defaultCamera = this->getDefaultCamera();
-	defaultCamera->setCameraFlag(CameraFlag::USER1); // flag on camera
-
-
-	// gives the sprite vectors to the dungeon
-	DUNGEON3.setMonsterSprites(monsters);
-	DUNGEON3.setItemSprites(items);
-	DUNGEON3.setTrapSprites(traps);
-	DUNGEON3.setProjectileSprites(projectiles);
-	DUNGEON3.setSpinnerSprites(spinner_buddies);
-	DUNGEON3.setZapperSprites(zapper_sparks);
-	DUNGEON3.setWallSprites(walls);
-	DUNGEON3.setDoorSprites(doors);
-	DUNGEON3.setScene(this);
-
-
-	// hide all except the starting room
-	DUNGEON3.hideRooms();
-
-
-	// add keyboard listener
-	kbListener = EventListenerKeyboard::create();
-	kbListener->onKeyPressed = CC_CALLBACK_2(Level3Scene::Level3KeyPressed, this);
-	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(kbListener, m_player);
-
-	return true;
-}
-void Level3Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &x, int &y) {
-	std::vector<_Tile> maze = dungeon.getDungeon();
-	_Tile *tile;
-
-	Vec2 origin = Director::getInstance()->getVisibleOrigin();
-
-	// :::: HIERARCHY OF TILE LAYER CONTENTS ::::
-	//		-----------------------------
-	//		Smasher		: TOP			 2
-	//		Actors/Walls				 1
-	//		Projectiles					 0
-	//		Items						-1
-	//		Stairs/Traps				-2
-	//		Extras						 x
-	//		Floor		: BOTTOM		-4
-	//
-
-	std::string image;
-
-	// Begin dungeon render
-	std::vector<std::shared_ptr<Monster>> monster = dungeon.getMonsters();
-	int rand;
-	for (int i = 0; i < maxrows; i++) {
-		for (int j = 0; j < maxcols; j++) {
-			tile = &maze[i*maxcols + j];
-			if (tile->top != SPACE) {
+			if (tile->enemy) {
 				switch (tile->top) {
-				case WALL: {
-					rand = randInt(13) + 1;
-					switch (rand) {
-						/*case 1: image = "Wall_Face1.png"; break;
-						case 2: image = "Wall_Face2.png"; break;
-						case 3: image = "Wall_Face3.png"; break;
-						case 4: image = "Wall_Face4.png"; break;*/
-						/*case 1: image = "Wall_Terrain1_A.png"; break;
-						case 2: image = "Wall_Terrain2_A.png"; break;
-						case 3: image = "Wall_Terrain3_A.png"; break;
-						case 4: image = "Wall_Terrain4_A.png"; break;
-						case 5: image = "Wall_Terrain5_A.png"; break;
-						case 6: image = "Wall_Terrain6_A.png"; break;
-						case 7: image = "Wall_Terrain7_A.png"; break;
-						case 8: image = "Wall_Terrain8_A.png"; break;
-						case 9: image = "Wall_Terrain9_A.png"; break;
-						case 10: image = "Wall_Terrain10_A.png"; break;
-						case 11: image = "Wall_Terrain11_A.png"; break;
-						case 12: image = "Wall_Terrain12_A.png"; break;*/
-					case 1: image = "D_Wall_Terrain1_48x48.png"; break;
-					case 2: image = "D_Wall_Terrain2_48x48.png"; break;
-					case 3: image = "D_Wall_Terrain3_48x48.png"; break;
-					case 4: image = "D_Wall_Terrain4_48x48.png"; break;
-					case 5: image = "D_Wall_Terrain5_48x48.png"; break;
-					case 6: image = "D_Wall_Terrain6_48x48.png"; break;
-					case 7: image = "D_Wall_Terrain7_48x48.png"; break;
-					case 8: image = "D_Wall_Terrain8_48x48.png"; break;
-					case 9: image = "D_Wall_Terrain9_48x48.png"; break;
-					case 10: image = "D_Wall_Terrain10_48x48.png"; break;
-					case 11: image = "D_Wall_Terrain11_48x48.png"; break;
-					case 12: image = "D_Wall_Terrain12_48x48.png"; break;
-					case 13: image = "D_Wall_Terrain13_48x48.png"; break;
-					}
-					break;
-				}
-				case UNBREAKABLE_WALL: {
-					if (i == 0) rand = randInt(3) + 1 + (randInt(2) * 12); // upper border
-					else if (j == maxcols - 1) rand = randInt(3) + 4;// + (randInt(2) * 9); // right border
-					else if (i == maxrows - 1) rand = randInt(3) + 7 + (randInt(2) * 6); // lower border
-					else if (j == 0) rand = randInt(3) + 10;// + (randInt(2) * 3); // left border
+				//case WALL: {
+				//	rand = randInt(13) + 1;
+				//	switch (rand) {
+				//		/*case 1: image = "Wall_Face1.png"; break;
+				//		case 2: image = "Wall_Face2.png"; break;
+				//		case 3: image = "Wall_Face3.png"; break;
+				//		case 4: image = "Wall_Face4.png"; break;*/
+				//		/*case 1: image = "Wall_Terrain1_A.png"; break;
+				//		case 2: image = "Wall_Terrain2_A.png"; break;
+				//		case 3: image = "Wall_Terrain3_A.png"; break;
+				//		case 4: image = "Wall_Terrain4_A.png"; break;
+				//		case 5: image = "Wall_Terrain5_A.png"; break;
+				//		case 6: image = "Wall_Terrain6_A.png"; break;
+				//		case 7: image = "Wall_Terrain7_A.png"; break;
+				//		case 8: image = "Wall_Terrain8_A.png"; break;
+				//		case 9: image = "Wall_Terrain9_A.png"; break;
+				//		case 10: image = "Wall_Terrain10_A.png"; break;
+				//		case 11: image = "Wall_Terrain11_A.png"; break;
+				//		case 12: image = "Wall_Terrain12_A.png"; break;*/
+				//	case 1: image = "D_Wall_Terrain1_48x48.png"; break;
+				//	case 2: image = "D_Wall_Terrain2_48x48.png"; break;
+				//	case 3: image = "D_Wall_Terrain3_48x48.png"; break;
+				//	case 4: image = "D_Wall_Terrain4_48x48.png"; break;
+				//	case 5: image = "D_Wall_Terrain5_48x48.png"; break;
+				//	case 6: image = "D_Wall_Terrain6_48x48.png"; break;
+				//	case 7: image = "D_Wall_Terrain7_48x48.png"; break;
+				//	case 8: image = "D_Wall_Terrain8_48x48.png"; break;
+				//	case 9: image = "D_Wall_Terrain9_48x48.png"; break;
+				//	case 10: image = "D_Wall_Terrain10_48x48.png"; break;
+				//	case 11: image = "D_Wall_Terrain11_48x48.png"; break;
+				//	case 12: image = "D_Wall_Terrain12_48x48.png"; break;
+				//	case 13: image = "D_Wall_Terrain13_48x48.png"; break;
+				//	}
+				//	break;
+				//}
+				//case UNBREAKABLE_WALL: {
+				//	if (i == 0) rand = randInt(3) + 1 + (randInt(2) * 12); // upper border
+				//	else if (j == maxcols - 1) rand = randInt(3) + 4;// + (randInt(2) * 9); // right border
+				//	else if (i == maxrows - 1) rand = randInt(3) + 7 + (randInt(2) * 6); // lower border
+				//	else if (j == 0) rand = randInt(3) + 10;// + (randInt(2) * 3); // left border
 
-					switch (rand) {
-					case 1: image = "C_Wall_Terrain1_48x48.png"; break;
-					case 2: image = "C_Wall_Terrain2_48x48.png"; break;
-					case 3: image = "C_Wall_Terrain3_48x48.png"; break;
-					case 4: image = "C_Wall_Terrain4_48x48.png"; break;
-					case 5: image = "C_Wall_Terrain5_48x48.png"; break;
-					case 6: image = "C_Wall_Terrain6_48x48.png"; break;
-					case 7: image = "C_Wall_Terrain7_48x48.png"; break;
-					case 8: image = "C_Wall_Terrain8_48x48.png"; break;
-					case 9: image = "C_Wall_Terrain9_48x48.png"; break;
-					case 10: image = "C_Wall_Terrain10_48x48.png"; break;
-					case 11: image = "C_Wall_Terrain11_48x48.png"; break;
-					case 12: image = "C_Wall_Terrain12_48x48.png"; break;
-						//
-					case 13: image = "C_Wall_Terrain13_48x48.png"; break;
-					case 14: image = "C_Wall_Terrain14_48x48.png"; break;
-					case 15: image = "C_Wall_Terrain15_48x48.png"; break;
+				//	switch (rand) {
+				//	case 1: image = "C_Wall_Terrain1_48x48.png"; break;
+				//	case 2: image = "C_Wall_Terrain2_48x48.png"; break;
+				//	case 3: image = "C_Wall_Terrain3_48x48.png"; break;
+				//	case 4: image = "C_Wall_Terrain4_48x48.png"; break;
+				//	case 5: image = "C_Wall_Terrain5_48x48.png"; break;
+				//	case 6: image = "C_Wall_Terrain6_48x48.png"; break;
+				//	case 7: image = "C_Wall_Terrain7_48x48.png"; break;
+				//	case 8: image = "C_Wall_Terrain8_48x48.png"; break;
+				//	case 9: image = "C_Wall_Terrain9_48x48.png"; break;
+				//	case 10: image = "C_Wall_Terrain10_48x48.png"; break;
+				//	case 11: image = "C_Wall_Terrain11_48x48.png"; break;
+				//	case 12: image = "C_Wall_Terrain12_48x48.png"; break;
+				//		//
+				//	case 13: image = "C_Wall_Terrain13_48x48.png"; break;
+				//	case 14: image = "C_Wall_Terrain14_48x48.png"; break;
+				//	case 15: image = "C_Wall_Terrain15_48x48.png"; break;
 
-						/*switch (rand) {
-						case 1: image = "Wall_Terrain1_A.png"; break;
-						case 2: image = "Wall_Terrain2_A.png"; break;
-						case 3: image = "Wall_Terrain3_A.png"; break;
-						case 4: image = "Wall_Terrain4_A.png"; break;
-						case 5: image = "Wall_Terrain5_A.png"; break;
-						case 6: image = "Wall_Terrain6_A.png"; break;
-						case 7: image = "Wall_Terrain7_A.png"; break;
-						case 8: image = "Wall_Terrain8_A.png"; break;
-						case 9: image = "Wall_Terrain9_A.png"; break;
-						case 10: image = "Wall_Terrain19_A.png"; break;
-						case 11: image = "Wall_Terrain20_A.png"; break;
-						case 12: image = "Wall_Terrain21_A.png"; break;
-						case 13: image = "Wall_Terrain22_A.png"; break;*/
-						/*case 10: image = "Wall_Terrain10_A.png"; break;
-						case 11: image = "Wall_Terrain11_A.png"; break;
-						case 12: image = "Wall_Terrain12_A.png"; break;
-						case 13: image = "Wall_Terrain13_A.png"; break;
-						case 14: image = "Wall_Terrain14_A.png"; break;
-						case 15: image = "Wall_Terrain15_A.png"; break;
-						case 16: image = "Wall_Terrain16_A.png"; break;
-						case 17: image = "Wall_Terrain17_A.png"; break;
-						case 18: image = "Wall_Terrain18_A.png"; break;*/
-						//case 19: image = "Wall_Terrain19_A.png"; break;
-						//case 20: image = "Wall_Terrain20_A.png"; break;
-						//case 21: image = "Wall_Terrain21_A.png"; break;
-						//case 22: image = "Wall_Terrain22_A.png"; break;
-					}
-					/*
-					switch (rand) {
-					case 1: image = "Wall_Terrain1.png"; break;
-					case 2: image = "Wall_Terrain2.png"; break;
-					case 3: image = "Wall_Terrain3.png"; break;
-					case 4: image = "Wall_Terrain4.png"; break;
-					case 5: image = "Wall_Terrain5.png"; break;
-					case 6: image = "Wall_Terrain6.png"; break;
-					case 7: image = "Wall_Terrain7.png"; break;
-					case 8: image = "Wall_Terrain8.png"; break;
-					case 9: image = "Wall_Terrain9.png"; break;
-					case 10: image = "Wall_Terrain10.png"; break;
-					case 11: image = "Wall_Terrain11.png"; break;
-					case 12: image = "Wall_Terrain12.png"; break;
-					case 13: image = "Wall_Terrain13.png"; break;
-					}*/
-					break;
-				}
-				//case LAVA: image = "Lava_Tile1_48x48.png"; break;
-				case DOOR_H: image = "Door_Horizontal_Closed_48x48.png"; break;
-				case DOOR_V: image = "Door_Vertical_Closed_48x48.png"; break;
-				//case DEVILS_WATER: image = "Water_Tile1_48x48.png"; break;
+				//		/*switch (rand) {
+				//		case 1: image = "Wall_Terrain1_A.png"; break;
+				//		case 2: image = "Wall_Terrain2_A.png"; break;
+				//		case 3: image = "Wall_Terrain3_A.png"; break;
+				//		case 4: image = "Wall_Terrain4_A.png"; break;
+				//		case 5: image = "Wall_Terrain5_A.png"; break;
+				//		case 6: image = "Wall_Terrain6_A.png"; break;
+				//		case 7: image = "Wall_Terrain7_A.png"; break;
+				//		case 8: image = "Wall_Terrain8_A.png"; break;
+				//		case 9: image = "Wall_Terrain9_A.png"; break;
+				//		case 10: image = "Wall_Terrain19_A.png"; break;
+				//		case 11: image = "Wall_Terrain20_A.png"; break;
+				//		case 12: image = "Wall_Terrain21_A.png"; break;
+				//		case 13: image = "Wall_Terrain22_A.png"; break;*/
+				//		/*case 10: image = "Wall_Terrain10_A.png"; break;
+				//		case 11: image = "Wall_Terrain11_A.png"; break;
+				//		case 12: image = "Wall_Terrain12_A.png"; break;
+				//		case 13: image = "Wall_Terrain13_A.png"; break;
+				//		case 14: image = "Wall_Terrain14_A.png"; break;
+				//		case 15: image = "Wall_Terrain15_A.png"; break;
+				//		case 16: image = "Wall_Terrain16_A.png"; break;
+				//		case 17: image = "Wall_Terrain17_A.png"; break;
+				//		case 18: image = "Wall_Terrain18_A.png"; break;*/
+				//		//case 19: image = "Wall_Terrain19_A.png"; break;
+				//		//case 20: image = "Wall_Terrain20_A.png"; break;
+				//		//case 21: image = "Wall_Terrain21_A.png"; break;
+				//		//case 22: image = "Wall_Terrain22_A.png"; break;
+				//	}
+				//	/*
+				//	switch (rand) {
+				//	case 1: image = "Wall_Terrain1.png"; break;
+				//	case 2: image = "Wall_Terrain2.png"; break;
+				//	case 3: image = "Wall_Terrain3.png"; break;
+				//	case 4: image = "Wall_Terrain4.png"; break;
+				//	case 5: image = "Wall_Terrain5.png"; break;
+				//	case 6: image = "Wall_Terrain6.png"; break;
+				//	case 7: image = "Wall_Terrain7.png"; break;
+				//	case 8: image = "Wall_Terrain8.png"; break;
+				//	case 9: image = "Wall_Terrain9.png"; break;
+				//	case 10: image = "Wall_Terrain10.png"; break;
+				//	case 11: image = "Wall_Terrain11.png"; break;
+				//	case 12: image = "Wall_Terrain12.png"; break;
+				//	case 13: image = "Wall_Terrain13.png"; break;
+				//	}*/
+				//	break;
+				//}
 				//case FOUNTAIN: image = "Fountain_Down_48x48.png"; break;
 				case GOBLIN: image = "Goblin_48x48.png"; break;
 				case WANDERER: image = "Wanderer_48x48.png";	break;
@@ -3103,7 +3587,7 @@ void Level3Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 								case 6: zapper->getSparks()[i]->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottomleft
 								case 7: zapper->getSparks()[i]->setPosition((x + 1)* SPACING_FACTOR - X_OFFSET, (maxrows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottomright
 								}
-								zapper->getSparks()[i]->setScale(0.09375);
+								zapper->getSparks()[i]->setScale(0.75);
 								zapper->getSparks()[i]->setVisible(false);
 							}
 							zapper.reset();
@@ -3126,37 +3610,35 @@ void Level3Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 				case BOMBEE: image = "Bombee_48x48.png"; break;
 				default: image = "cheese.png"; break;
 				}
-				if (tile->top == PLAYER) {
-					x = j * SPACING_FACTOR - X_OFFSET;
-					y = SPACING_FACTOR * (maxrows - i) - Y_OFFSET;
-				}
-				else if (tile->top == WALL) {
-					Sprite* wall = createSprite(image, maxrows, j, i, 1);
+				/*if (tile->top == WALL) {
+					Sprite* wall = Sprite::createWithSpriteFrameName(image);
+					this->addChild(wall, 1);
+					wall->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
 					wall->setColor(Color3B(210, 200, 255));
 					walls.push_back(wall);
 				}
 				else if (tile->top == UNBREAKABLE_WALL) {
-					Sprite* wall = createSprite(image, maxrows, j, i, 1);
+					Sprite* wall = Sprite::createWithSpriteFrameName(image);
+					this->addChild(wall, 1);
+					wall->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
 					wall->setColor(Color3B(170, 90, 40));
 				}
-				else if (tile->top == DOOR_H || tile->top == DOOR_V) {
-					Sprite* door = createSprite(image, maxrows, j, i, 1);
-					doors.push_back(door);
-				}
-				else {
-					Sprite* monster = createSprite(image, maxrows, j, i, 1);
-					monsters.push_back(monster);
-				}
+				else if (tile->top == FOUNTAIN) {
+					Sprite* fountain = Sprite::createWithSpriteFrameName(image);
+					this->addChild(fountain, 1);
+					fountain->visit();
+					fountain->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
+				}*/
+				
+					Sprite* monsterSprite = createSprite(image, maxrows, j, i, 1);
+					monsters.push_back(monsterSprite);
+
+					int pos = dungeon.findMonster(j, i, monster);
+					dungeon.getMonsters()[pos]->setSprite(monsterSprite);
+				
 			}
-			if (tile->bottom != SPACE) {
-				switch (tile->bottom) {
-				case WALL:
-				case UNBREAKABLE_WALL: image = "Wall_Face1_48x48.png"; break;
-				//case LAVA: image = "Lava_Tile1_48x48.png"; break;
-				//case LOCKED_STAIRS: image = "Locked_Stairs_48x48.png"; break;
-				//case STAIRS: image = "Stairs_48x48.png"; break;
-				//case DEVILS_WATER: image = "Water_Tile1_48x48.png"; break;
-				//case BUTTON: image = "Button_Unpressed_48x48.png"; break;
+			if (tile->item) {
+				/*switch (tile->bottom) {
 				case SKELETON_KEY: image = "Skeleton_Key_48x48.png"; break;
 				case BROWN_CHEST: image = "Brown_Chest_48x48.png"; break;
 				case SILVER_CHEST: image = "Silver_Chest_48x48.png"; break;
@@ -3170,10 +3652,894 @@ void Level3Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 				case BONEAXE: image = "Bone_Axe_48x48.png"; break;
 				case BRONZE_DAGGER: image = "Bronze_Dagger_48x48.png"; break;
 				default: image = "cheese.png"; break;
+				}*/
+				if (tile->object != nullptr)
+					image = tile->object->getImageName();
+
+				Sprite* object = createSprite(image, maxrows, j, i, -1);
+				items.push_back(object);
+
+				/*int pos = dungeon.findTrap(j, i, dungeonTraps);
+				dungeonTraps.at(pos)->setSprite(object);*/
+			}
+			if (tile->trap) {
+				switch (tile->traptile) {
+				case LOCKED_STAIRS: image = "Locked_Stairs_48x48.png"; break;
+				//case STAIRS: image = "Stairs_48x48.png"; break;
+				case BUTTON: image = "Button_Unpressed_48x48.png"; break;
+				case LAVA: image = "Lava_Tile1_48x48.png"; break;
+				case DEVILS_WATER: image = "Water_Tile1_48x48.png"; break;
+				case SPIKETRAP_DEACTIVE: image = "Spiketrap_Deactive_48x48.png"; break;
+				case SPIKETRAP_PRIMED: image = "Spiketrap_Primed_48x48.png"; break;
+				case SPIKETRAP_ACTIVE: image = "Spiketrap_Active_48x48.png"; break;
+				//case SPIKE: image = "CeilingSpike.png"; break;
+				default: image = "cheese.png"; break;
 				}
-				if (tile->bottom != WALL && tile->bottom != UNBREAKABLE_WALL && tile->bottom != LAVA && tile->bottom != DOOR_H && tile->bottom != DOOR_V) {
-					Sprite* object = createSprite(image, maxrows, j, i, -1);
-					items.push_back(object);
+				//if (tile->traptile != LAVA) {
+					Sprite* trap = createSprite(image, maxrows, j, i, -2);
+					traps.push_back(trap);
+				//}
+					int pos = dungeon.findTrap(j, i, dungeonTraps);
+					dungeonTraps.at(pos)->setSprite(trap);
+			}
+			if (tile->projectile != SPACE) {
+				switch (tile->projectile) {
+				case CHAIN: image = "Spinner_Buddy.png"; break;
+				case SPARK: image = "Spark.png"; break;
+				default: image = "cheese.png"; break;
+				}
+				Sprite* proj = Sprite::createWithSpriteFrameName(image);
+				this->addChild(proj, 0);
+				proj->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
+				projectiles.push_back(proj);
+			}
+			
+
+			rand = randInt(8) + 1;
+			switch (rand) {
+			case 1: image = "FloorTile1_48x48.png"; break;
+			case 2: image = "FloorTile2_48x48.png"; break;
+			case 3: image = "FloorTile3_48x48.png"; break;
+			case 4: image = "FloorTile4_48x48.png"; break;
+			case 5: image = "FloorTile5_48x48.png"; break;
+			case 6: image = "FloorTile6_48x48.png"; break;
+			case 7: image = "FloorTile7_48x48.png"; break;
+			case 8: image = "FloorTile8_48x48.png"; break;
+			}
+
+			Sprite* floor = createSprite(image, maxrows, j, i, -10);
+			floor->setOpacity(250);
+			floors.push_back(floor);
+		}
+	}
+}
+cocos2d::Sprite* Level2Scene::createSprite(std::string image, int maxrows, int x, int y, int z) {
+	Sprite* sprite = Sprite::createWithSpriteFrameName(image);
+	sprite->setPosition(x * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - y) - Y_OFFSET);
+	sprite->visit();
+	this->addChild(sprite, z);
+
+	return sprite;
+}
+
+void Level2Scene::Level2KeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
+	// unschedule the inaction timer
+	Director::getInstance()->getScheduler()->unschedule("level 2 timer", this);
+
+	int x, y;
+
+	auto actions = this->getActionManager();
+
+	// resumes follow if it was paused
+	if (actions->getNumberOfRunningActions() == 0) {
+		auto visibleSize = Director::getInstance()->getVisibleSize();
+		this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+	}
+	// if there are any lingering actions, finish them instantly
+	while (actions->getNumberOfRunningActions() > 1) {
+		actions->update(1.0);
+	}
+
+	p = m_dungeons.DUNGEON2->getPlayer();
+	x = p.getPosX(); y = p.getPosY();
+	Vec2 pos = event->getCurrentTarget()->getPosition();
+
+	switch (keyCode) {
+	case EventKeyboard::KeyCode::KEY_LEFT_ARROW: {
+		m_dungeons.DUNGEON2->peekDungeon(x, y, 'l');
+		
+		if (p.facingDirection() != 'l') {
+			m_player->setScaleX(-1);
+		}
+		break;
+	}
+	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
+		m_dungeons.DUNGEON2->peekDungeon(x, y, 'r');
+		
+		if (p.facingDirection() != 'r') {
+			m_player->setScaleX(1);
+		}
+		break;
+	}
+	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
+		m_dungeons.DUNGEON2->peekDungeon(x, y, 'u');
+		
+		break;
+	}
+	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
+		m_dungeons.DUNGEON2->peekDungeon(x, y, 'd');
+		
+		break;
+	}
+
+		//		Non-movement actions
+	case EventKeyboard::KeyCode::KEY_SPACE:
+		m_dungeons.DUNGEON2->peekDungeon(x, y, 'b');
+		break;
+	case EventKeyboard::KeyCode::KEY_I: // open inventory/stats screen for viewing
+
+		m_dungeons.DUNGEON2->peekDungeon(x, y, '-'); // moves monsters
+		break;
+	case EventKeyboard::KeyCode::KEY_E: // pick up item/interact
+		m_dungeons.DUNGEON2->peekDungeon(x, y, 'e');
+		if (m_dungeons.DUNGEON2->getLevel() == 4) {
+			advanceLevel();
+		}
+		break;
+	case EventKeyboard::KeyCode::KEY_W: // open weapon menu
+		kbListener->setEnabled(false);
+		m_hud->weaponMenu(kbListener, *m_dungeons.DUNGEON2);
+		
+		break;
+	case EventKeyboard::KeyCode::KEY_C: // open item menu
+		kbListener->setEnabled(false);
+		m_hud->itemMenu(kbListener, *m_dungeons.DUNGEON2);
+
+		break;
+	case EventKeyboard::KeyCode::KEY_M: { // toggle music on/off
+		if (cocos2d::experimental::AudioEngine::getVolume(id) > 0) {
+			cocos2d::experimental::AudioEngine::setVolume(id, 0.0);
+		}
+		else {
+			cocos2d::experimental::AudioEngine::setVolume(id, 1.0);
+		}
+		break;
+	}
+	case EventKeyboard::KeyCode::KEY_P:
+	case EventKeyboard::KeyCode::KEY_ESCAPE: // open pause menu
+		Director::getInstance()->pushScene(this);
+		pauseMenu();
+		this->pauseSchedulerAndActions();
+		break;
+	default:
+		m_dungeons.DUNGEON2->peekDungeon(x, y, '-');
+		break;
+	}
+
+	// Update player sprite position
+	int px = m_dungeons.DUNGEON2->getPlayer().getPosX() - x;
+	int py = m_dungeons.DUNGEON2->getPlayer().getPosY() - y;
+
+	// play step sound effect if player moved
+	if (px != 0 || py != 0) {
+		playFootstepSound();
+	}
+	//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px * SPACING_FACTOR, -py * SPACING_FACTOR));
+	//event->getCurrentTarget()->runAction(move);
+
+	// update the HUD
+	m_hud->updateHUD(*m_dungeons.DUNGEON2);
+
+	// check if player interacted with the fountain
+	if (m_dungeons.DUNGEON2->getWaterPrompt()) {
+		kbListener->setEnabled(false);
+	}
+
+	// Check if player is dead, if so, run game over screen
+	if (m_dungeons.DUNGEON2->getPlayer().getHP() <= 0) {
+		cocos2d::experimental::AudioEngine::stop(id);
+		m_hud->gameOver();
+		return;
+	}
+
+
+	// reschedule inaction timer
+	Director::getInstance()->getScheduler()->schedule([this](float) {
+		auto actions = this->getActionManager();
+
+		// resumes follow if it was paused
+		if (actions->getNumberOfRunningActions() == 0) {
+			auto visibleSize = Director::getInstance()->getVisibleSize();
+			this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+		}
+		// if there are any lingering actions, finish them instantly
+		while (actions->getNumberOfRunningActions() > 1) { // >1 because follow player is always running
+			actions->update(1.0);
+		}
+
+		p = m_dungeons.DUNGEON2->getPlayer();
+		int x = p.getPosX(); int y = p.getPosY();
+
+		m_dungeons.DUNGEON2->peekDungeon(m_dungeons.DUNGEON2->getPlayer().getPosX(), m_dungeons.DUNGEON2->getPlayer().getPosY(), '-');
+
+		// Update player sprite position
+		int px = m_dungeons.DUNGEON2->getPlayer().getPosX() - x;
+		int py = m_dungeons.DUNGEON2->getPlayer().getPosY() - y;
+
+		// play step sound effect if player moved
+		if (px != 0 || py != 0) {
+			playFootstepSound();
+		}
+		//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px * SPACING_FACTOR, -py * SPACING_FACTOR));
+		//m_player->runAction(move);
+
+		// update the HUD
+		m_hud->updateHUD(*m_dungeons.DUNGEON2);
+
+		// check if player interacted with the fountain
+		if (m_dungeons.DUNGEON2->getWaterPrompt()) {
+			kbListener->setEnabled(false);
+		}
+
+		// Check if player is dead, if so, run game over screen
+		if (m_dungeons.DUNGEON2->getPlayer().getHP() <= 0) {
+			m_hud->gameOver(*this);
+		}
+	}, this, 0.65, false, "level 2 timer");
+}
+
+void Level2Scene::pauseMenu() {
+	auto visibleSize = Director::getInstance()->getVisibleSize();
+
+	auto pauseMenuScene = PauseMenuScene::createScene();
+	pauseMenuScene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
+
+	Director::getInstance()->replaceScene(pauseMenuScene);
+}
+void Level2Scene::advanceLevel() {
+	auto visibleSize = Director::getInstance()->getVisibleSize();
+
+	auto level3Scene = Level3Scene::createScene(m_dungeons.DUNGEON2->getPlayer());
+	level3Scene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
+
+	// stop music
+	cocos2d::experimental::AudioEngine::stop(id);
+
+	Director::getInstance()->replaceScene(level3Scene);
+}
+
+
+//		LEVEL 3 SCENE
+Level3Scene::Level3Scene(HUDLayer* hud, Player p) : m_hud(hud), p(p) {
+
+}
+Scene* Level3Scene::createScene(Player p)
+{
+	auto scene = Scene::create();
+
+	// create HUD layer
+	HUDLayer* hud = HUDLayer::create();
+	scene->addChild(hud, 10);
+
+	// create background layer
+	BackgroundLayer* bglayer = BackgroundLayer::create();
+	scene->addChild(bglayer, -10);
+
+	// calls Level1Scene init()
+	auto layer = Level3Scene::create(hud, p);
+	scene->addChild(layer);
+
+	return scene;
+}
+Level3Scene* Level3Scene::create(HUDLayer* hud, Player p)
+{
+	Level3Scene *pRet = new(std::nothrow) Level3Scene(hud, p);
+	if (pRet && pRet->init())
+	{
+		pRet->autorelease();
+		return pRet;
+	}
+	else
+	{
+		delete pRet;
+		pRet = NULL;
+		return NULL;
+	}
+}
+bool Level3Scene::init()
+{
+	if (!Scene::init()) {
+		return false;
+	}
+
+	//ThirdFloor dungeon(DUNGEON2.getPlayer());
+	//DUNGEON3 = dungeon;
+
+	Dungeons dungeons;
+	m_dungeons = dungeons;
+	//delete dungeons;
+
+	ThirdFloor* DUNGEON3 = new ThirdFloor(p);
+	m_dungeons.DUNGEON3 = DUNGEON3;
+
+	// music
+	id = experimental::AudioEngine::play2d("Zero Respect.mp3", true, 1.0f);
+	cocos2d::experimental::AudioEngine::setMaxAudioInstance(150);
+
+	auto visibleSize = Director::getInstance()->getVisibleSize();
+
+	// board for rendering textures into
+	renderTexture = RenderTexture::create(visibleSize.width, visibleSize.height, Texture2D::PixelFormat::RGBA8888);
+	renderTexture->retain();
+	renderTexture->beginWithClear(0.0, 0.0, 0.0, 0.0);
+
+	//gameboard = Sprite::create();
+	//gameboard->setFlippedY(true);
+	//gameboard->setPosition(visibleSize.width / 2, visibleSize.height / 2);
+	//this->addChild(gameboard, 0);
+
+	// create player sprite and follow
+	m_player = Sprite::create("Player1_48x48.png");
+	m_player->setPosition(0, 0);
+	this->addChild(m_player, 1);
+	this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+	m_player->visit();
+
+	// Render all the sprites on the first floor
+	int px = 0, py = 0;
+	//renderDungeon(DUNGEON3, MAXROWS3, MAXCOLS3, px, py);
+	renderDungeon(*m_dungeons.DUNGEON3, m_dungeons.DUNGEON3->getRows(), m_dungeons.DUNGEON3->getCols(), px, py);
+	m_player->setPosition(px, py);
+
+	renderTexture->end();
+	// load board with the rendered sprites
+	//gameboard->initWithTexture(renderTexture->getSprite()->getTexture());
+
+	// Hides the extra game layer!!
+	auto defaultCamera = this->getDefaultCamera();
+	defaultCamera->setCameraFlag(CameraFlag::USER1); // flag on camera
+
+
+	// gives the sprite vectors to the dungeon
+	/*DUNGEON3.setPlayerSprite(m_player);
+	DUNGEON3.getPlayerVector().at(0).setSprite(m_player);
+
+	DUNGEON3.setMonsterSprites(monsters);
+	DUNGEON3.setItemSprites(items);
+	DUNGEON3.setTrapSprites(traps);
+	DUNGEON3.setProjectileSprites(projectiles);
+	DUNGEON3.setSpinnerSprites(spinner_buddies);
+	DUNGEON3.setZapperSprites(zapper_sparks);
+	DUNGEON3.setWallSprites(walls);
+	DUNGEON3.setDoorSprites(doors);
+	DUNGEON3.setFloorSprites(floors);
+	DUNGEON3.setScene(this);*/
+
+	m_dungeons.DUNGEON3->setPlayerSprite(m_player);
+	m_dungeons.DUNGEON3->getPlayerVector().at(0).setSprite(m_player);
+
+	m_dungeons.DUNGEON3->setMonsterSprites(monsters);
+	m_dungeons.DUNGEON3->setItemSprites(items);
+	m_dungeons.DUNGEON3->setTrapSprites(traps);
+	m_dungeons.DUNGEON3->setProjectileSprites(projectiles);
+	m_dungeons.DUNGEON3->setSpinnerSprites(spinner_buddies);
+	m_dungeons.DUNGEON3->setZapperSprites(zapper_sparks);
+	m_dungeons.DUNGEON3->setWallSprites(walls);
+	m_dungeons.DUNGEON3->setDoorSprites(doors);
+	m_dungeons.DUNGEON3->setFloorSprites(floors);
+	m_dungeons.DUNGEON3->setScene(this);
+
+
+	// hide all except the starting room
+	m_dungeons.DUNGEON3->hideRooms();
+
+
+	// add keyboard listener
+	kbListener = EventListenerKeyboard::create();
+	kbListener->onKeyPressed = CC_CALLBACK_2(Level3Scene::Level3KeyPressed, this);
+	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(kbListener, m_player);
+
+	
+	// schedule inaction timer
+	Director::getInstance()->getScheduler()->schedule([this](float) {
+		auto actions = this->getActionManager();
+
+		// resumes follow if it was paused
+		if (actions->getNumberOfRunningActions() == 0) {
+			auto visibleSize = Director::getInstance()->getVisibleSize();
+			this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+		}
+		// if there are any lingering actions, finish them instantly
+		while (actions->getNumberOfRunningActions() > 1) { // >1 because follow player is always running
+			actions->update(1.0);
+		}
+
+		p = m_dungeons.DUNGEON3->getPlayer();
+		int x = p.getPosX(); int y = p.getPosY();
+
+		m_dungeons.DUNGEON3->peekDungeon(m_dungeons.DUNGEON3->getPlayer().getPosX(), m_dungeons.DUNGEON3->getPlayer().getPosY(), '-');
+
+		// Update player sprite position
+		int px = m_dungeons.DUNGEON3->getPlayer().getPosX() - x;
+		int py = m_dungeons.DUNGEON3->getPlayer().getPosY() - y;
+
+		// play step sound effect if player moved
+		if (px != 0 || py != 0) {
+			playFootstepSound();
+		}
+		//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px * SPACING_FACTOR, -py * SPACING_FACTOR));
+		//m_player->runAction(move);
+
+		// update the HUD
+		m_hud->updateHUD(*m_dungeons.DUNGEON3);
+
+		// Check if player is dead, if so, run game over screen
+		if (m_dungeons.DUNGEON3->getPlayer().getHP() <= 0) {
+			m_hud->gameOver(*this);
+		}
+
+	}, this, 0.60, false, "level 3 timer");
+
+
+	return true;
+}
+void Level3Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &x, int &y) {
+	std::vector<_Tile> maze = dungeon.getDungeon();
+	_Tile *tile;
+
+	Vec2 origin = Director::getInstance()->getVisibleOrigin();
+
+	// :::: HIERARCHY OF TILE LAYER CONTENTS ::::
+	//		-----------------------------
+	//		Smasher		: TOP			 2
+	//		Actors/Walls				 1
+	//		Projectiles					 0
+	//		Items						-1
+	//		Stairs/Traps				-2
+	//		Extras						 x
+	//		Floor		: BOTTOM		-4
+	//
+
+	std::string image;
+
+	// Begin dungeon render
+	std::vector<std::shared_ptr<Monster>> monster = dungeon.getMonsters();
+	std::vector<std::shared_ptr<Objects>> dungeonTraps = dungeon.getTraps();
+	int rand;
+	for (int i = 0; i < maxrows; i++) {
+		for (int j = 0; j < maxcols; j++) {
+			tile = &maze[i*maxcols + j];
+
+			if (tile->hero) {
+				x = j * SPACING_FACTOR - X_OFFSET;
+				y = SPACING_FACTOR * (maxrows - i) - Y_OFFSET;
+			}
+			if (tile->wall) {
+				switch (tile->top) {
+				case WALL: {
+					rand = randInt(13) + 1;
+					switch (rand) {
+						/*case 1: image = "Wall_Face1.png"; break;
+						case 2: image = "Wall_Face2.png"; break;
+						case 3: image = "Wall_Face3.png"; break;
+						case 4: image = "Wall_Face4.png"; break;*/
+						/*case 1: image = "Wall_Terrain1_A.png"; break;
+						case 2: image = "Wall_Terrain2_A.png"; break;
+						case 3: image = "Wall_Terrain3_A.png"; break;
+						case 4: image = "Wall_Terrain4_A.png"; break;
+						case 5: image = "Wall_Terrain5_A.png"; break;
+						case 6: image = "Wall_Terrain6_A.png"; break;
+						case 7: image = "Wall_Terrain7_A.png"; break;
+						case 8: image = "Wall_Terrain8_A.png"; break;
+						case 9: image = "Wall_Terrain9_A.png"; break;
+						case 10: image = "Wall_Terrain10_A.png"; break;
+						case 11: image = "Wall_Terrain11_A.png"; break;
+						case 12: image = "Wall_Terrain12_A.png"; break;*/
+					case 1: image = "D_Wall_Terrain1_48x48.png"; break;
+					case 2: image = "D_Wall_Terrain2_48x48.png"; break;
+					case 3: image = "D_Wall_Terrain3_48x48.png"; break;
+					case 4: image = "D_Wall_Terrain4_48x48.png"; break;
+					case 5: image = "D_Wall_Terrain5_48x48.png"; break;
+					case 6: image = "D_Wall_Terrain6_48x48.png"; break;
+					case 7: image = "D_Wall_Terrain7_48x48.png"; break;
+					case 8: image = "D_Wall_Terrain8_48x48.png"; break;
+					case 9: image = "D_Wall_Terrain9_48x48.png"; break;
+					case 10: image = "D_Wall_Terrain10_48x48.png"; break;
+					case 11: image = "D_Wall_Terrain11_48x48.png"; break;
+					case 12: image = "D_Wall_Terrain12_48x48.png"; break;
+					case 13: image = "D_Wall_Terrain13_48x48.png"; break;
+					}
+					break;
+				}
+				case UNBREAKABLE_WALL: {
+					if (i == 0) rand = randInt(3) + 1 + (randInt(2) * 12); // upper border
+					else if (j == maxcols - 1) rand = randInt(3) + 4;// + (randInt(2) * 9); // right border
+					else if (i == maxrows - 1) rand = randInt(3) + 7 + (randInt(2) * 6); // lower border
+					else if (j == 0) rand = randInt(3) + 10;// + (randInt(2) * 3); // left border
+
+					switch (rand) {
+					case 1: image = "C_Wall_Terrain1_48x48.png"; break;
+					case 2: image = "C_Wall_Terrain2_48x48.png"; break;
+					case 3: image = "C_Wall_Terrain3_48x48.png"; break;
+					case 4: image = "C_Wall_Terrain4_48x48.png"; break;
+					case 5: image = "C_Wall_Terrain5_48x48.png"; break;
+					case 6: image = "C_Wall_Terrain6_48x48.png"; break;
+					case 7: image = "C_Wall_Terrain7_48x48.png"; break;
+					case 8: image = "C_Wall_Terrain8_48x48.png"; break;
+					case 9: image = "C_Wall_Terrain9_48x48.png"; break;
+					case 10: image = "C_Wall_Terrain10_48x48.png"; break;
+					case 11: image = "C_Wall_Terrain11_48x48.png"; break;
+					case 12: image = "C_Wall_Terrain12_48x48.png"; break;
+						//
+					case 13: image = "C_Wall_Terrain13_48x48.png"; break;
+					case 14: image = "C_Wall_Terrain14_48x48.png"; break;
+					case 15: image = "C_Wall_Terrain15_48x48.png"; break;
+
+						/*switch (rand) {
+						case 1: image = "Wall_Terrain1_A.png"; break;
+						case 2: image = "Wall_Terrain2_A.png"; break;
+						case 3: image = "Wall_Terrain3_A.png"; break;
+						case 4: image = "Wall_Terrain4_A.png"; break;
+						case 5: image = "Wall_Terrain5_A.png"; break;
+						case 6: image = "Wall_Terrain6_A.png"; break;
+						case 7: image = "Wall_Terrain7_A.png"; break;
+						case 8: image = "Wall_Terrain8_A.png"; break;
+						case 9: image = "Wall_Terrain9_A.png"; break;
+						case 10: image = "Wall_Terrain19_A.png"; break;
+						case 11: image = "Wall_Terrain20_A.png"; break;
+						case 12: image = "Wall_Terrain21_A.png"; break;
+						case 13: image = "Wall_Terrain22_A.png"; break;*/
+						/*case 10: image = "Wall_Terrain10_A.png"; break;
+						case 11: image = "Wall_Terrain11_A.png"; break;
+						case 12: image = "Wall_Terrain12_A.png"; break;
+						case 13: image = "Wall_Terrain13_A.png"; break;
+						case 14: image = "Wall_Terrain14_A.png"; break;
+						case 15: image = "Wall_Terrain15_A.png"; break;
+						case 16: image = "Wall_Terrain16_A.png"; break;
+						case 17: image = "Wall_Terrain17_A.png"; break;
+						case 18: image = "Wall_Terrain18_A.png"; break;*/
+						//case 19: image = "Wall_Terrain19_A.png"; break;
+						//case 20: image = "Wall_Terrain20_A.png"; break;
+						//case 21: image = "Wall_Terrain21_A.png"; break;
+						//case 22: image = "Wall_Terrain22_A.png"; break;
+					}
+					/*
+					switch (rand) {
+					case 1: image = "Wall_Terrain1.png"; break;
+					case 2: image = "Wall_Terrain2.png"; break;
+					case 3: image = "Wall_Terrain3.png"; break;
+					case 4: image = "Wall_Terrain4.png"; break;
+					case 5: image = "Wall_Terrain5.png"; break;
+					case 6: image = "Wall_Terrain6.png"; break;
+					case 7: image = "Wall_Terrain7.png"; break;
+					case 8: image = "Wall_Terrain8.png"; break;
+					case 9: image = "Wall_Terrain9.png"; break;
+					case 10: image = "Wall_Terrain10.png"; break;
+					case 11: image = "Wall_Terrain11.png"; break;
+					case 12: image = "Wall_Terrain12.png"; break;
+					case 13: image = "Wall_Terrain13.png"; break;
+					}*/
+					break;
+				}
+				case DOOR_H: image = "Door_Horizontal_Closed_48x48.png"; break;
+				case DOOR_V: image = "Door_Vertical_Closed_48x48.png"; break;
+				}
+
+				if (tile->top == WALL) {
+					Sprite* wall = createSprite(image, maxrows, j, i, 1);
+					wall->setColor(Color3B(210, 200, 255));
+					walls.push_back(wall);
+				}
+				else if (tile->top == UNBREAKABLE_WALL) {
+					Sprite* wall = createSprite(image, maxrows, j, i, 1);
+					wall->setColor(Color3B(170, 90, 40));
+				}
+				else if (tile->top == DOOR_H || tile->top == DOOR_V) {
+					Sprite* door = createSprite(image, maxrows, j, i, 1);
+					doors.push_back(door);
+				}
+			}
+			if (tile->enemy) {
+				switch (tile->top) {
+				//case WALL: {
+				//	rand = randInt(13) + 1;
+				//	switch (rand) {
+				//		/*case 1: image = "Wall_Face1.png"; break;
+				//		case 2: image = "Wall_Face2.png"; break;
+				//		case 3: image = "Wall_Face3.png"; break;
+				//		case 4: image = "Wall_Face4.png"; break;*/
+				//		/*case 1: image = "Wall_Terrain1_A.png"; break;
+				//		case 2: image = "Wall_Terrain2_A.png"; break;
+				//		case 3: image = "Wall_Terrain3_A.png"; break;
+				//		case 4: image = "Wall_Terrain4_A.png"; break;
+				//		case 5: image = "Wall_Terrain5_A.png"; break;
+				//		case 6: image = "Wall_Terrain6_A.png"; break;
+				//		case 7: image = "Wall_Terrain7_A.png"; break;
+				//		case 8: image = "Wall_Terrain8_A.png"; break;
+				//		case 9: image = "Wall_Terrain9_A.png"; break;
+				//		case 10: image = "Wall_Terrain10_A.png"; break;
+				//		case 11: image = "Wall_Terrain11_A.png"; break;
+				//		case 12: image = "Wall_Terrain12_A.png"; break;*/
+				//	case 1: image = "D_Wall_Terrain1_48x48.png"; break;
+				//	case 2: image = "D_Wall_Terrain2_48x48.png"; break;
+				//	case 3: image = "D_Wall_Terrain3_48x48.png"; break;
+				//	case 4: image = "D_Wall_Terrain4_48x48.png"; break;
+				//	case 5: image = "D_Wall_Terrain5_48x48.png"; break;
+				//	case 6: image = "D_Wall_Terrain6_48x48.png"; break;
+				//	case 7: image = "D_Wall_Terrain7_48x48.png"; break;
+				//	case 8: image = "D_Wall_Terrain8_48x48.png"; break;
+				//	case 9: image = "D_Wall_Terrain9_48x48.png"; break;
+				//	case 10: image = "D_Wall_Terrain10_48x48.png"; break;
+				//	case 11: image = "D_Wall_Terrain11_48x48.png"; break;
+				//	case 12: image = "D_Wall_Terrain12_48x48.png"; break;
+				//	case 13: image = "D_Wall_Terrain13_48x48.png"; break;
+				//	}
+				//	break;
+				//}
+				//case UNBREAKABLE_WALL: {
+				//	if (i == 0) rand = randInt(3) + 1 + (randInt(2) * 12); // upper border
+				//	else if (j == maxcols - 1) rand = randInt(3) + 4;// + (randInt(2) * 9); // right border
+				//	else if (i == maxrows - 1) rand = randInt(3) + 7 + (randInt(2) * 6); // lower border
+				//	else if (j == 0) rand = randInt(3) + 10;// + (randInt(2) * 3); // left border
+
+				//	switch (rand) {
+				//	case 1: image = "C_Wall_Terrain1_48x48.png"; break;
+				//	case 2: image = "C_Wall_Terrain2_48x48.png"; break;
+				//	case 3: image = "C_Wall_Terrain3_48x48.png"; break;
+				//	case 4: image = "C_Wall_Terrain4_48x48.png"; break;
+				//	case 5: image = "C_Wall_Terrain5_48x48.png"; break;
+				//	case 6: image = "C_Wall_Terrain6_48x48.png"; break;
+				//	case 7: image = "C_Wall_Terrain7_48x48.png"; break;
+				//	case 8: image = "C_Wall_Terrain8_48x48.png"; break;
+				//	case 9: image = "C_Wall_Terrain9_48x48.png"; break;
+				//	case 10: image = "C_Wall_Terrain10_48x48.png"; break;
+				//	case 11: image = "C_Wall_Terrain11_48x48.png"; break;
+				//	case 12: image = "C_Wall_Terrain12_48x48.png"; break;
+				//		//
+				//	case 13: image = "C_Wall_Terrain13_48x48.png"; break;
+				//	case 14: image = "C_Wall_Terrain14_48x48.png"; break;
+				//	case 15: image = "C_Wall_Terrain15_48x48.png"; break;
+
+				//		/*switch (rand) {
+				//		case 1: image = "Wall_Terrain1_A.png"; break;
+				//		case 2: image = "Wall_Terrain2_A.png"; break;
+				//		case 3: image = "Wall_Terrain3_A.png"; break;
+				//		case 4: image = "Wall_Terrain4_A.png"; break;
+				//		case 5: image = "Wall_Terrain5_A.png"; break;
+				//		case 6: image = "Wall_Terrain6_A.png"; break;
+				//		case 7: image = "Wall_Terrain7_A.png"; break;
+				//		case 8: image = "Wall_Terrain8_A.png"; break;
+				//		case 9: image = "Wall_Terrain9_A.png"; break;
+				//		case 10: image = "Wall_Terrain19_A.png"; break;
+				//		case 11: image = "Wall_Terrain20_A.png"; break;
+				//		case 12: image = "Wall_Terrain21_A.png"; break;
+				//		case 13: image = "Wall_Terrain22_A.png"; break;*/
+				//		/*case 10: image = "Wall_Terrain10_A.png"; break;
+				//		case 11: image = "Wall_Terrain11_A.png"; break;
+				//		case 12: image = "Wall_Terrain12_A.png"; break;
+				//		case 13: image = "Wall_Terrain13_A.png"; break;
+				//		case 14: image = "Wall_Terrain14_A.png"; break;
+				//		case 15: image = "Wall_Terrain15_A.png"; break;
+				//		case 16: image = "Wall_Terrain16_A.png"; break;
+				//		case 17: image = "Wall_Terrain17_A.png"; break;
+				//		case 18: image = "Wall_Terrain18_A.png"; break;*/
+				//		//case 19: image = "Wall_Terrain19_A.png"; break;
+				//		//case 20: image = "Wall_Terrain20_A.png"; break;
+				//		//case 21: image = "Wall_Terrain21_A.png"; break;
+				//		//case 22: image = "Wall_Terrain22_A.png"; break;
+				//	}
+				//	/*
+				//	switch (rand) {
+				//	case 1: image = "Wall_Terrain1.png"; break;
+				//	case 2: image = "Wall_Terrain2.png"; break;
+				//	case 3: image = "Wall_Terrain3.png"; break;
+				//	case 4: image = "Wall_Terrain4.png"; break;
+				//	case 5: image = "Wall_Terrain5.png"; break;
+				//	case 6: image = "Wall_Terrain6.png"; break;
+				//	case 7: image = "Wall_Terrain7.png"; break;
+				//	case 8: image = "Wall_Terrain8.png"; break;
+				//	case 9: image = "Wall_Terrain9.png"; break;
+				//	case 10: image = "Wall_Terrain10.png"; break;
+				//	case 11: image = "Wall_Terrain11.png"; break;
+				//	case 12: image = "Wall_Terrain12.png"; break;
+				//	case 13: image = "Wall_Terrain13.png"; break;
+				//	}*/
+				//	break;
+				//}
+				//case DOOR_H: image = "Door_Horizontal_Closed_48x48.png"; break;
+				//case DOOR_V: image = "Door_Vertical_Closed_48x48.png"; break;
+				case GOBLIN: image = "Goblin_48x48.png"; break;
+				case WANDERER: image = "Wanderer_48x48.png";	break;
+				case ARCHER: image = "Archer_48x48.png"; break;
+				case SEEKER: image = "Seeker_48x48.png"; break;
+				case ROUNDABOUT: image = "Roundabout_48x48.png"; break;
+				case SPINNER: {
+					// add projectile sprites
+					for (int n = 0; n < monster.size(); n++) {
+						if (monster.at(n)->getPosX() == j && monster.at(n)->getPosY() == i) {
+							std::shared_ptr<Spinner> spinner = std::dynamic_pointer_cast<Spinner>(monster.at(n));
+
+
+							this->addChild(spinner->getInner(), 0);
+							this->addChild(spinner->getOuter(), 0);
+
+							switch (spinner->getAngle()) {
+							case 1:
+								spinner->getInner()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+								spinner->getOuter()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+								break;
+							case 2:
+								spinner->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+								spinner->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+								break;
+							case 3:
+								spinner->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
+								spinner->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
+								break;
+							case 4:
+								spinner->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+								spinner->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+								break;
+							case 5:
+								spinner->getInner()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+								spinner->getOuter()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+								break;
+							case 6:
+								spinner->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
+								spinner->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
+								break;
+							case 7:
+								spinner->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
+								spinner->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
+								break;
+							case 8:
+								spinner->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
+								spinner->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
+								break;
+							}
+
+							spinner->getInner()->setVisible(false);
+							spinner->getOuter()->setVisible(false);
+							//spinner_buddies.push_back(spinner->getInner());
+							//spinner_buddies.push_back(spinner->getOuter());
+							spinner_buddies.insert(std::pair<cocos2d::Vec2, cocos2d::Sprite*>(Vec2(j, i), spinner->getInner()));
+							spinner_buddies.insert(std::pair<cocos2d::Vec2, cocos2d::Sprite*>(Vec2(j, i), spinner->getOuter()));
+
+							spinner.reset();
+						}
+					}
+					image = "Spinner_48x48.png"; break;
+				}
+				case MOUNTED_KNIGHT: image = "Knight_Level1_48x48.png"; break;
+				case ZAPPER: {
+					for (int n = 0; n < monster.size(); n++) {
+						if (monster.at(n)->getPosX() == j && monster.at(n)->getPosY() == i) {
+							// add zapper projectile sprites
+							std::shared_ptr<Zapper> zapper = std::dynamic_pointer_cast<Zapper>(monster.at(n));
+							int x = zapper->getPosX();
+							int y = zapper->getPosY();
+							for (int i = 0; i < 8; i++) {
+								switch (i) {
+									// cardinals
+								case 0: zapper->getSparks()[i]->setPosition(x * SPACING_FACTOR - X_OFFSET, (maxrows - (y - 1))*SPACING_FACTOR - Y_OFFSET); break; // top
+								case 1: zapper->getSparks()[i]->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (y))*SPACING_FACTOR - Y_OFFSET); break;// left
+								case 2: zapper->getSparks()[i]->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (y))*SPACING_FACTOR - Y_OFFSET); break;// right
+								case 3: zapper->getSparks()[i]->setPosition((x)* SPACING_FACTOR - X_OFFSET, (maxrows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottom
+								// diagonals
+								case 4: zapper->getSparks()[i]->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (y - 1))*SPACING_FACTOR - Y_OFFSET); break;// topleft
+								case 5: zapper->getSparks()[i]->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (y - 1))*SPACING_FACTOR - Y_OFFSET); break;// topright
+								case 6: zapper->getSparks()[i]->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottomleft
+								case 7: zapper->getSparks()[i]->setPosition((x + 1)* SPACING_FACTOR - X_OFFSET, (maxrows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottomright
+								}
+								zapper->getSparks()[i]->setScale(0.75);
+								zapper->getSparks()[i]->setVisible(false);
+							}
+							zapper.reset();
+						}
+					}
+
+					for (int n = 0; n < monster.size(); n++) {
+						if (monster.at(n)->getPosX() == j && monster.at(n)->getPosY() == i) {
+							std::shared_ptr<Zapper> zapper = std::dynamic_pointer_cast<Zapper>(monster.at(n));
+							for (int m = 0; m < 8; m++) {
+								this->addChild(zapper->getSparks()[m], 0);
+								//zapper_sparks.push_back(zapper->getSparks()[m]);
+								zapper_sparks.insert(std::pair<cocos2d::Vec2, cocos2d::Sprite*>(Vec2(j, i), zapper->getSparks()[m]));
+							}
+							zapper.reset();
+						}
+					}
+					image = "Zapper_48x48.png"; break;
+				}
+				case BOMBEE: image = "Bombee_48x48.png"; break;
+				default: image = "cheese.png"; break;
+				}
+				/*if (tile->top == WALL) {
+					Sprite* wall = createSprite(image, maxrows, j, i, 1);
+					wall->setColor(Color3B(210, 200, 255));
+					walls.push_back(wall);
+				}
+				else if (tile->top == UNBREAKABLE_WALL) {
+					Sprite* wall = createSprite(image, maxrows, j, i, 1);
+					wall->setColor(Color3B(170, 90, 40));
+				}
+				else if (tile->top == DOOR_H || tile->top == DOOR_V) {
+					Sprite* door = createSprite(image, maxrows, j, i, 1);
+					doors.push_back(door);
+				}*/
+				
+				Sprite* monsterSprite = createSprite(image, maxrows, j, i, 1);
+				monsters.push_back(monsterSprite);
+
+				int pos = dungeon.findMonster(j, i, monster);
+				dungeon.getMonsters()[pos]->setSprite(monsterSprite);
+				
+			}
+			if (tile->item) {
+				/*switch (tile->bottom) {
+				case BROWN_CHEST: image = "Brown_Chest_48x48.png"; break;
+				case SILVER_CHEST: image = "Silver_Chest_48x48.png"; break;
+				case GOLDEN_CHEST: image = "Golden_Chest_48x48.png"; break;
+				case LIFEPOT: image = "Life_Potion_48x48.png"; break;
+				case STATPOT: image = "Stat_Potion_48x48.png"; break;
+				case ARMOR: image = "Armor_48x48.png"; break;
+				case BOMB: image = "Bomb_48x48.png"; break;
+				case HEART_POD: image = "Heart_Pod_48x48.png"; break;
+				case CUTLASS: image = "Rusty_Broadsword_48x48.png"; break;
+				case BONEAXE: image = "Bone_Axe_48x48.png"; break;
+				case BRONZE_DAGGER: image = "Bronze_Dagger_48x48.png"; break;
+				default: image = "cheese.png"; break;
+				}*/
+				image = tile->object->getImageName();
+				Sprite* object = createSprite(image, maxrows, j, i, -1);
+				items.push_back(object);
+				
+			}
+			if (tile->trap) {
+				switch (tile->traptile) {
+				case LAVA: image = "Lava_Tile1_48x48.png"; break;
+				case BUTTON: image = "Button_Unpressed_48x48.png"; break;
+				case STAIRS: image = "Stairs_48x48.png"; break;
+				case TRIGGER_SPIKE_DEACTIVE:
+				case SPIKETRAP_DEACTIVE: image = "Spiketrap_Deactive_48x48.png"; break;
+				case SPIKETRAP_PRIMED: image = "Spiketrap_Primed_48x48.png"; break;
+				case SPIKETRAP_ACTIVE: image = "Spiketrap_Active_48x48.png"; break;
+				//case SPIKE: image = "CeilingSpike.png"; break;
+				default: image = "cheese.png"; break;
+				}
+				if (tile->traptile == SPIKETRAP_DEACTIVE) {
+					//Sprite* trap = createSprite(image, maxrows, j, i, -2);
+					//traps.push_back(trap);
+					int n = dungeon.findTrap(j, i, dungeonTraps);
+					std::shared_ptr<SpikeTrap> spiketrap = std::dynamic_pointer_cast<SpikeTrap>(dungeonTraps.at(n));
+
+					spiketrap->getSpriteD()->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (dungeon.getRows() - i) - Y_OFFSET);
+					spiketrap->getSpriteP()->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (dungeon.getRows() - i) - Y_OFFSET);
+					spiketrap->getSpriteA()->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (dungeon.getRows() - i) - Y_OFFSET);
+					this->addChild(spiketrap->getSpriteD(), 0);
+					this->addChild(spiketrap->getSpriteP(), 0);
+					this->addChild(spiketrap->getSpriteA(), 0);
+
+					//int pos = dungeon.findTrap(j, i, dungeonTraps);
+					//dungeonTraps.at(pos)->setSprite(trap);
+				}
+				else if (tile->traptile == TRIGGER_SPIKE_DEACTIVE) {
+					int n = dungeon.findTrap(j, i, dungeonTraps);
+					std::shared_ptr<TriggerSpike> spiketrap = std::dynamic_pointer_cast<TriggerSpike>(dungeonTraps.at(n));
+
+					spiketrap->getSpriteD()->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (dungeon.getRows() - i) - Y_OFFSET);
+					spiketrap->getSpriteP()->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (dungeon.getRows() - i) - Y_OFFSET);
+					spiketrap->getSpriteA()->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (dungeon.getRows() - i) - Y_OFFSET);
+					this->addChild(spiketrap->getSpriteD(), 0);
+					this->addChild(spiketrap->getSpriteP(), 0);
+					this->addChild(spiketrap->getSpriteA(), 0);
+				}
+				else if (tile->traptile != DOOR_H && tile->traptile != DOOR_V) {
+					Sprite* trap = createSprite(image, maxrows, j, i, -2);
+					traps.push_back(trap);
+
+					int pos = dungeon.findTrap(j, i, dungeonTraps);
+					dungeonTraps.at(pos)->setSprite(trap);
 				}
 			}
 			if (tile->projectile != SPACE) {
@@ -3185,23 +4551,7 @@ void Level3Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 				Sprite* proj = createSprite(image, maxrows, j, i, 0);
 				projectiles.push_back(proj);
 			}
-			if (tile->traptile != SPACE) {
-				switch (tile->traptile) {
-				case LAVA: image = "Lava_Tile1_48x48.png"; break;
-				case BUTTON: image = "Button_Unpressed_48x48.png"; break;
-				case STAIRS: image = "Stairs_48x48.png"; break;
-				case SPIKETRAP_DEACTIVE: image = "Spiketrap_Deactive_48x48.png"; break;
-				case SPIKETRAP_PRIMED: image = "Spiketrap_Primed_48x48.png"; break;
-				case SPIKETRAP_ACTIVE: image = "Spiketrap_Active_48x48.png"; break;
-				case SPIKE: image = "CeilingSpike.png"; break;
-				default: image = "cheese.png"; break;
-				}
-
-				if (!tile->wall && tile->traptile != DOOR_H && tile->traptile != DOOR_V) {
-					Sprite* trap = createSprite(image, maxrows, j, i, -2);
-					traps.push_back(trap);
-				}
-			}
+			
 
 			rand = randInt(8) + 1;
 			switch (rand) {
@@ -3216,7 +4566,8 @@ void Level3Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 			}
 
 			Sprite* floor = createSprite(image, maxrows, j, i, -3);
-			floor->setOpacity(245);
+			floor->setOpacity(252);
+			floors.push_back(floor);
 		}
 	}
 
@@ -3231,6 +4582,9 @@ cocos2d::Sprite* Level3Scene::createSprite(std::string image, int maxrows, int x
 }
 
 void Level3Scene::Level3KeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
+	// unschedule inaction timer
+	Director::getInstance()->getScheduler()->unschedule("level 3 timer", this);
+
 	int x, y;
 	char c;
 
@@ -3246,64 +4600,63 @@ void Level3Scene::Level3KeyPressed(EventKeyboard::KeyCode keyCode, Event* event)
 		actions->update(1.0);
 	}
 
-	p = DUNGEON3.getPlayer();
+	p = m_dungeons.DUNGEON3->getPlayer();
 	x = p.getPosX(); y = p.getPosY();
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 
 	switch (keyCode) {
 	case EventKeyboard::KeyCode::KEY_LEFT_ARROW: {
-		DUNGEON3.peekThirdFloor(x, y, 'l');
-		if (x != DUNGEON3.getPlayer().getPosX()) {
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(-SPACING_FACTOR, 0));
-			event->getCurrentTarget()->runAction(move);
+		m_dungeons.DUNGEON3->peekDungeon(x, y, 'l');
+
+		if (p.facingDirection() != 'l') {
+			m_player->setScaleX(-1);
 		}
+		
 		break;
 	}
 	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
-		DUNGEON3.peekThirdFloor(x, y, 'r');
-		if (x != DUNGEON3.getPlayer().getPosX()) {
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(SPACING_FACTOR, 0));
-			event->getCurrentTarget()->runAction(move);
+		m_dungeons.DUNGEON3->peekDungeon(x, y, 'r');
+
+		if (p.facingDirection() != 'r') {
+			m_player->setScaleX(1);
 		}
+		
 		break;
 	}
 	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
-		DUNGEON3.peekThirdFloor(x, y, 'u');
-		if (y != DUNGEON3.getPlayer().getPosY()) {
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(0, SPACING_FACTOR));
-			event->getCurrentTarget()->runAction(move);
-		}
+		m_dungeons.DUNGEON3->peekDungeon(x, y, 'u');
+		
 		break;
 	}
 	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
-		DUNGEON3.peekThirdFloor(x, y, 'd');
-		if (y != DUNGEON3.getPlayer().getPosY()) {
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(0, -SPACING_FACTOR));
-			event->getCurrentTarget()->runAction(move);
-		}
+		m_dungeons.DUNGEON3->peekDungeon(x, y, 'd');
+		
 		break;
 	}
 
 		//		Non-movement actions
 
+	case EventKeyboard::KeyCode::KEY_SPACE:
+		m_dungeons.DUNGEON3->peekDungeon(x, y, 'b');
+		break;
 	case EventKeyboard::KeyCode::KEY_I: // open inventory/stats screen for viewing
 
-		DUNGEON3.peekThirdFloor(0, 0, '-'); // moves monsters
+		m_dungeons.DUNGEON3->peekDungeon(x, y, '-'); // moves monsters
 		break;
 	case EventKeyboard::KeyCode::KEY_E: // pick up item/interact
-		DUNGEON3.peekThirdFloor(x, y, 'e');
-		if (DUNGEON3.getLevel() == 4) {
+		m_dungeons.DUNGEON3->peekDungeon(x, y, 'e');
+		if (m_dungeons.DUNGEON3->getLevel() == 5) {
 			advanceLevel();
 		}
 		break;
 	case EventKeyboard::KeyCode::KEY_W: // open weapon menu
 		kbListener->setEnabled(false);
-		m_hud->weaponMenu(kbListener, DUNGEON3);
+		m_hud->weaponMenu(kbListener, *m_dungeons.DUNGEON3);
 
 		break;
 	case EventKeyboard::KeyCode::KEY_C: // open item menu
 		kbListener->setEnabled(false);
-		m_hud->itemMenu(kbListener, DUNGEON3);
+		m_hud->itemMenu(kbListener, *m_dungeons.DUNGEON3);
 
 		break;
 	case EventKeyboard::KeyCode::KEY_M: { // toggle music on/off
@@ -3320,20 +4673,73 @@ void Level3Scene::Level3KeyPressed(EventKeyboard::KeyCode keyCode, Event* event)
 	case EventKeyboard::KeyCode::KEY_ESCAPE: // open pause menu
 		Director::getInstance()->pushScene(this);
 		pauseMenu();
-		this->pauseSchedulerAndActions();
 		break;
 	default:
-		DUNGEON3.peekThirdFloor(x, y, '-');
+		m_dungeons.DUNGEON3->peekDungeon(x, y, '-');
 		break;
 	}
 
+	// Update player sprite position
+	int px = m_dungeons.DUNGEON3->getPlayer().getPosX() - x;
+	int py = m_dungeons.DUNGEON3->getPlayer().getPosY() - y;
+
+	// play step sound effect if player moved
+	if (px != 0 || py != 0) {
+		playFootstepSound();
+	}
+	//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px * SPACING_FACTOR, -py * SPACING_FACTOR));
+	//event->getCurrentTarget()->runAction(move);
+
 	// update the HUD
-	m_hud->updateHUD(DUNGEON3);
+	m_hud->updateHUD(*m_dungeons.DUNGEON3);
 
 	// Check if player is dead, if so, run game over screen
-	if (DUNGEON3.getPlayer().getHP() <= 0) {
+	if (m_dungeons.DUNGEON3->getPlayer().getHP() <= 0) {
+		cocos2d::experimental::AudioEngine::stop(id);
 		m_hud->gameOver();
+		return; // prevents timer from being scheduled
 	}
+
+
+	// reschedule inaction timer
+	Director::getInstance()->getScheduler()->schedule([this](float) {
+		auto actions = this->getActionManager();
+
+		// resumes follow if it was paused
+		if (actions->getNumberOfRunningActions() == 0) {
+			auto visibleSize = Director::getInstance()->getVisibleSize();
+			this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+		}
+		// if there are any lingering actions, finish them instantly
+		while (actions->getNumberOfRunningActions() > 1) { // >1 because follow player is always running
+			actions->update(1.0);
+		}
+
+		p = m_dungeons.DUNGEON3->getPlayer();
+		int x = p.getPosX(); int y = p.getPosY();
+
+		m_dungeons.DUNGEON3->peekDungeon(m_dungeons.DUNGEON3->getPlayer().getPosX(), m_dungeons.DUNGEON3->getPlayer().getPosY(), '-');
+
+		// Update player sprite position
+		int px = m_dungeons.DUNGEON3->getPlayer().getPosX() - x;
+		int py = m_dungeons.DUNGEON3->getPlayer().getPosY() - y;
+
+		// play step sound effect if player moved
+		if (px != 0 || py != 0) {
+			playFootstepSound();
+		}
+		//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px * SPACING_FACTOR, -py * SPACING_FACTOR));
+		//m_player->runAction(move);
+
+		// update the HUD
+		m_hud->updateHUD(*m_dungeons.DUNGEON3);
+
+		// Check if player is dead, if so, run game over screen
+		if (m_dungeons.DUNGEON3->getPlayer().getHP() <= 0) {
+			m_hud->gameOver(*this);
+		}
+
+	}, this, 0.60, false, "level 3 timer");
 }
 
 void Level3Scene::pauseMenu() {
@@ -3347,7 +4753,7 @@ void Level3Scene::pauseMenu() {
 void Level3Scene::advanceLevel() {
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
-	auto boss1Scene = Boss1Scene::createScene();
+	auto boss1Scene = Boss1Scene::createScene(m_dungeons.DUNGEON3->getPlayer());
 	boss1Scene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
 
 	// stop music
@@ -3358,10 +4764,10 @@ void Level3Scene::advanceLevel() {
 
 
 //		BOSS LEVEL
-Boss1Scene::Boss1Scene(HUDLayer* hud) : m_hud(hud) {
+Boss1Scene::Boss1Scene(HUDLayer* hud, Player p) : m_hud(hud), p(p) {
 
 }
-Scene* Boss1Scene::createScene()
+Scene* Boss1Scene::createScene(Player p)
 {
 	auto scene = Scene::create();
 
@@ -3374,14 +4780,14 @@ Scene* Boss1Scene::createScene()
 	scene->addChild(bglayer, -10);
 
 	// calls Level1Scene init()
-	auto layer = Boss1Scene::create(hud);
+	auto layer = Boss1Scene::create(hud, p);
 	scene->addChild(layer);
 
 	return scene;
 }
-Boss1Scene* Boss1Scene::create(HUDLayer* hud)
+Boss1Scene* Boss1Scene::create(HUDLayer* hud, Player p)
 {
-	Boss1Scene *pRet = new(std::nothrow) Boss1Scene(hud);
+	Boss1Scene *pRet = new(std::nothrow) Boss1Scene(hud, p);
 	if (pRet && pRet->init())
 	{
 		pRet->autorelease();
@@ -3400,8 +4806,15 @@ bool Boss1Scene::init()
 		return false;
 	}
 
-	FirstBoss dungeon(DUNGEON3.getPlayer());
-	BOSS1 = dungeon;
+	//FirstBoss dungeon(DUNGEON3.getPlayer());
+	//BOSS1 = dungeon;
+
+	Dungeons dungeons;
+	m_dungeons = dungeons;
+	//delete dungeons;
+
+	FirstBoss* BOSS1 = new FirstBoss(p);
+	m_dungeons.BOSS1 = BOSS1;
 
 	// reveal boss hp bar
 	m_hud->showBossHP();
@@ -3427,12 +4840,14 @@ bool Boss1Scene::init()
 	this->addChild(m_player, 1);
 	//this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
 	this->setScale(0.4);
-	this->runAction(Follow::createWithOffset(m_player, 0, -visibleSize.height / 2, Rect(visibleSize.width / 1.5, visibleSize.height/1.9, 400, 900)));
+	this->setPosition((-visibleSize.width / 2) * .7, (-visibleSize.height / 2) * 1.2);
+	//this->runAction(Follow::createWithOffset(m_player, 0, -visibleSize.height / 2, Rect(visibleSize.width / 1.5, visibleSize.height/1.9, 400, 900)));
 	m_player->visit();
 
 	// Render all the sprites on the first floor
 	int px = 0, py = 0;
-	renderDungeon(BOSS1, BOSSROWS, BOSSCOLS, px, py);
+	//renderDungeon(BOSS1, BOSSROWS, BOSSCOLS, px, py);
+	renderDungeon(*m_dungeons.BOSS1, m_dungeons.BOSS1->getRows(), m_dungeons.BOSS1->getCols(), px, py);
 	m_player->setPosition(px, py);
 
 	renderTexture->end();
@@ -3445,7 +4860,9 @@ bool Boss1Scene::init()
 
 
 	// gives the sprite vectors to the dungeon
-	BOSS1.setPlayerSprite(m_player);
+	/*BOSS1.setPlayerSprite(m_player);
+	BOSS1.getPlayerVector().at(0).setSprite(m_player);
+
 	BOSS1.setMonsterSprites(monsters);
 	BOSS1.setItemSprites(items);
 	BOSS1.setTrapSprites(traps);
@@ -3455,13 +4872,75 @@ bool Boss1Scene::init()
 	BOSS1.setZapperSprites(zapper_sparks);
 	BOSS1.setWallSprites(walls);
 	BOSS1.setDoorSprites(doors);
-	BOSS1.setScene(this);
+	BOSS1.setScene(this);*/
+
+	m_dungeons.BOSS1->setPlayerSprite(m_player);
+	m_dungeons.BOSS1->getPlayerVector().at(0).setSprite(m_player);
+
+	m_dungeons.BOSS1->setMonsterSprites(monsters);
+	m_dungeons.BOSS1->setItemSprites(items);
+	m_dungeons.BOSS1->setTrapSprites(traps);
+	m_dungeons.BOSS1->setProjectileSprites(projectiles);
+	m_dungeons.BOSS1->setSpikeProjectileSprites(spike_projectiles);
+	m_dungeons.BOSS1->setSpinnerSprites(spinner_buddies);
+	m_dungeons.BOSS1->setZapperSprites(zapper_sparks);
+	m_dungeons.BOSS1->setWallSprites(walls);
+	m_dungeons.BOSS1->setDoorSprites(doors);
+	m_dungeons.BOSS1->setScene(this);
 
 
 	// add keyboard listener
 	kbListener = EventListenerKeyboard::create();
 	kbListener->onKeyPressed = CC_CALLBACK_2(Boss1Scene::Boss1KeyPressed, this);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(kbListener, m_player);
+
+
+	Director::getInstance()->getScheduler()->schedule([this](float) {
+		auto actions = this->getActionManager();
+
+		//// resumes follow if it was paused
+		//if (actions->getNumberOfRunningActions() == 0) {
+		//	auto visibleSize = Director::getInstance()->getVisibleSize();
+		//	this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+		//}
+		// if there are any lingering actions, finish them instantly
+		while (actions->getNumberOfRunningActions() > 0) { // >1 because follow player is always running
+			actions->update(1.0);
+		}
+		Player p = m_dungeons.BOSS1->getPlayer();
+		int x = p.getPosX(); int y = p.getPosY();
+
+		m_dungeons.BOSS1->peekDungeon(m_dungeons.BOSS1->getPlayer().getPosX(), m_dungeons.BOSS1->getPlayer().getPosY(), '-');
+		
+		// Smasher moves player around, so need to update to true location by
+		// taking (new player pos - old player pos) * SpacingFactor
+		int px = m_dungeons.BOSS1->getPlayer().getPosX() - x;
+		int py = m_dungeons.BOSS1->getPlayer().getPosY() - y;
+
+		// play step sound effect if player moved
+		if (px != 0 || py != 0) {
+			playFootstepSound();
+		}
+
+		//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px*SPACING_FACTOR, -py * SPACING_FACTOR));
+		//m_player->runAction(move);
+
+		// update the HUD
+		m_hud->updateHUD(*m_dungeons.BOSS1);
+		m_hud->updateBossHUD(*m_dungeons.BOSS1);
+
+
+		// Check if player is dead, if so, run game over screen
+		if (m_dungeons.BOSS1->getPlayer().getHP() <= 0) {
+			m_hud->gameOver(*this);
+		}
+
+		// Check if player found the idol
+		if (m_dungeons.BOSS1->getPlayer().getWin()) {
+			m_hud->winner();
+		}
+	}, this, 0.45, false, "boss 1 timer");
+
 
 	return true;
 }
@@ -3497,12 +4976,15 @@ void Boss1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &
 				smasher->setScale(3.0);
 				smasher->setColor(Color3B(55, 30, 40));
 				monsters.push_back(smasher);
+
+				int pos = dungeon.findMonster(j, i, monster);
+				dungeon.getMonsters()[pos]->setSprite(smasher);
 			}
 			if (tile->hero) {
 				x = j * SPACING_FACTOR - X_OFFSET;
 				y = SPACING_FACTOR * (maxrows - i) - Y_OFFSET;
 			}
-			if (tile->top != SPACE) {
+			if (tile->wall) {
 				switch (tile->top) {
 				case WALL: {
 					rand = randInt(13) + 1;
@@ -3609,12 +5091,26 @@ void Boss1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &
 					}*/
 					break;
 				}
-				//case SMASHER: image = "C_Wall_Terrain1_48x48.png"; break;
-				case LAVA: image = "Lava_Tile1_48x48.png"; break;
 				case DOOR_H: image = "Door_Horizontal_Closed_48x48.png"; break;
 				case DOOR_V: image = "Door_Vertical_Closed_48x48.png"; break;
-				//case DEVILS_WATER: image = "Water_Tile1_48x48.png"; break;
-				//case FOUNTAIN: image = "Fountain_Down_48x48.png"; break;
+				}
+				if (tile->top == WALL) {
+					Sprite* wall = createSprite(image, maxrows, j, i, 1);
+					wall->setColor(Color3B(210, 200, 255));
+					walls.push_back(wall);
+				}
+				else if (tile->top == UNBREAKABLE_WALL) {
+					Sprite* wall = createSprite(image, maxrows, j, i, 1);
+					wall->setColor(Color3B(170, 90, 40));
+				}
+				else if (tile->top == DOOR_H || tile->top == DOOR_V) {
+					Sprite* door = createSprite(image, maxrows, j, i, 1);
+					doors.push_back(door);
+				}
+			}
+			if (tile->enemy && tile->upper != SMASHER) {
+				switch (tile->top) {
+				//case SMASHER: image = "C_Wall_Terrain1_48x48.png"; break;
 				case GOBLIN: image = "Goblin_48x48.png"; break;
 				case WANDERER: image = "Wanderer_48x48.png";	break;
 				case ARCHER: image = "Archer_48x48.png"; break;
@@ -3697,7 +5193,7 @@ void Boss1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &
 								case 6: zapper->getSparks()[i]->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottomleft
 								case 7: zapper->getSparks()[i]->setPosition((x + 1)* SPACING_FACTOR - X_OFFSET, (maxrows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottomright
 								}
-								zapper->getSparks()[i]->setScale(0.09375);
+								zapper->getSparks()[i]->setScale(0.75);
 								zapper->getSparks()[i]->setVisible(false);
 							}
 							zapper.reset();
@@ -3720,40 +5216,14 @@ void Boss1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &
 				case BOMBEE: image = "Bombee_48x48.png"; break;
 				default: image = "cheese.png"; break;
 				}
+				Sprite* monsterSprite = createSprite(image, maxrows, j, i, 2);
+				monsters.push_back(monsterSprite);
 
-				if (tile->top == WALL) {
-					Sprite* wall = createSprite(image, maxrows, j, i, 1);
-					wall->setColor(Color3B(210, 200, 255));
-					walls.push_back(wall);
-				}
-				else if (tile->top == UNBREAKABLE_WALL) {
-					Sprite* wall = createSprite(image, maxrows, j, i, 1);
-					wall->setColor(Color3B(170, 90, 40));
-				}
-				else if (tile->top == DOOR_H || tile->top == DOOR_V) {
-					Sprite* door = createSprite(image, maxrows, j, i, 1);
-					//Sprite* door = Sprite::createWithSpriteFrameName(image);
-					//this->addChild(door, 1);
-					//door->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
-					doors.push_back(door);
-				}
-				else if (tile->top == LAVA || tile->top == FOUNTAIN) {
-					Sprite* lava = createSprite(image, maxrows, j, i, -2);
-				}
-				else {
-					Sprite* monster = createSprite(image, maxrows, j, i, 2);
-					monsters.push_back(monster);
-				}
+				int pos = dungeon.findMonster(j, i, monster);
+				dungeon.getMonsters()[pos]->setSprite(monsterSprite);
 			}
-			if (tile->bottom != SPACE) {
-				switch (tile->bottom) {
-				case WALL:
-				case UNBREAKABLE_WALL: image = "Wall_Face1_48x48.png"; break;
-				//case LAVA: image = "Lava_Tile1_48x48.png"; break;
-				//case LOCKED_STAIRS: image = "Locked_Stairs_48x48.png"; break;
-				//case STAIRS: image = "Stairs_48x48.png"; break;
-				//case DEVILS_WATER: image = "Water_Tile1_48x48.png"; break;
-				//case BUTTON: image = "Button_Unpressed_48x48.png"; break;
+			if (tile->item) {
+				/*switch (tile->bottom) {
 				case SKELETON_KEY: image = "Skeleton_Key_48x48.png"; break;
 				case BROWN_CHEST: image = "Brown_Chest_48x48.png"; break;
 				case SILVER_CHEST: image = "Silver_Chest_48x48.png"; break;
@@ -3767,10 +5237,24 @@ void Boss1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &
 				case BONEAXE: image = "Bone_Axe_48x48.png"; break;
 				case BRONZE_DAGGER: image = "Bronze_Dagger_48x48.png"; break;
 				default: image = "cheese.png"; break;
+				}*/
+				image = tile->object->getImageName();
+
+				Sprite* object = createSprite(image, maxrows, j, i, -1);
+				items.push_back(object);
+			}
+			if (tile->trap) {
+				switch (tile->traptile) {
+				case STAIRS: image = "Stairs_48x48.png"; break;
+				case SPIKETRAP_DEACTIVE: image = "Spiketrap_Deactive_48x48.png"; break;
+				case SPIKETRAP_PRIMED: image = "Spiketrap_Primed_48x48.png"; break;
+				case SPIKETRAP_ACTIVE: image = "Spiketrap_Active_48x48.png"; break;
+				case SPIKE: image = "CeilingSpike_48x48.png"; break;
+				default: image = "cheese.png"; break;
 				}
-				if (!tile->wall && tile->bottom != LAVA && tile->bottom != DOOR_H && tile->bottom != DOOR_V) {
-					Sprite* object = createSprite(image, maxrows, j, i, -1);
-					items.push_back(object);
+				if (tile->traptile != DOOR_H && tile->traptile != DOOR_V) {
+					Sprite* trap = createSprite(image, maxrows, j, i, -2);
+					traps.push_back(trap);
 				}
 			}
 			if (tile->projectile != SPACE) {
@@ -3780,25 +5264,7 @@ void Boss1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &
 				default: image = "cheese.png"; break;
 				}
 				Sprite* proj = createSprite(image, maxrows, j, i, 0);
-				//Sprite* proj = Sprite::createWithSpriteFrameName(image);
-				//this->addChild(proj, 0);
-				//proj->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - i) - Y_OFFSET);
 				projectiles.push_back(proj);
-			}
-			if (tile->traptile != SPACE && tile->traptile != UNBREAKABLE_WALL) {
-				switch (tile->traptile) {
-				case STAIRS: image = "Stairs_48x48.png"; break;
-				case SPIKETRAP_DEACTIVE: image = "Spiketrap_Deactive_48x48.png"; break;
-				case SPIKETRAP_PRIMED: image = "Spiketrap_Primed_48x48.png"; break;
-				case SPIKETRAP_ACTIVE: image = "Spiketrap_Active_48x48.png"; break;
-				case SPIKE: image = "CeilingSpike_48x48.png"; break;
-				default: image = "cheese.png"; break;
-				}
-
-				if (!tile->wall && tile->traptile != DOOR_H && tile->traptile != DOOR_V) {
-					Sprite* trap = createSprite(image, maxrows, j, i, -2);
-					traps.push_back(trap);
-				}
 			}
 
 			rand = randInt(8) + 1;
@@ -3829,89 +5295,80 @@ cocos2d::Sprite* Boss1Scene::createSprite(std::string image, int maxrows, int x,
 }
 
 void Boss1Scene::Boss1KeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
+	// unschedule the inaction timer
+	Director::getInstance()->getScheduler()->unschedule("boss 1 timer", this);
+
 	int x, y;
 	char c;
 
 	auto actions = this->getActionManager();
 
-	// resumes follow if it was paused
-	if (actions->getNumberOfRunningActions() == 0) {
-		auto visibleSize = Director::getInstance()->getVisibleSize();
-		this->runAction(Follow::createWithOffset(m_player, 0, -visibleSize.height / 2, Rect(visibleSize.width / 1.5, visibleSize.height / 1.9, 400, 1100)));
-	}
+	//// resumes follow if it was paused
+	//if (actions->getNumberOfRunningActions() == 0) {
+	//	auto visibleSize = Director::getInstance()->getVisibleSize();
+	//	this->runAction(Follow::createWithOffset(m_player, 0, -visibleSize.height / 2, Rect(visibleSize.width / 1.5, visibleSize.height / 1.9, 400, 1100)));
+	//}
+
 	// if there are any lingering actions, finish them instantly
-	while (actions->getNumberOfRunningActions() > 1) {
+	while (actions->getNumberOfRunningActions() > 0) {
 		actions->update(1.0);
 	}
 
-	p = BOSS1.getPlayer();
+	p = m_dungeons.BOSS1->getPlayer();
 	x = p.getPosX(); y = p.getPosY();
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 
 	switch (keyCode) {
 	case EventKeyboard::KeyCode::KEY_LEFT_ARROW: {
-		BOSS1.peekFirstBossDungeon(x, y, 'l');
-		//if (x != BOSS1.getPlayer().getPosX()) {
-		//	// Smasher moves player around, so need to update to true location by
-		//	// taking (new player pos - old player pos) * SpacingFactor
-		//	int px = BOSS1.getPlayer().getPosX() - x;
-		//	int py = BOSS1.getPlayer().getPosY() - y;
-		//	cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px*SPACING_FACTOR, -py*SPACING_FACTOR));
-		//	event->getCurrentTarget()->runAction(move);
-		//}
+		m_dungeons.BOSS1->peekDungeon(x, y, 'l');
+
+		if (p.facingDirection() != 'l') {
+			m_player->setScaleX(-1);
+		}
 		break;
 	}
 	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
-		BOSS1.peekFirstBossDungeon(x, y, 'r');
-		/*if (x != BOSS1.getPlayer().getPosX()) {
-			int px = BOSS1.getPlayer().getPosX() - x;
-			int py = BOSS1.getPlayer().getPosY() - y;
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px*SPACING_FACTOR, -py*SPACING_FACTOR));
-			event->getCurrentTarget()->runAction(move);
-		}*/
+		m_dungeons.BOSS1->peekDungeon(x, y, 'r');
+
+		if (p.facingDirection() != 'r') {
+			m_player->setScaleX(1);
+		}
 		break;
 	}
 	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
-		BOSS1.peekFirstBossDungeon(x, y, 'u');
-		/*if (y != BOSS1.getPlayer().getPosY()) {
-			int px = BOSS1.getPlayer().getPosX() - x;
-			int py = BOSS1.getPlayer().getPosY() - y;
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px*SPACING_FACTOR, -py*SPACING_FACTOR));
-			event->getCurrentTarget()->runAction(move);
-		}*/
+		m_dungeons.BOSS1->peekDungeon(x, y, 'u');
+		
 		break;
 	}
 	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
-		BOSS1.peekFirstBossDungeon(x, y, 'd');
-		/*if (y != BOSS1.getPlayer().getPosY()) {
-			int px = BOSS1.getPlayer().getPosX() - x;
-			int py = BOSS1.getPlayer().getPosY() - y;
-			cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px*SPACING_FACTOR, -py*SPACING_FACTOR));
-			event->getCurrentTarget()->runAction(move);
-		}*/
+		m_dungeons.BOSS1->peekDungeon(x, y, 'd');
+		
 		break;
 	}
 
 		//		Non-movement actions
 
+	case EventKeyboard::KeyCode::KEY_SPACE:
+		m_dungeons.BOSS1->peekDungeon(x, y, 'b');
+		break;
 	case EventKeyboard::KeyCode::KEY_I: // open inventory/stats screen for viewing
 
-		BOSS1.peekFirstBossDungeon(0, 0, '-'); // moves monsters
+		m_dungeons.BOSS1->peekDungeon(x, y, '-'); // moves monsters
 		break;
 	case EventKeyboard::KeyCode::KEY_E: // pick up item/interact
-		BOSS1.peekFirstBossDungeon(x, y, 'e');
-		if (BOSS1.getLevel() == 4) {
+		m_dungeons.BOSS1->peekDungeon(x, y, 'e');
+		if (m_dungeons.BOSS1->getLevel() == 4) {
 			;//advanceLevel();
 		}
 		break;
 	case EventKeyboard::KeyCode::KEY_W: // open weapon menu
 		kbListener->setEnabled(false);
-		m_hud->weaponMenu(kbListener, BOSS1);
+		m_hud->weaponMenu(kbListener, *m_dungeons.BOSS1);
 
 		break;
 	case EventKeyboard::KeyCode::KEY_C: // open item menu
 		kbListener->setEnabled(false);
-		m_hud->itemMenu(kbListener, BOSS1);
+		m_hud->itemMenu(kbListener, *m_dungeons.BOSS1);
 
 		break;
 	case EventKeyboard::KeyCode::KEY_M: { // toggle music on/off
@@ -3927,34 +5384,91 @@ void Boss1Scene::Boss1KeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
 	case EventKeyboard::KeyCode::KEY_ESCAPE: // open pause menu
 		Director::getInstance()->pushScene(this);
 		pauseMenu();
-		//this->pauseSchedulerAndActions();
+		
 		break;
 	default:
-		BOSS1.peekFirstBossDungeon(x, y, '-');
+		m_dungeons.BOSS1->peekDungeon(x, y, '-');
 		break;
 	}
 
 	// Smasher moves player around, so need to update to true location by
 	// taking (new player pos - old player pos) * SpacingFactor
-	int px = BOSS1.getPlayer().getPosX() - x;
-	int py = BOSS1.getPlayer().getPosY() - y;
-	cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px*SPACING_FACTOR, -py * SPACING_FACTOR));
-	event->getCurrentTarget()->runAction(move);
+	int px = m_dungeons.BOSS1->getPlayer().getPosX() - x;
+	int py = m_dungeons.BOSS1->getPlayer().getPosY() - y;
+
+	// play step sound effect if player moved
+	if (px != 0 || py != 0) {
+		playFootstepSound();
+	}
+
+	//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px*SPACING_FACTOR, -py * SPACING_FACTOR));
+	//event->getCurrentTarget()->runAction(move);
 
 	// update the HUD
-	m_hud->updateHUD(BOSS1);
-	m_hud->updateBossHUD(BOSS1);
+	m_hud->updateHUD(*m_dungeons.BOSS1);
+	m_hud->updateBossHUD(*m_dungeons.BOSS1);
 
 
 	// Check if player is dead, if so, run game over screen
-	if (BOSS1.getPlayer().getHP() <= 0) {
+	if (m_dungeons.BOSS1->getPlayer().getHP() <= 0) {
+		cocos2d::experimental::AudioEngine::stop(id);
 		m_hud->gameOver();
+		return; // prevents timer from being scheduled
 	}
 
 	// Check if player found the idol
-	if (BOSS1.getPlayer().getWin()) {
+	if (m_dungeons.BOSS1->getPlayer().getWin()) {
 		m_hud->winner();
+		return; // prevents timer from being scheduled
 	}
+
+	// reschedule the inaction timer
+	Director::getInstance()->getScheduler()->schedule([this](float) {
+		auto actions = this->getActionManager();
+
+		//// resumes follow if it was paused
+		//if (actions->getNumberOfRunningActions() == 0) {
+		//	auto visibleSize = Director::getInstance()->getVisibleSize();
+		//	this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+		//}
+
+		// if there are any lingering actions, finish them instantly
+		while (actions->getNumberOfRunningActions() > 0) { // >1 because follow player is always running
+			actions->update(1.0);
+		}
+		Player p = m_dungeons.BOSS1->getPlayer();
+		int x = p.getPosX(); int y = p.getPosY();
+
+		m_dungeons.BOSS1->peekDungeon(m_dungeons.BOSS1->getPlayer().getPosX(), m_dungeons.BOSS1->getPlayer().getPosY(), '-');
+
+		// Smasher moves player around, so need to update to true location by
+		// taking (new player pos - old player pos) * SpacingFactor
+		int px = m_dungeons.BOSS1->getPlayer().getPosX() - x;
+		int py = m_dungeons.BOSS1->getPlayer().getPosY() - y;
+
+		// play step sound effect if player moved
+		if (px != 0 || py != 0) {
+			playFootstepSound();
+		}
+
+		//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px*SPACING_FACTOR, -py * SPACING_FACTOR));
+		//m_player->runAction(move);
+
+		// update the HUD
+		m_hud->updateHUD(*m_dungeons.BOSS1);
+		m_hud->updateBossHUD(*m_dungeons.BOSS1);
+
+
+		// Check if player is dead, if so, run game over screen
+		if (m_dungeons.BOSS1->getPlayer().getHP() <= 0) {
+			m_hud->gameOver(*this);
+		}
+
+		// Check if player found the idol
+		if (m_dungeons.BOSS1->getPlayer().getWin()) {
+			m_hud->winner();
+		}
+	}, this, 0.50, false, "boss 1 timer");
 }
 
 void Boss1Scene::pauseMenu() {
@@ -3968,7 +5482,7 @@ void Boss1Scene::pauseMenu() {
 void Boss1Scene::advanceLevel() {
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
-	auto level3Scene = Level3Scene::createScene();
+	auto level3Scene = Level3Scene::createScene(m_dungeons.BOSS1->getPlayer());
 	level3Scene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
 
 	// stop music
@@ -4092,9 +5606,8 @@ void PauseMenuScene::pauseMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode
 			return;
 		}
 		case 1: { // Restart
-			// generates a new dungeon and replaces the current one
-			Dungeon d;
-			DUNGEON = d;
+			
+			experimental::AudioEngine::stopAll(); // remove all sound before creating the next scene
 
 			// generate a new level 1 scene
 			auto visibleSize = Director::getInstance()->getVisibleSize();
@@ -4211,13 +5724,12 @@ void PauseMenuScene::helpScreen() {
 	*/
 }
 
-// unused
+/// unused
 void PauseMenuScene::helpMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event) {
 	switch (keyCode) {
 	case EventKeyboard::KeyCode::KEY_ENTER:
 	case EventKeyboard::KeyCode::KEY_SPACE:
 	case EventKeyboard::KeyCode::KEY_ESCAPE: {
-		//auto audio = CocosDenshion::SimpleAudioEngine::getInstance();
 		cocos2d::experimental::AudioEngine::play2d("Confirm 1.mp3", false, 1.0f);
 
 		// remove help menu selection movement
@@ -4287,9 +5799,6 @@ bool HelpScene::init() {
 	auto resume = Label::createWithTTF("OK", "fonts/Marker Felt.ttf", 36);
 	resume->setPosition(0, -2 * MENU_SPACING);
 	this->addChild(resume, 3);
-	/*auto sprite = Sprite::create("Right_Arrow.png");
-	sprite->setPosition(-2 * MENU_SPACING, MENU_SPACING);
-	this->addChild(sprite, 4);*/
 
 	// HOW TO PLAY
 	auto pause = Label::createWithTTF("How to play", "fonts/Marker Felt.ttf", 48);
@@ -4370,274 +5879,14 @@ void HelpScene::helpSceneKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, coc
 }
 
 
-/// UNUSED FUNCTIONS
-
-//		WEAPON MENU SCENE
-WeaponMenuScene::WeaponMenuScene(Player player) : p(player) {
-	
-}
-Scene* WeaponMenuScene::createScene(Player player) {
-	auto scene = Scene::create();
-
-	// calls init()
-	auto layer = WeaponMenuScene::create(player);
-	scene->addChild(layer);
-
-	return scene;
-}
-WeaponMenuScene* WeaponMenuScene::create(Player player)
-{
-	WeaponMenuScene *pRet = new(std::nothrow) WeaponMenuScene(player);
-	if (pRet && pRet->init())
-	{
-		pRet->autorelease();
-		return pRet;
+//	SOUND EFFECTS
+void playFootstepSound() {
+	std::string sound;
+	switch (randInt(1)) {
+	case 0: sound = "FootStepGeneric1.mp3"; break;
+	case 1: sound = "FootStepGeneric2.mp3"; break;
 	}
-	else
-	{
-		delete pRet;
-		pRet = NULL;
-		return NULL;
-	}
-}
-bool WeaponMenuScene::init() {
-	if (!Scene::init()) {
-		return false;
-	}
-
-	p = DUNGEON.getPlayer();
-	std::vector<Weapon> wepinv = p.getWeaponInv();
-	std::vector<Drops> iteminv = p.getItemInv();
-
-	Vec2 origin = Director::getInstance()->getVisibleOrigin();
-	auto visibleSize = Director::getInstance()->getVisibleSize();
-
-	// |----|----|----|----|----|
-	// |item|item|item|item|empt|
-	// |    |    |    |    |    |
-	// |----|----|----|----|----|
-
-	// [RENDER MENU DESIGN]
-
-	for (int i = -2; i < 3; i++) {
-		Sprite* box = Sprite::create("Menu_Box1.png");
-		this->addChild(box, 2);
-		box->setPosition(i*MENU_SPACING, 0);
-		box->setOpacity(140);
-	}
-	
-	std::string image = "cheese.png";
-	for (int i = -2; i < p.getInventorySize()-2; i++) {
-		if (wepinv.at(i+2).getAction() == "Rusty Cutlass") image = "Rusty_Broadsword.png";
-		else if (wepinv.at(i+2).getAction() == "Bone Axe") image = "Bone_Axe.png";
-		else if (wepinv.at(i+2).getAction() == "Bronze Dagger") image = "Bronze_Dagger.png";
-		else if (wepinv.at(i+2).getAction() == "Iron Lance") image = "Iron_Lance.png";
-		else if (wepinv.at(i + 2).getAction() == "Short Sword") image = "Short_Sword.png";
-
-		Sprite* weapon = Sprite::create(image);
-		this->addChild(weapon, 3);
-		weapon->setPosition(i*MENU_SPACING, origin.y);
-	}
-	
-	// arrow sprite for selection
-	auto sprite = Sprite::create("Down_Arrow.png");
-	sprite->setPosition(-2*MENU_SPACING, MENU_SPACING);
-	this->addChild(sprite, 4);
-
-	auto eventListener = EventListenerKeyboard::create();
-	eventListener->onKeyPressed = CC_CALLBACK_2(WeaponMenuScene::weaponMenuKeyPressed, this);
-	/*
-	eventListener->onKeyPressed = [&origin](EventKeyboard::KeyCode keyCode, Event* event) {
-		switch (keyCode) {
-		case EventKeyboard::KeyCode::KEY_LEFT_ARROW:
-			event->getCurrentTarget()->setPosition(origin.x - MENU_SPACING, origin.y);
-			break;
-		case EventKeyboard::KeyCode::KEY_RIGHT_ARROW:
-			event->getCurrentTarget()->setPosition(origin.x + MENU_SPACING, origin.y);
-			break;
-		case EventKeyboard::KeyCode::KEY_UP_ARROW:
-			event->getCurrentTarget()->setPosition(origin.x, origin.y + MENU_SPACING);
-			break;
-		case EventKeyboard::KeyCode::KEY_DOWN_ARROW:
-			event->getCurrentTarget()->setPosition(origin.x, origin.y - MENU_SPACING);
-			break;
-		case EventKeyboard::KeyCode::KEY_ENTER:
-			return true;
-		default:
-			break;
-		}
-	};
-	*/
-
-	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(eventListener, sprite);
-
-	return true;
-}
-
-void WeaponMenuScene::weaponMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event) {
-	Vec2 origin = Director::getInstance()->getVisibleOrigin();
-	Vec2 pos = event->getCurrentTarget()->getPosition();
-	p = DUNGEON.getPlayer();
-
-	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_LEFT_ARROW: {
-		if (index > 0) {
-			index--;
-			event->getCurrentTarget()->setPosition(pos.x - MENU_SPACING, MENU_SPACING);
-
-			//auto audio = CocosDenshion::SimpleAudioEngine::getInstance();
-			cocos2d::experimental::AudioEngine::play2d("Select 1.mp3", false, 1.0f);
-		}
-		break;
-	}
-	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
-		if (index < p.getInventorySize() - 1) {
-			index++;
-			event->getCurrentTarget()->setPosition(pos.x + MENU_SPACING, MENU_SPACING);
-
-			//auto audio = CocosDenshion::SimpleAudioEngine::getInstance();
-			cocos2d::experimental::AudioEngine::play2d("Select 1.mp3", false, 1.0f);
-		}
-		break;
-	}
-	/*
-	case EventKeyboard::KeyCode::KEY_UP_ARROW:
-		event->getCurrentTarget()->setPosition(pos.x, origin.y + MENU_SPACING);
-		break;
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW:
-		event->getCurrentTarget()->setPosition(pos.x, origin.y - MENU_SPACING);
-		break;*/
-	case EventKeyboard::KeyCode::KEY_SPACE:
-	case EventKeyboard::KeyCode::KEY_ENTER: {
-		//auto audio = CocosDenshion::SimpleAudioEngine::getInstance();
-		cocos2d::experimental::AudioEngine::play2d("Confirm 1.mp3", false, 1.0f);
-		if (p.getInventorySize() != 0) {
-			DUNGEON.player.at(0).wield(index); // set player's weapon
-			DUNGEON.peekDungeon(0, 0, '-'); // move monsters
-		}
-	}
-	case EventKeyboard::KeyCode::KEY_W:
-	case EventKeyboard::KeyCode::KEY_ESCAPE:
-		index = 0;
-		Director::getInstance()->popScene();
-		return;
-	default:
-		break;
-	}
-}
-
-
-//		ITEM MENU SCENE
-Scene* ItemMenuScene::createScene() {
-	auto scene = Scene::create();
-
-	// calls init()
-	auto layer = ItemMenuScene::create();
-	scene->addChild(layer);
-
-	return scene;
-}
-bool ItemMenuScene::init() {
-	if (!Scene::init()) {
-		return false;
-	}
-
-	p = DUNGEON.getPlayer();
-	std::vector<Drops> iteminv = p.getItemInv();
-
-	Vec2 origin = Director::getInstance()->getVisibleOrigin();
-	auto visibleSize = Director::getInstance()->getVisibleSize();
-
-	// |----|----|----|----|----|
-	// |item|item|item|item|empt|
-	// |    |    |    |    |    |
-	// |----|----|----|----|----|
-
-	// [RENDER MENU DESIGN]
-
-	for (int i = -2; i < 3; i++) {
-		Sprite* box = Sprite::create("Menu_Box1.png");
-		this->addChild(box, 2);
-		box->setPosition(i*MENU_SPACING, 0);
-		box->setOpacity(140);
-	}
-
-	std::string image = "cheese.png";
-	for (int i = -2; i < p.getItemInvSize() - 2; i++) {
-		if (iteminv.at(i + 2).getItem() == "Life Potion") image = "Life_Potion.png";
-		else if (iteminv.at(i + 2).getItem() == "Stat Potion") image = "Stat_Potion.png";
-		else if (iteminv.at(i + 2).getItem() == "Bomb") image = "Bomb.png";
-		else if (iteminv.at(i + 2).getItem() == "Armor") image = "Armor.png";
-		else if (iteminv.at(i + 2).getItem() == "Mysterious Trinket") image = "Skeleton_Key.png";
-
-		Sprite* weapon = Sprite::create(image);
-		this->addChild(weapon, 3);
-		weapon->setPosition(i*MENU_SPACING, origin.y);
-	}
-
-	// arrow sprite for selection
-	auto sprite = Sprite::create("Down_Arrow.png");
-	sprite->setPosition(-2 * MENU_SPACING, MENU_SPACING);
-	this->addChild(sprite, 4);
-
-	auto eventListener = EventListenerKeyboard::create();
-
-	eventListener->onKeyPressed = CC_CALLBACK_2(ItemMenuScene::itemMenuKeyPressed, this);
-	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(eventListener, sprite);
-
-	return true;
-}
-
-void ItemMenuScene::itemMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event) {
-	Vec2 pos = event->getCurrentTarget()->getPosition();
-	p = DUNGEON.getPlayer();
-	int x = p.getPosX();
-	int y = p.getPosY();
-
-	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_LEFT_ARROW: {
-		if (index > 0) {
-			index--;
-			event->getCurrentTarget()->setPosition(pos.x - MENU_SPACING, MENU_SPACING);
-
-			cocos2d::experimental::AudioEngine::play2d("Select 1.mp3", false, 1.0f);
-		}
-		break;
-	}
-	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
-		if (index < p.getItemInvSize() - 1) {
-			index++;
-			event->getCurrentTarget()->setPosition(pos.x + MENU_SPACING, MENU_SPACING);
-
-			cocos2d::experimental::AudioEngine::play2d("Select 1.mp3", false, 1.0f);
-		}
-		break;
-	}
-	/*
-	case EventKeyboard::KeyCode::KEY_UP_ARROW:
-		event->getCurrentTarget()->setPosition(pos.x, MENU_SPACING);
-		break;
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW:
-		event->getCurrentTarget()->setPosition(pos.x, -MENU_SPACING);
-		break;*/
-	case EventKeyboard::KeyCode::KEY_SPACE:
-	case EventKeyboard::KeyCode::KEY_ENTER: {
-		cocos2d::experimental::AudioEngine::play2d("Confirm 1.mp3", false, 1.0f);
-
-		if (p.getItemInvSize() != 0) {
-			//DUNGEON.callUse(0, 0, x, y, index); // use item
-			//DUNGEON.peekDungeon(0, 0, '-'); // move monsters
-		}
-	}
-	case EventKeyboard::KeyCode::KEY_C:
-	case EventKeyboard::KeyCode::KEY_ESCAPE:
-		index = 0;
-		Director::getInstance()->popScene();
-		
-		return;
-	default:
-		break;
-	}
+	cocos2d::experimental::AudioEngine::play2d(sound, false, 0.5f);
 }
 
 

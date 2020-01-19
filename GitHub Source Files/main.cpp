@@ -41,6 +41,10 @@ int WINAPI _tWinMain(HINSTANCE hInstance,
 
 	srand(static_cast<unsigned int>(time(0)));
 
+	//auto spritecache = SpriteFrameCache::getInstance();
+	//spritecache->addSpriteFramesWithFile("1_Spritesheet.plist");
+	//spritecache->addSpriteFramesWithFile("1_Spritesheet_48x48.plist");
+
     // create the application instance
     AppDelegate app;
 

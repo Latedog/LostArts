@@ -32,7 +32,7 @@ class _Timer
 {
 public:
 	_Timer() {
-		start();
+		//start();
 	}
 	void start() {
 		m_time = std::chrono::high_resolution_clock::now();

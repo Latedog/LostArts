@@ -1,5 +1,6 @@
 #include "cocos2d.h"
 #include "GameObjects.h"
+#include "Afflictions.h"
 #include <vector>
 
 #ifndef ACTORS_H
@@ -13,60 +14,122 @@ class Monster;
 class Goblin;
 class Dungeon;
 
+void playGotHit();
+void playMiss(float volume = 1.0f);
+void playEnemyHit(float volume = 1.0f);
+void playHitSmasher(float volume = 1.0f);
+void playShieldEquip(std::string shield);
+void playShieldHit(std::string shield);
+void playShieldBroken(std::string shield);
+
 class Actors {
 public:
 	Actors();
-	Actors(int x, int y, int hp, int armor, int str, int dex, std::string name);
-	Actors(int x, int y, int hp, int armor, int str, int dex, Weapon wep);
-	Actors(int x, int y, int hp, int armor, int str, int dex, Weapon wep, std::string name);
+	Actors(int x, int y, int hp, int armor, int str, int dex, std::string name, bool burnable = true, bool bleedable = true, bool healable = true, bool stunnable = true, bool freezable = true);
+	Actors(int x, int y, int hp, int armor, int str, int dex, std::shared_ptr<Weapon> wep);
+	Actors(int x, int y, int hp, int armor, int str, int dex, std::shared_ptr<Weapon> wep, std::string name);
+	Actors(int x, int y, int hp, int armor, int str, int dex, std::shared_ptr<Weapon> wep, std::string name, bool burnable, bool bleedable, bool healable, bool stunnable, bool freezable);
 	virtual ~Actors();
 
 	int getPosX() const;
 	int getPosY() const;
+	int getMaxHP() const;
 	int getHP() const;
 	int getArmor() const;
 	int getStr() const;
 	int getDex() const;
-	virtual Weapon getWeapon() const;
-
+	int getInt() const;
+	int getLuck() const;
+	//virtual Weapon getWeapon() const;
+	virtual std::shared_ptr<Weapon>& getWeapon();
+	std::string getName() const;
+	std::vector<std::shared_ptr<Afflictions>>& getAfflictions();
+	cocos2d::Sprite* getSprite();
+	
 	void setPosX(int x);
 	void setPosY(int y);
 	void setrandPosX(int maxcols);
 	void setrandPosY(int maxrows);
+	void setMaxHP(int maxhp);
 	void setHP(int hp);
 	void setArmor(int armor);
 	void setStr(int str);
 	void setDex(int dex);
-	void setWeapon(Weapon wep);
-	std::string getName() const;
+	void setInt(int intellect);
+	void setLuck(int luck);
+	void setWeapon(std::shared_ptr<Weapon> wep);
+	void setName(std::string name);
+	void addAffliction(std::shared_ptr<Afflictions> affliction);
+	void setSprite(cocos2d::Sprite* sprite);
+
 
 	//	AFFLICTIONS
+	void checkAfflictions();
+	int findAffliction(std::string name);
+	void removeAffliction(std::string name);
+
+	bool canBeStunned() const;
+	bool canBeBurned() const;
+	bool canBeBled() const;
+	bool canBeHealed() const;
+	bool canBeFrozen() const;
+
 	bool isBurned() const;
-	void toggleBurn();
-	int burnsLeft() const;
-	void setBurn(int burn);
+	void setBurned(bool burned);
 
 	bool isBled() const;
-	void toggleBleed();
-	int bleedLeft() const;
-	void setBleed(int bleed);
+	void setBleed(bool bled);
+
+	bool isStunned() const;
+	void setStunned(bool stun);
+
+	bool isFrozen() const;
+	void setFrozen(bool freeze);
+
+	bool isInvisible() const;
+	void setInvisible(int invisible);
+
+	bool isEthereal() const;
+	void setEthereal(int ethereal);
+
+	bool isConfused() const;
+	void setConfused(int confused);
 	
 private:
 	int m_x;
 	int m_y;
+	int m_maxhp;
 	int m_hp;
 	int m_armor;
 	int m_str;
 	int m_dex;
-	Weapon m_wep;
+	int m_int = 0;
+	int m_luck = 0;
+	//Weapon m_wep;
+	std::shared_ptr<Weapon> m_wep;
 	std::string m_name;
+	
+	// Keeps track of any afflictions inflicted on the actor
+	std::vector<std::shared_ptr<Afflictions>> m_afflictions;
+
+	bool m_burnable;
+	bool m_stunnable;
+	bool m_bleedable;
+	bool m_healable;
+	bool m_freezable;
 
 	bool m_burned;
-	int m_burncount;
-	bool m_bleed;
-	int m_bleedcount;
+	bool m_bled;
+	bool m_healed;
 	bool m_poisoned;
-	int m_poisoncount;
+	bool m_stunned;
+	bool m_frozen;
+
+	bool m_invisible = false;
+	bool m_ethereal = false;
+	bool m_confused = false;
+
+	cocos2d::Sprite* m_sprite = nullptr;
 };
 
 class Player : public Actors {
@@ -75,28 +138,48 @@ public:
 	~Player();
 
 	void attack(std::vector<std::shared_ptr<Monster>> &monsters, std::vector<std::shared_ptr<Objects>> &actives, int pos, std::vector<std::string> &text);
+	void attack(Dungeon &dungeon, Actors &a);
 
 	void showInventory();
 	void showWeapons(std::vector<std::string> &text);
 	void showItems(std::vector<std::string> &text);
 
-	std::vector<Weapon> getWeaponInv() const;
-	std::vector<Drops> getItemInv() const;
-	int getInventorySize() const;
-	int getItemInvSize() const;
+	int getMoney() const;
+	void setMoney(int money);
+	//std::vector<Weapon> getWeaponInv() const;
+	std::vector<std::shared_ptr<Weapon>>& getWeapons();
+	//std::vector<Drops> getItemInv() const;
+	std::vector<std::shared_ptr<Drops>>& getItems();
+	//int getInventorySize() const;
+	//int getItemInvSize() const;
 	int getMaxWeaponInvSize() const;
 	int getMaxItemInvSize() const;
 
-	void addWeapon(Weapon w);
-	void wield(std::vector<std::string> &text);
-	void wield(); // menu arrow selection version of wield
-	void wield(int index);
-	void addItem(Drops drop);
-	void use(std::vector<std::shared_ptr<Objects>> &active, _Tile &tile, std::vector<std::string> &text);
-	std::string use(std::vector<std::shared_ptr<Objects>> &active, _Tile &tile, int index); // new version
+	bool hasShield() const;
+	void setShieldPossession(bool possesses);
+	Shield& getShield();
+	Shield getPlayerShield() const;
+	void equipShield(Shield shield);
+	void dropShield(std::vector<_Tile> &dungeon, const int maxrows, const int maxcols);
+	void shieldBroken();
+	void repairShield(int repairs);
+	bool isBlocking() const;
+	void setBlock(bool blocking);
+	void blocked();
+	bool shieldCoverage(int mx, int my);
+	char facingDirection() const;
+	void setFacingDirection(char facing);
 
-	void setMaxHP(int maxhp);
-	int getMaxHP() const;
+	//void addWeapon(Weapon w);
+	void addWeapon(std::shared_ptr<Weapon> weapon);
+	//void wield(std::vector<std::string> &text);
+	//void wield(); // menu arrow selection version of wield
+	void wield(int index);
+	//void addItem(Drops drop);
+	void addItem(std::shared_ptr<Drops> drop);
+	//void use(std::vector<std::shared_ptr<Objects>> &active, _Tile &tile, std::vector<std::string> &text);
+	void use(Dungeon &dungeon, _Tile &tile, int index); // new version
+
 	void rollHeal(std::vector<std::string> &text);
 
 	bool hasSkeletonKey() const;
@@ -108,10 +191,13 @@ public:
 	bool getWin() const;
 	std::string getDeath() const;
 	void setDeath(std::string m);
+
 private:
 	std::vector<Weapon> m_inv;
+	std::vector<std::shared_ptr<Weapon>> m_weapons;
 	unsigned m_invsize;
 	std::vector<Drops> m_iteminv;
+	std::vector<std::shared_ptr<Drops>> m_items;
 	unsigned m_iteminvsize;
 
 	int m_maxhp;
@@ -120,7 +206,15 @@ private:
 	int m_maxdex = 99;
 	int m_maxwepinv = 5;
 	int m_maxiteminv = 5;
+	int m_money = 0;
 
+	bool m_hasShield;
+	Shield m_shield;
+	bool m_blocking;
+	char m_facing;
+
+	// keyhp is the limit before the skeleton key breaks.
+	// it is set below the key's set minimum if player is already below this minimum threshold when they pick it up
 	int m_keyhp;
 
 	bool m_winner;
@@ -130,31 +224,31 @@ private:
 class Monster : public Actors {
 public:
 	Monster();
-	Monster(int x, int y, int hp, int armor, int str, int dex, Weapon wep, std::string name);
-	Monster(int x, int y, int hp, int armor, int str, int dex, std::string name);
+	Monster(int x, int y, int hp, int armor, int str, int dex, std::shared_ptr<Weapon> wep, std::string name, 
+		bool burnable = true, bool bleedable = true, bool healable = true, bool stunnable = true, bool freezable = true);
+	Monster(int x, int y, int hp, int armor, int str, int dex, std::string name, bool burnable = true, bool bleedable = true, bool healable = true, bool stunnable = true, bool freezable = true);
 	~Monster();
 
 	virtual void encounter(Player &p, Monster &m, std::vector<std::string> &text);
 	virtual void encounter(Monster &m1, Monster &m2);
 	virtual void attack(Player &p, std::vector<std::string> &text);
 	virtual void attack(Monster &m);
-	std::string getName();
-	void setMaxHP(int maxhp);
-	int getMaxHP() const;
+	
+	bool isFlying() const;
+	void setFlying(bool flying);
 
-	cocos2d::Action* getMove() const;
-	void setMove(cocos2d::Action* action);
+	bool chasesPlayer() const;
+	void setChasesPlayer(bool chases);
+
 private:
-	std::string m_name;
-	int m_maxhp;
-
-	cocos2d::Action* m_move;
+	bool m_flying = false;
+	bool m_chases = false;
 };
 
 class Goblin : public Monster {
 public:
 	Goblin(int smelldist);
-	~Goblin();
+
 	int getSmellDistance() const;
 private:
 	int m_smelldist;
@@ -163,7 +257,6 @@ private:
 class Wanderer : public Monster {
 public:
 	Wanderer();
-	~Wanderer();
 };
 
 class Archer : public Monster {
@@ -191,14 +284,6 @@ private:
 	bool m_attack;
 
 	std::map<int, cocos2d::Sprite*> sparks;
-	/*cocos2d::Sprite* spark1;
-	cocos2d::Sprite* spark2;
-	cocos2d::Sprite* spark3;
-	cocos2d::Sprite* spark4;
-	cocos2d::Sprite* spark5;
-	cocos2d::Sprite* spark6;
-	cocos2d::Sprite* spark7;
-	cocos2d::Sprite* spark8;*/
 };
 
 class Spinner : public Monster {
@@ -206,15 +291,24 @@ public:
 	Spinner();
 
 	void attack(Player &p, std::vector<std::string> &text);
+
+	void setInitialFirePosition(int x, int y);
+	void setFirePosition(char move);
+
 	bool isClockwise() const;
 	int getAngle() const;
 	void setAngle(int angle);
+
+	bool playerWasHit(const Actors &a);
 
 	cocos2d::Sprite* getInner() const;
 	cocos2d::Sprite* getOuter() const;
 private:
 	bool m_clockwise;
 	int m_angle;
+
+	Objects m_innerFire;
+	Objects m_outerFire;
 
 	cocos2d::Sprite* inner;
 	cocos2d::Sprite* outer;
