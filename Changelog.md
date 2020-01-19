@@ -77,3 +77,6 @@
 - Added flag to Monster class that checks if they chase the player as their style of attack. Used for ignoring player when they are invisible. Small "bug" where enemies (archers/knights) can move into the player if they are invisible.
 - Added confusion potion (DizzyElixir) and appropriate flags/functions which increases player's dex temporarily at the cost of reversed movement
 - Gave all items the image name to be used and changed item discovery to item_name which uses a string. This messes up level generation quite a bit, so it will need to be fixed later.
+- Fixed shop after using item_name for it's actual purpose and included new shop_action variable to take its place;
+- BUG: Shops currently don't have any mechanism for checking a full inventory when purchasing
+- BUG: Moving blocks are killing player instantly when crushing them since ethereal check is raising a false positive. Need to let the ethereal affliction access to the dungeon to fix.
