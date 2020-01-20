@@ -85,3 +85,4 @@
 - Added preprocessor directives for adjust spacing depending on the window resolution size. Incomplete since HUD doesn't adjust with it (it's hardcoded).
 - Stat potions now buff player only temporarily with new Buff affliction added
 - Added level check to the action completion while loop to resolve the freeze if player inputs during the level transition
+- Fixed non-moving player sprite on boss level by adding queueMoveSprite into the empty monsters vector check
