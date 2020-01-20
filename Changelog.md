@@ -83,3 +83,4 @@
 
 1/19/2020:
 - Added preprocessor directives for adjust spacing depending on the window resolution size. Incomplete since HUD doesn't adjust with it (it's hardcoded).
+- Stat potions now buff player only temporarily with new Buff affliction added
