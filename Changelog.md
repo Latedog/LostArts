@@ -86,3 +86,5 @@
 - Stat potions now buff player only temporarily with new Buff affliction added
 - Added level check to the action completion while loop to resolve the freeze if player inputs during the level transition
 - Fixed non-moving player sprite on boss level by adding queueMoveSprite into the empty monsters vector check
+- BIG CHANGE: The traps vectors have been changed from a vector of Objects to a vector of Traps and all functions have been changed accordingly.  Stairs and buttons are now classified as traps, and all traps have been polymorphimized into trapAction() functions. trapEncounter() can now simply call the trapAction function and the function takes care of the rest including sprite cleanup and tile flagging. FallingSpikes are now added to the trap vector instead of just the actives vector.
+- Added PoisonCloud item and corresponding PoisonBomb trap which actives when passed over
