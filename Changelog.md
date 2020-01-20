@@ -88,3 +88,6 @@
 - Fixed non-moving player sprite on boss level by adding queueMoveSprite into the empty monsters vector check
 - BIG CHANGE: The traps vectors have been changed from a vector of Objects to a vector of Traps and all functions have been changed accordingly.  Stairs and buttons are now classified as traps, and all traps have been polymorphimized into trapAction() functions. trapEncounter() can now simply call the trapAction function and the function takes care of the rest including sprite cleanup and tile flagging. FallingSpikes are now added to the trap vector instead of just the actives vector.
 - Added PoisonCloud item and corresponding PoisonBomb trap which actives when passed over
+
+1/20/2020:
+- Finally made some real use of the tile->object object and picking up items now depends on it to reduce redundancy. To achieve this, flags for checking what kind of item the pickup is were set (isItem, isWeapon, isChest, isShield, isTrinket, isAutoUse).
