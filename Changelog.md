@@ -80,3 +80,6 @@
 - Fixed shop after using item_name for it's actual purpose and included new shop_action variable to take its place;
 - BUG: Shops currently don't have any mechanism for checking a full inventory when purchasing
 - BUG: Moving blocks are killing player instantly when crushing them since ethereal check is raising a false positive. Need to let the ethereal affliction access to the dungeon to fix.
+
+1/19/2020:
+- Added preprocessor directives for adjust spacing depending on the window resolution size. Incomplete since HUD doesn't adjust with it (it's hardcoded).
