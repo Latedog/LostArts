@@ -95,3 +95,7 @@
 - Added exit flag to Tile struct to uniquely identify where the exit is
 - Moved Doors to their own vector and created find and checkDoors functions in the Dungeon class. checkActive and some other functions now don't take any arguments since dungeons can get their own vectors by using the function calls to get them.
 - Created new move() function in Monster class which moves the enemy movement responsibility from the Dungeon class to the Monster class. Monster moving is now polymorphic so don't need to check each monster by name anymore.
+
+1/21/2020:
+- Mass code cleanup removing unneeded parameters. monsterDeath polymorphimized by adding death function to the Monster class.
+- Fixed bug where explosion for mega bombs was using pos instead of pos2 for removing a trap, which would inadvertently break traps that should not be destructible by bombs.
