@@ -93,3 +93,4 @@
 - Finally made some real use of the tile->object object and picking up items now depends on it to reduce redundancy. To achieve this, flags for checking what kind of item the pickup is were set (isItem, isWeapon, isChest, isShield, isTrinket, isAutoUse).
 - Player's shield is now polymorphic (is a shared_ptr) to simplify and reduce code
 - Added exit flag to Tile struct to uniquely identify where the exit is
+- Moved Doors to their own vector and created find and checkDoors functions in the Dungeon class. checkActive and some other functions now don't take any arguments since dungeons can get their own vectors by using the function calls to get them.
