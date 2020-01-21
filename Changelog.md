@@ -99,3 +99,4 @@
 1/21/2020:
 - Mass code cleanup removing unneeded parameters. monsterDeath polymorphimized by adding death function to the Monster class.
 - Fixed bug where explosion for mega bombs was using pos instead of pos2 for removing a trap, which would inadvertently break traps that should not be destructible by bombs.
+- After polymorphimizing the all the traps (bombs and megabombs were added as active bombs and megabombs to the Traps class), a nasty bug surfaced with FallingSpikes where the sprites would seemingly disappear from the spike after being assigned them directly during creation. I've reverted it back to use the spike_sprites vector, but this begs further investigation, as I could not figure out the cause.
