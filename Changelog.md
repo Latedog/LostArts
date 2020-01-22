@@ -112,3 +112,4 @@
 1/22/2020:
 - The ring of casting(wizard hat) now increases spell potency in special ways using the int increase
 - Added invulnerability affliction because teleport adds this if player's intellect is high enough
+- BUG: placing a bomb on the exit causes the staircase to be removed since it occurs earlier in the trap vector. possible solution: separate stairs from the trap vector...
