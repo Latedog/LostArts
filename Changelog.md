@@ -114,3 +114,4 @@
 - Added invulnerability affliction because teleport adds this if player's intellect is high enough
 - BUG: placing a bomb on the exit causes the staircase to be removed since it occurs earlier in the trap vector. possible solution: separate stairs from the trap vector...
 - Fixed (possibly temporarily) above bug by adding endFirst variable to findTrap() which tells to search the trap vector forward or backward. In the event of a bomb being placed, we know it's placed at the back of the vector, so we begin at the back of the vector when searching to destroy it.
+- Fixed spinner and zapper sprite detachments by moving their sprites when they're pushed
