@@ -103,4 +103,4 @@
 - All traps are now held only in Traps, which is what was previously used for checkActive. There was no reason to have to keep track of two vectors that contained the same objects. Traps now have two distinct functions depending on if checkActive() is called or trapEncounter() is called, namely activeTrapAction() and trapAction(), respectively.
 - Bombs no longer have a fuse and lit variable since they were never used properly. ActiveBombs takes care of everything now anyway.
 - Earthquake spell no longer destroys the exit, and the wind spell now has a chance to remove burning from the player if they are on fire.
-- Fixed bug where springs and the earthquake spell were using dungeon[] instead of dungeon.getDungeon() which was causing unintended behavior.
+- Somehow moveSprite and queueMoveSprite got reversed which caused enemy sprites to detach when using springs or otherwise
