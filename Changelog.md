@@ -108,3 +108,7 @@
 - Fixed bug where trap removal was still using findActive instead of findTrap.
 - Monsters now require an x and y coordinate upon construction. This allows spinners and zappers to construct their sprite positions when created instead of during renderDungeon(). Also, removes the hardcoding that was introduced a long time ago.
 - Traps now have a flag to determine if they're classified as a wall as well
+
+1/22/2020:
+- The ring of casting(wizard hat) now increases spell potency in special ways using the int increase
+- Added invulnerability affliction because teleport adds this if player's intellect is high enough
