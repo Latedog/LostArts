@@ -107,3 +107,4 @@
 - Spinner and firebars now have destructors that remove their sprites. Spinners also no longer use the moveAssociatedSprite method and is handled by the spinner directly
 - Fixed bug where trap removal was still using findActive instead of findTrap.
 - Monsters now require an x and y coordinate upon construction. This allows spinners and zappers to construct their sprite positions when created instead of during renderDungeon(). Also, removes the hardcoding that was introduced a long time ago.
+- Traps now have a flag to determine if they're classified as a wall as well
