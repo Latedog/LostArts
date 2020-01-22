@@ -105,3 +105,4 @@
 - Earthquake spell no longer destroys the exit, and the wind spell now has a chance to remove burning from the player if they are on fire.
 - Somehow moveSprite and queueMoveSprite got reversed which caused enemy sprites to detach when using springs or otherwise
 - Spinner and firebars now have destructors that remove their sprites. Spinners also no longer use the moveAssociatedSprite method and is handled by the spinner directly
+- Fixed bug where trap removal was still using findActive instead of findTrap.
