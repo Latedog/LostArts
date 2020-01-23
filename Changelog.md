@@ -118,3 +118,4 @@
 
  1/23/2020:
  - Finished poison bomb implementation and added lethal, explosive checks to Traps class to distinguish certain properties of the trap. If a trap is classified as explosive, if it is caught in an explosion, it blows up as well.
+- Added floor sprite variable to the _Tile_ class to quickly access floor tiles when checking poison cloud
