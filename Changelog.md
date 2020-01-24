@@ -121,3 +121,5 @@
 - Added floor sprite variable to the _Tile_ class to quickly access floor tiles when checking poison cloud
 - PoisonBomb now inherits from ActiveBomb to simplify explosion chain reactions with explosion()
 - Messed with extra "lighting" effects with spinners and firebars
+- Fixed shield sprite switching when buying from the shop.
+- Fixed roundabouts walking on lava
