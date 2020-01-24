@@ -123,3 +123,4 @@
 - Messed with extra "lighting" effects with spinners and firebars
 - Fixed shield sprite switching when buying from the shop.
 - Fixed roundabouts walking on lava
+- Added smartness flag for enemies that determines that, if they chase the player, if they walk on lethal traps or not
