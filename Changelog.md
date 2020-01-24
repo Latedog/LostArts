@@ -124,3 +124,8 @@
 - Fixed shield sprite switching when buying from the shop.
 - Fixed roundabouts walking on lava
 - Added smartness flag for enemies that determines that, if they chase the player, if they walk on lethal traps or not
+- Added 3 new shields: Thorned, Frost and Reflect
+
+1/24/2020:
+- Archers no longer detect the player through monsters when at range
+- Ad
