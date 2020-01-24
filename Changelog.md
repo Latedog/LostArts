@@ -132,3 +132,5 @@
 - Added bear trap (no images found yet)
 - Fixed sprite disappearing when attempting to pick up an item from chest bought from shop with full inventory
 - Removed a bunch of unnecessary function parameters. Watch our for any leftover getRows() params in queueMoveSprite as this will cause unexpected behavior because of default variables
+- Added hasAttackPattern flag which indicates if the weapon has a special attacking pattern
+- WoodBow functionality finally added which allow attacking a decent range, but does less damage if player is adjacent to the monster
