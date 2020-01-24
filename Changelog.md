@@ -128,4 +128,6 @@
 
 1/24/2020:
 - Archers no longer detect the player through monsters when at range
-- Ad
+- Added 2 new weapons: Vulcan sword and golden shortsword
+- Added bear trap (no images found yet)
+- Fixed sprite disappearing when attempting to pick up an item from chest bought from shop with full inventory
