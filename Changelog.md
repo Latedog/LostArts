@@ -134,3 +134,4 @@
 - Removed a bunch of unnecessary function parameters. Watch our for any leftover getRows() params in queueMoveSprite as this will cause unexpected behavior because of default variables
 - Added hasAttackPattern flag which indicates if the weapon has a special attacking pattern
 - WoodBow functionality finally added which allow attacking a decent range, but does less damage if player is adjacent to the monster
+- Added VulcanHammer which is an interactive item. After casting with 's', players can smash monsters if they are nearby which stuns them
