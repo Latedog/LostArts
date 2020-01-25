@@ -135,3 +135,4 @@
 - Added hasAttackPattern flag which indicates if the weapon has a special attacking pattern
 - WoodBow functionality finally added which allow attacking a decent range, but does less damage if player is adjacent to the monster
 - Added VulcanHammer which is an interactive item. After casting with 's', players can smash monsters if they are nearby which stuns them
+- Added ArcaneStaff which, like the hammer, has a cast time. After casting, this boosts player intellect and allows for stronger spells.
