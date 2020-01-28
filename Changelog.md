@@ -136,3 +136,7 @@
 - WoodBow functionality finally added which allow attacking a decent range, but does less damage if player is adjacent to the monster
 - Added VulcanHammer which is an interactive item. After casting with 's', players can smash monsters if they are nearby which stuns them
 - Added ArcaneStaff which, like the hammer, has a cast time. After casting, this boosts player intellect and allows for stronger spells.
+
+1/27/2020:
+- Zapper sparks no longer subdued in color since it was too difficult to see them otherwise
+- Fixed bug where Roundabouts could actually heal player because hp setting was using damage - armor instead of damage alone
