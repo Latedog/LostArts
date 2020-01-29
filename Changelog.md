@@ -140,3 +140,6 @@
 1/27/2020:
 - Zapper sparks no longer subdued in color since it was too difficult to see them otherwise
 - Fixed bug where Roundabouts could actually heal player because hp setting was using damage - armor instead of damage alone
+
+1/29/2020:
+- Revised level generation for first floor; dimensions are different, player now safely spawns in the center, and the exit is placed in one of the corners
