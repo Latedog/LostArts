@@ -146,3 +146,4 @@
 - Added quick slot to HUD for items which allows the player to set and use an item for use instantly by pressing a single key (Q)
 - Added to text underneath shield and quick access HUD boxes to indicate how to use them
 - Added flashing effect to floor tiles when a bomb is used to indicate area of effect
+- Added spikes trap and crumble floors (not implemented; no images or sounds)
