@@ -143,3 +143,6 @@
 
 1/29/2020:
 - Revised level generation for first floor; dimensions are different, player now safely spawns in the center, and the exit is placed in one of the corners
+- Added quick slot to HUD for items which allows the player to set and use an item for use instantly by pressing a single key (Q)
+- Added to text underneath shield and quick access HUD boxes to indicate how to use them
+- Added flashing effect to floor tiles when a bomb is used to indicate area of effect
