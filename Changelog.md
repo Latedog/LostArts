@@ -147,3 +147,7 @@
 - Added to text underneath shield and quick access HUD boxes to indicate how to use them
 - Added flashing effect to floor tiles when a bomb is used to indicate area of effect
 - Added spikes trap and crumble floors (not implemented; no images or sounds)
+
+1/30/2020:
+- Changed moneyBonus for player to be a flat bonus and added moneyMultiplier which is used for the gold ring. Players can now increase the amount of gold they get for damaging enemies, but decreases when they get hit.
+- Fixed stat text labels to be clearer
