@@ -152,3 +152,4 @@
 - Changed moneyBonus for player to be a flat bonus and added moneyMultiplier which is used for the gold ring. Players can now increase the amount of gold they get for damaging enemies, but decreases when they get hit.
 - Fixed stat text labels to be clearer
 - Fixed Arcane Staff so that effect is unapplied as intended (when player moves or attempts to move after casting).
+- Added Bloodlust item which gives a guaranteed damage bonus when player is low on hp
