@@ -157,3 +157,4 @@
 - Completed implementation of crumble floors
 - Bombs now have a burning fuse sound effect
 - Fix for when gold spawned on spring traps, the player would not be able to pick up the gold. There's now another check for picking up gold if the player was able to move successfully.
+- Player is now tinted redder as bloodlust bonus increases
