@@ -154,3 +154,5 @@
 - Fixed Arcane Staff so that effect is unapplied as intended (when player moves or attempts to move after casting).
 - Added Bloodlust item which gives a guaranteed damage bonus when player is low on hp
 - Added HUD label for weapons that have a casting ability
+- Completed implementation of crumble floors
+- Bombs now have a burning fuse sound effect
