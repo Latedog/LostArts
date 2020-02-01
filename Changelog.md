@@ -164,3 +164,4 @@
 - Added CrumbleLava trap, a variation of the CrumbleFloor that reveals lava instead of pits
 - Fixed bug where items could spawn beneath player on first floor
 - Buffed stat potion and altered chest item drops
+- Removed explosion() from second floor and replaced it with monsterDeath to handle guardian deaths
