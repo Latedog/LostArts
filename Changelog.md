@@ -165,3 +165,6 @@
 - Fixed bug where items could spawn beneath player on first floor
 - Buffed stat potion and altered chest item drops
 - Removed explosion() from second floor and replaced it with monsterDeath to handle guardian deaths
+
+2/1/2020:
+- Fixed bug on boss where killing an archer would incorrectly flag smasher as dead since monsterDeath() was only suited for smasher previously.
