@@ -162,3 +162,4 @@
 1/31/2020:
 - Revamped floor 2 level generation; still need chunks for transitions between outer ring and center ring, and corners
 - Fixed bug where items could spawn beneath player on first floor
+- Buffed stat potion and altered chest item drops
