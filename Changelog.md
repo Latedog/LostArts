@@ -170,3 +170,4 @@
 - Fixed bug on boss where killing an archer would incorrectly flag smasher as dead since monsterDeath() was only suited for smasher previously.
 - Fixed items lighting up on floor spawn and updated lighting upon spawn for the other two floors
 - SecondFloor button now spawns on the higher edge of the inner ring
+- Resolved issue where spiketraps would be lit up upon spawn
