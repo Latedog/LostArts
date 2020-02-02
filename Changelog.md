@@ -175,3 +175,4 @@
 2/2/2020:
 - Fixed audio bug where music would not stop playing on second floors and beyond if player died from not making a move.
 - Fixed Arcane Staff bug where player would retain int after casting and switching weapons.
+- Potential fix for springs to prevent situations where two springs point toward each other, resulting in an infinite loop
