@@ -171,3 +171,7 @@
 - Fixed items lighting up on floor spawn and updated lighting upon spawn for the other two floors
 - SecondFloor button now spawns on the higher edge of the inner ring
 - Resolved issue where spiketraps would be lit up upon spawn by setting sprite visibility to false
+
+2/2/2020:
+- Fixed audio bug where music would not stop playing on second floors and beyond if player died from not making a move.
+- Fixed Arcane Staff bug where player would retain int after casting and switching weapons.
