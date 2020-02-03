@@ -177,3 +177,7 @@
 - Fixed Arcane Staff bug where player would retain int after casting and switching weapons.
 - Potential fix for springs to prevent situations where two springs point toward each other, resulting in an infinite loop
 - Partial fix for moving blocks pushing stacked enemies and player; does not do a recursive check, so a stack of three or more characters leads to weird pushing
+
+2/3/2020:
+- Added Dead Seeker, a stronger variant of the Seeker that is "smart" (does not walk into lethal traps)
+- Added structure for fire roundabouts, which are lava immune (need sprite)
