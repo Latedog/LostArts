@@ -186,3 +186,4 @@
 2/5/2020:
 - Added ItemThief enemy which snatches items or gold from the player and runs away with it
 - For now, attemptSmartChase just uses diagonal movement checking, and {1, 2, 3, 4} no longer uses quadrant numbering system. it follow left to right, top to bottom in accordance with wanderers and the way queueMoveSprite was originally setup for sprite movement using {1, 2, 3, 4}.
+- Added Monster function playerInDiagonalRange which is used for monsters that can move diagonally and that chase the player. Also fixed bugs and lag associated with the ItemThief.
