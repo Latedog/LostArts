@@ -191,3 +191,4 @@
 2/6/2020:
 - Added GooSack enemy which is more first level-friendly. Stationary, but can move when trying to attack player.
 - Added 'Broundabout' enemy which is not so much a variation on the Roundabout as it is just reusing code. This enemy does not move quite like the roundabout, it moves back and forth, but can chase the player if they are nearby, like the GooSack, albeit cannot move diagonally.
+- Completed implementation of Fire Roundabout and cleaned code for Roundabouts' movement.
