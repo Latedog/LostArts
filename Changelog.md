@@ -182,3 +182,6 @@
 - Added Dead Seeker, a stronger variant of the Seeker that is "smart" (does not walk into lethal traps)
 - Added structure for fire roundabouts, which are lava immune (need sprite)
 - Actually fixed infinite spring trap looping with oppositeSprings() recursive checker (of course, it doesn't work if a spring is completely surrounded by 8 other springs, in which case I'd have to resort to turning it into a trigger spring trap. But this probably won't ever happen).
+
+2/5/2020:
+- Added ItemThief enemy which snatches items or gold from the player and runs away with it
