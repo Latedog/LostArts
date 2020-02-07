@@ -197,3 +197,6 @@
 - Renamed FirstShop to just Shop to reflect that it can be reused for other shops.
 - Moved the object and monster vectors to protected from private so that I do not need to "redefine" the getters used for them. There was no difference between them anyway, so now the Dungeon base class is responsible for holding the rest of the dungeon's objects.
 - Potentially fixed a crashing bug where Dungeon's assignment operator was not clearing out m_seq since m_spawn was used before.
+
+2/7/2020:
+- Changed GUI to reuse Shop1Scene so that the shop can be easily rendered again. The shop's content remain unchanged since there isn't any check yet for adjusted prices and new items.
