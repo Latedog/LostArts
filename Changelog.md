@@ -193,3 +193,4 @@
 - Added 'Broundabout' enemy which is not so much a variation on the Roundabout as it is just reusing code. This enemy does not move quite like the roundabout, it moves back and forth, but can chase the player if they are nearby, like the GooSack, albeit cannot move diagonally.
 - Completed implementation of Fire Roundabout and cleaned code for Roundabouts' and Knight movement.
 - Added new NPCs class to allow for special side quests within the dungeons. Creature Lover is the first, who asks the player to fetch them a special monster!
+- Nerfed VulcanRune to make the player only unburnable
