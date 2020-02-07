@@ -194,3 +194,6 @@
 - Completed implementation of Fire Roundabout and cleaned code for Roundabouts' and Knight movement.
 - Added new NPCs class to allow for special side quests within the dungeons. Creature Lover is the first, who asks the player to fetch them a special monster!
 - Nerfed VulcanRune to make the player only unburnable
+- Renamed FirstShop to just Shop to reflect that it can be reused for other shops.
+- Moved the object and monster vectors to protected from private so that I do not need to "redefine" the getters used for them. There was no difference between them anyway, so now the Dungeon base class is responsible for holding the rest of the dungeon's objects.
+- Potentially fixed a crashing bug where Dungeon's assignment operator was not clearing out m_seq since m_spawn was used before.
