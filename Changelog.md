@@ -202,3 +202,5 @@
 - Changed GUI to reuse Shop1Scene so that the shop can be easily rendered again. The shop's content remain unchanged since there isn't any check yet for adjusted prices and new items.
 - Weapon menu selection now wraps around edges (but will be nil when weapon inventory size is changed to 1)
 - Fixed third floor level generation but added a @start and @end parameter to fillLevel() since the third floor has unusual spawning properties.
+- Added BigLifePotion which is a better version of the LifePotion.
+- Fixed bug where Bloodrite could heal past max and BrightStar could leave player with more than max hp.
