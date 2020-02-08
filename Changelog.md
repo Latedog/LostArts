@@ -204,3 +204,4 @@
 - Fixed third floor level generation but added a @start and @end parameter to fillLevel() since the third floor has unusual spawning properties.
 - Added BigLifePotion which is a better version of the LifePotion.
 - Fixed bug where Bloodrite could heal past max and BrightStar could leave player with more than max hp.
+- Added shop price adjustment multiplier based on level
