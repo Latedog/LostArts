@@ -208,3 +208,4 @@
 
 2/8/2020:
 - Added item descriptions and inventory screen so the player can receive brief information on their items.
+- Fixed inventory selection box movement and added helper text to weapon and item menus.
