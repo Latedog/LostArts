@@ -205,3 +205,6 @@
 - Added BigLifePotion which is a better version of the LifePotion.
 - Fixed bug where Bloodrite could heal past max and BrightStar could leave player with more than max hp.
 - Added shop price adjustment multiplier based on level
+
+2/8/2020:
+- Added item descriptions and inventory screen so the player can receive brief information on their items.
