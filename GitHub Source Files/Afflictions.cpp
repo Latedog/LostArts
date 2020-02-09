@@ -3,6 +3,8 @@
 #include "Afflictions.h"
 #include "Actors.h"
 #include "utilities.h"
+#include <memory>
+
 
 // :::: AFFLICTIONS ::::
 Afflictions::Afflictions() {
@@ -150,6 +152,9 @@ void Stun::afflict(Actors &a) {
 		a.setStunned(true);
 
 	if (getTurnsLeft() > 0) {
+		// tint gray to indicate stunned
+		//tintStunned(a.getSprite());
+
 		// decrease the stun count by 1
 		setTurnsLeft(getTurnsLeft() - 1);
 	}
@@ -181,6 +186,51 @@ void Freeze::afflict(Actors &a) {
 	// flag to remove affliction
 	else {
 		a.setFrozen(false);
+		setExhaustion(true);
+	}
+}
+
+
+//		POISON
+Poison::Poison(int turns, int wait, int str, int dex) : Afflictions(turns, wait, "poison"), m_str(str), m_dex(dex) {
+
+}
+
+void Poison::afflict(Actors &a) {
+	// if poison flag hasn't been set yet, set it
+	if (!a.isPoisoned() && getTurnsLeft() != 0) {
+		a.setPoisoned(true);
+		a.setStr(a.getStr() - m_str);
+		a.setDex(a.getDex() - m_dex);
+	}
+
+	if (getWaitTime() == 0 && getTurnsLeft() > 0) {
+		// poison effect
+		playPoison(0.23f);
+		tintPoisoned(a.getSprite());
+
+		a.setHP(a.getHP() - 1);
+
+		// decrease the poison count by 1
+		setTurnsLeft(getTurnsLeft() - 1);
+
+		/*/// check to move this into the LAST else statement later
+		if (getTurnsLeft() == 0) {
+			a.setPoisoned(false);
+		}*/
+
+		// resets wait time
+		setWaitTime(getMaxWait());
+	}
+	// else if wait time is not over and there's still bleeding left
+	else if (getWaitTime() > 0 && getTurnsLeft() > 0) {
+		setWaitTime(getWaitTime() - 1);
+	}
+	// flag to remove affliction
+	else {
+		a.setPoisoned(false);
+		a.setStr(a.getStr() + m_str);
+		a.setDex(a.getDex() + m_dex);
 		setExhaustion(true);
 	}
 }
@@ -266,8 +316,15 @@ void Confusion::afflict(Actors &a) {
 	}
 
 	if (getTurnsLeft() > 0) {
-		// play bird (confusion) sound
-		playBirdSound(0.5f);
+
+		// if there are at least 3 turns remaining play bird sound
+		if (getTurnsLeft() > 3) {
+			playBirdSound(0.15f);
+		}
+		// else play crow sound to indicate that the effect is about to wear off
+		else {
+			playCrowSound(0.5f);
+		}
 
 		// decrease the stun count by 1
 		setTurnsLeft(getTurnsLeft() - 1);
@@ -283,12 +340,94 @@ void Confusion::afflict(Actors &a) {
 }
 
 
+//		BUFF STATS
+Buff::Buff(int turns, int str, int dex, int intellect) : Afflictions(turns, 0, "buff"), m_str(str), m_dex(dex), m_int(intellect) {
+
+}
+
+void Buff::afflict(Actors &a) {
+	// if buff flag hasn't been set yet, set it
+	if (!a.isBuffed()) {
+		a.setBuffed(true);
+
+		// buff the actor's stats accordingly
+		a.setStr(a.getStr() + m_str);
+		a.setDex(a.getDex() + m_dex);
+		a.setInt(a.getInt() + m_int);
+	}
+
+	if (getTurnsLeft() > 0) {
+		// decrease the stun count by 1
+		setTurnsLeft(getTurnsLeft() - 1);
+	}
+	// flag to remove affliction
+	else {
+		a.setBuffed(false);
+		setExhaustion(true);
+
+		// remove the buffs
+		a.setStr(a.getStr() - m_str);
+		a.setDex(a.getDex() - m_dex);
+		a.setInt(a.getInt() - m_int);
+	}
+}
+
+
+//		INVULNERABILITY
+Invulnerability::Invulnerability(int turns) : Afflictions(turns, 0, "invulnerable") {
+
+}
+
+void Invulnerability::afflict(Actors &a) {
+	// if invulnerability flag hasn't been set yet, set it
+	if (!a.isInvulnerable())
+		a.setInvulnerable(true);
+
+	if (getTurnsLeft() > 0) {
+		// poison effect
+		//tintPoisoned(a.getSprite());
+
+		// decrease the count by 1
+		setTurnsLeft(getTurnsLeft() - 1);
+	}
+	// flag to remove affliction
+	else {
+		a.setInvulnerable(false);
+		setExhaustion(true);
+	}
+}
+
+
+//		STUCK
+Stuck::Stuck(int turns) : Afflictions(turns, 0, "stuck") {
+
+}
+
+void Stuck::afflict(Actors &a) {
+	// if stuck flag hasn't been set yet, set it
+	if (!a.isStuck())
+		a.setStuck(true);
+
+	if (getTurnsLeft() > 0) {
+		// stuck effect
+		// 
+
+		// decrease the count by 1
+		setTurnsLeft(getTurnsLeft() - 1);
+	}
+	// flag to remove affliction
+	else {
+		a.setStuck(false);
+		setExhaustion(true);
+	}
+}
+
 
 
 //		SOUND EFFECTS
 void playBleed(float volume) {
 	std::string sound;
-	switch (randInt(4)) {
+	switch (1 + randInt(4)) {
 	case 1: sound = "Water_Drip1.mp3"; break;
 	case 2: sound = "Water_Drip2.mp3"; break;
 	case 3: sound = "Water_Drip3.mp3"; break;
@@ -296,9 +435,17 @@ void playBleed(float volume) {
 	}
 	cocos2d::experimental::AudioEngine::play2d(sound, false, volume);
 }
+void playPoison(float volume) {
+	std::string sound;
+	switch (1 + randInt(2)) {
+	case 1: sound = "Poison_Damage1.mp3"; break;
+	case 2: sound = "Poison_Damage2.mp3"; break;
+	}
+	cocos2d::experimental::AudioEngine::play2d(sound, false, volume);
+}
 void playBirdSound(float volume) {
 	std::string sound;
-	switch (1 + randInt(4)) {
+	switch (1 + randInt(3)) {
 	case 1: sound = "Bird1.mp3"; break;
 	case 2: sound = "Bird2.mp3"; break;
 	case 3: sound = "Bird3.mp3"; break;
@@ -309,12 +456,47 @@ void playBirdSound(float volume) {
 	}
 	cocos2d::experimental::AudioEngine::play2d(sound, false, volume);
 }
+void playCrowSound(float volume) {
+	std::string sound;
+	switch (1 + randInt(4)) {
+	case 1: sound = "Crow1.mp3"; break;
+	case 2: sound = "Crow2.mp3"; break;
+	case 3: sound = "Crow3.mp3"; break;
+	case 4: sound = "Crow4.mp3"; break;
+	}
+	cocos2d::experimental::AudioEngine::play2d(sound, false, volume);
+}
 
 void tintFrozen(cocos2d::Sprite* sprite) {
 	auto tintBlue = cocos2d::TintTo::create(0, cocos2d::Color3B(68, 85, 140));
 	sprite->runAction(tintBlue);
 	//auto tintNormal = cocos2d::TintTo::create(0.1, cocos2d::Color3B(255, 255, 255));
 	//sprite->runAction(cocos2d::Sequence::createWithTwoActions(tintBlue, tintNormal));
+}
+void tintStunned(cocos2d::Sprite* sprite) {
+	auto tintGray = cocos2d::TintTo::create(0, cocos2d::Color3B(100, 100, 100));
+	sprite->runAction(tintGray);
+	//sprite->runAction(cocos2d::Blink::create(0.2, 3));
+}
+void tintPoisoned(cocos2d::Sprite* sprite) {
+	auto tintGreen = cocos2d::TintTo::create(0, cocos2d::Color3B(173, 255, 47));
+	sprite->runAction(tintGreen);
+}
+void tintItemCast(cocos2d::Sprite* sprite) {
+	auto tintGold = cocos2d::TintTo::create(0, cocos2d::Color3B(255, 215, 0));
+	auto tint = cocos2d::TintTo::create(0.3, cocos2d::Color3B(255, 255, 255));
+	auto tinting = cocos2d::Sequence::createWithTwoActions(tintGold, tint);
+	sprite->runAction(tinting);
+}
+void tintStaffCast(cocos2d::Sprite* sprite) {
+	auto tintGold = cocos2d::TintTo::create(0.3, cocos2d::Color3B(148, 10, 200));
+	auto tint = cocos2d::TintTo::create(0.3, cocos2d::Color3B(255, 255, 255));
+	auto tinting = cocos2d::Sequence::createWithTwoActions(tintGold, tint);
+	sprite->runAction(tinting);
+}
+void untint(cocos2d::Sprite* sprite) {
+	auto tint = cocos2d::TintTo::create(0, cocos2d::Color3B(255, 255, 255));
+	sprite->runAction(tint);
 }
 void fadeTransparent(cocos2d::Sprite* sprite) {
 	auto fadeTransparent = cocos2d::FadeTo::create(.3, 40);

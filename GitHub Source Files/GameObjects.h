@@ -5,12 +5,17 @@
 #ifndef GAMEOBJECTS_H
 #define GAMEOBJECTS_H
 
-void playBoneCrunch(float volume = 1.0f);
-
 class Dungeon;
 class Actors;
 class Player;
 struct _Tile;
+
+void playBoneCrunch(float volume = 1.0f);
+void playCrumble(float volume = 1.0f);
+
+void poisonCloud(Dungeon &dungeon, int x, int y, int time, cocos2d::Color3B color);
+void fadeOut(cocos2d::Sprite* sprite);
+void flashFloor(Dungeon &dungeon, int x, int y, bool mega = false);
 
 class Objects {
 public:
@@ -28,6 +33,7 @@ public:
 	int getPosY() const;
 
 	void setSprite(cocos2d::Sprite* sprite);
+	void setImageName(std::string image);
 	void setPosX(int x);
 	void setPosY(int y);
 	void setrandPosX(int maxrows);
@@ -35,15 +41,50 @@ public:
 
 	bool isDestructible() const;
 	void setDestructible(bool destructible);
+	bool isWeapon() const;
+	void setWeaponFlag(bool weapon);
+	bool isShield() const;
+	void setShieldFlag(bool shield);
+	bool isItem() const;
+	void setItemFlag(bool item);
+	bool isAutoUse() const;
+	void setAutoFlag(bool autoUse);
+	bool isChest() const;
+	void setChestFlag(bool chest);
+	bool isTrinket() const;
+	void setTrinketFlag(bool trinket);
+
+	std::string getDescription() const;
+	void setDescription(std::string description);
+
+	std::string getSoundName() const;
+	void setSoundName(std::string sound);
+	bool hasExtraSprites();
+	void setExtraSpritesFlag(bool extras);
+	virtual void setSpriteColor(cocos2d::Color3B color) { ; };
+	bool emitsLight() const; // tells if the sprite should emit extra light
+	void setEmitsLight(bool emits);
 
 private:
 	std::string m_item;
-	std::string m_image;
+	std::string m_image; // sprite image name
+	std::string m_sound; // sound clip to be used on pickup
 	cocos2d::Sprite* m_sprite = nullptr;
+	bool m_hasExtraSprites = false;
+	bool m_emitsLight = false;
+
+	std::string m_description; // short description of the item
+
 	int m_x;
 	int m_y;
 
 	bool m_destructible; // flag for telling if the item can be destroyed
+	bool m_isWeapon = false;
+	bool m_isItem = false;
+	bool m_autoUse = false;
+	bool m_isChest = false;
+	bool m_isShield = false;
+	bool m_isTrinket = false;
 };
 
 class Idol : public Objects {
@@ -53,16 +94,9 @@ public:
 private:
 };
 
-class Stairs : public Objects {
-public:
-	Stairs();
-private:
-
-};
-
 class Door : public Objects {
 public:
-	Door();
+	Door(int x = 0, int y = 0);
 
 	bool isOpen() const;
 	void toggleOpen();
@@ -76,16 +110,10 @@ private:
 	bool m_lock;
 };
 
-class Button : public Objects {
-public:
-	Button();
-};
-
 
 //	BEGIN DROPS CLASSES
 class Drops : public Objects {
 public:
-	//Drops(int x, int y, std::string item, bool forPlayer = true);
 	Drops(int x, int y, std::string item, std::string image, bool forPlayer = true);
 
 	virtual void changeStats(Drops &drop, Player &p);
@@ -98,6 +126,7 @@ public:
 
 private:
 	bool m_forPlayer; // flag to check if item is used on the player or the dungeon
+
 };
 
 class Gold : public Drops {
@@ -106,32 +135,38 @@ class Gold : public Drops {
 
 class HeartPod : public Drops {
 public:
-	HeartPod();
-	HeartPod(int x, int y);
+	HeartPod(int x = 0, int y = 0);
 	void useItem(Player &p);
 };
 
 class LifePotion : public Drops {
 public:
-	LifePotion();
+	LifePotion(int x = 0, int y = 0);
+	void useItem(Player &p);
+};
+
+class BigLifePotion : public Drops {
+public:
+	BigLifePotion(int x = 0, int y = 0);
+	void useItem(Player &p);
+
+};
+
+class StatPotion : public Drops {
+public:
+	StatPotion(int x = 0, int y = 0);
 	void useItem(Player &p);
 };
 
 class ArmorDrop : public Drops {
 public:
-	ArmorDrop();
+	ArmorDrop(int x = 0, int y = 0);
 	void useItem(Player &p);
 };
 
 class ShieldRepair : public Drops {
 public:
-	ShieldRepair();
-	void useItem(Player &p);
-};
-
-class StatPotion : public Drops {
-public:
-	StatPotion();
+	ShieldRepair(int x = 0, int y = 0);
 	void useItem(Player &p);
 };
 
@@ -143,18 +178,13 @@ public:
 
 class Bomb : public Drops {
 public:
-	Bomb();
+	Bomb(int x = 0, int y = 0);
 	Bomb(std::string type, std::string image);
 
 	void useItem(Dungeon &dungeon);
 
-	int getFuse() const;
-	void setFuse(int fuse);
-	void lightBomb();
-	bool isLit() const;
 private:
-	int m_fuse;
-	bool m_lit;
+
 };
 
 class MegaBomb : public Bomb {
@@ -165,9 +195,18 @@ private:
 
 };
 
+class PoisonCloud : public Drops {
+public:
+	PoisonCloud(int x = 0, int y = 0);
+
+	void useItem(Dungeon &dungeon);
+private:
+
+};
+
 class SkeletonKey : public Drops {
 public:
-	SkeletonKey();
+	SkeletonKey(int x, int y);
 
 	void useItem(Dungeon &dungeon);
 };
@@ -177,8 +216,9 @@ public:
 	FreezeSpell(int x = 0, int y = 0);
 
 	void useItem(Dungeon &dungeon);
+	int getDamage() const;
 private:
-
+	int m_damage = 0;
 };
 
 class EarthquakeSpell : public Drops {
@@ -186,8 +226,9 @@ public:
 	EarthquakeSpell(int x = 0, int y = 0);
 
 	void useItem(Dungeon &dungeon);
+	int getDamage() const;
 private:
-
+	int m_damage = 6;
 };
 
 class FireBlastSpell : public Drops {
@@ -195,9 +236,9 @@ public:
 	FireBlastSpell(int x = 0, int y = 0);
 
 	void useItem(Dungeon &dungeon);
-
+	int getDamage() const;
 private:
-	
+	int m_damage = 5;
 };
 
 class WindSpell : public Drops {
@@ -205,8 +246,9 @@ public:
 	WindSpell(int x = 0, int y = 0);
 
 	void useItem(Dungeon &dungeon);
+	int getDamage() const;
 private:
-
+	int m_damage = 0;
 };
 
 class InvisibilitySpell : public Drops {
@@ -231,29 +273,116 @@ public:
 };
 
 
+//		TRINKETS
+class Trinket : public Objects {
+public:
+	Trinket(int x, int y, std::string name, std::string image, bool destructible = false);
+
+	virtual void apply(Trinket &trinket, Dungeon &dungeon, Player &p);
+	virtual void apply(Dungeon &dungeon, Player &p) = 0;
+	virtual void unapply(Dungeon &dungeon, Player &p) { ; };
+};
+
+class DarkStar : public Trinket {
+public:
+	// this trinket increases the player's damage, but reduces their field of vision
+	DarkStar(int x = 0, int y = 0);
+
+	void apply(Dungeon &dungeon, Player &p);
+	void unapply(Dungeon &dungeon, Player &p);
+};
+
+class LuckyPig : public Trinket {
+public:
+	// luck increase, it will give you a greater chance of item drops and better roll save chances
+	LuckyPig(int x = 0, int y = 0);
+
+	void apply(Dungeon &dungeon, Player &p);
+	void unapply(Dungeon &dungeon, Player &p);
+};
+
+class GoldPot : public Trinket {
+public:
+	// more gold!
+	GoldPot(int x = 0, int y = 0);
+
+	void apply(Dungeon &dungeon, Player &p);
+	void unapply(Dungeon &dungeon, Player &p);
+};
+
+class RingOfCasting : public Trinket {
+public:
+	// increased spell potency (+intellect)
+	RingOfCasting(int x = 0, int y = 0);
+
+	void apply(Dungeon &dungeon, Player &p);
+	void unapply(Dungeon &dungeon, Player &p);
+};
+
+class VulcanRune : public Trinket {
+public:
+	// lava immunity
+	VulcanRune(int x = 0, int y = 0);
+
+	void apply(Dungeon &dungeon, Player &p);
+	void unapply(Dungeon &dungeon, Player &p);
+};
+
+class BrightStar : public Trinket {
+public:
+	// greater field of vision and slightly increased max hp while equipped
+	BrightStar(int x = 0, int y = 0);
+
+	void apply(Dungeon &dungeon, Player &p);
+	void unapply(Dungeon &dungeon, Player &p);
+};
+
+class Bloodrite : public Trinket {
+public:
+	// chance to heal on attack
+	Bloodrite(int x = 0, int y = 0);
+
+	void apply(Dungeon &dungeon, Player &p);
+	void unapply(Dungeon &dungeon, Player &p);
+};
+
+class Bloodlust : public Trinket {
+public:
+	// low hp increases damage
+	Bloodlust(int x = 0, int y = 0);
+
+	void apply(Dungeon &dungeon, Player &p);
+	void unapply(Dungeon &dungeon, Player &p);
+};
+
+
+
+
+
 //	BEGIN CHESTS CLASSES
 class Chests : public Drops {
 public:
 	Chests(std::string chest, std::string image);
+	virtual std::string open(Chests &chest, _Tile &tile);
 	virtual std::string open(_Tile &tile) { return ""; };
 };
 
 class BrownChest : public Chests {
 public:
 	BrownChest();
-	std::string open(_Tile &tile, std::vector<std::string> &text);
+	std::string open(_Tile &tile);
 };
 
 class SilverChest : public Chests {
 public:
 	SilverChest();
-	std::string open(_Tile &tile, std::vector<std::string> &text);
+	std::string open(_Tile &tile);
 };
 
 class GoldenChest : public Chests {
 public:
 	GoldenChest();
-	std::string open(_Tile &tile, std::vector<std::string> &text);
+	std::string open(_Tile &tile);
 };
 
 class InfinityBox : public Chests {
@@ -269,12 +398,22 @@ public:
 	Weapon();
 	Weapon(int x, int y, std::string action, int dexbonus, int dmg, int range, bool ability = false);
 	Weapon(int x, int y, std::string action, std::string image, int dexbonus, int dmg, int range, bool ability = false);
-	Weapon(int x, int y, std::string action, int dexbonus, int dmg, int range, std::string affliction);
 
+	virtual void applyBonus(Actors &a) { ; }; // flat stat upgrades while equipped
+	virtual void unapplyBonus(Actors &a) { ; };
 	virtual void useAbility(Weapon &weapon, Dungeon &dungeon, Actors &a);
-	virtual void useAbility(Dungeon &dungeon, Actors &a);
+	virtual void useAbility(Dungeon &dungeon, Actors &a) { ; };
+	virtual void usePattern(Weapon &weapon, Dungeon &dungeon, bool &moveUsed);
+	virtual void usePattern(Dungeon &dungeon, bool &moveUsed) { ; };
 
-	bool hasAbility() const;
+	bool hasBonus() const;
+	void setHasBonus(bool bonus);
+	bool hasAbility() const; // tells if weapon has special effect
+	void setHasAbility(bool ability);
+	bool hasAttackPattern() const; // tells if weapon has non-standard attack pattern
+	void setAttackPattern(bool pattern);
+	bool canBeCast() const;
+	void setCast(bool cast);
 	std::string getAction() const;
 	int getDexBonus() const;
 	int getDmg() const;
@@ -282,8 +421,14 @@ public:
 	bool hasBleed() const;
 	bool hasBurn() const;
 	bool hasPoison() const;
+
+	void setDamage(int damage);
+
 private:
+	bool m_hasBonus = false;
 	bool m_hasAbility;
+	bool m_hasPattern = false;
+	bool m_canBeCast = false;
 	std::string m_action;
 	int m_dexbonus;
 	int m_dmg;
@@ -299,6 +444,38 @@ public:
 	
 private:
 };
+class BloodShortSword : public Weapon {
+public:
+	BloodShortSword();
+	void useAbility(Dungeon &dungeon, Actors &a);
+};
+class GoldenShortSword : public Weapon {
+public:
+	GoldenShortSword();
+
+	void useAbility(Dungeon &dungeon, Actors &a);
+};
+
+class GoldenLongSword : public Weapon {
+public:
+	// has piercing properties
+	GoldenLongSword();
+	void usePattern(Dungeon &dungeon, bool &moveUsed);
+	void useAbility(Dungeon &dungeon, Actors &a);
+};
+
+class Katana : public Weapon {
+public:
+	// has piercing properties
+	Katana();
+	void usePattern(Dungeon &dungeon, bool &moveUsed);
+};
+class IronLongSword : public Weapon {
+public:
+	// has piercing properties
+	IronLongSword();
+	void usePattern(Dungeon &dungeon, bool &moveUsed);
+};
 
 class RustyCutlass : public Weapon {
 public:
@@ -312,9 +489,27 @@ public:
 private:
 };
 
-class WoodBow : public Weapon {
+class Bow : public Weapon {
+public:
+	Bow(int x, int y, std::string name, std::string image, int damage, int dexbonus, int range);
+	void usePattern(Dungeon &dungeon, bool &moveUsed);
+};
+class WoodBow : public Bow {
 public:
 	WoodBow();
+};
+class IronBow : public Bow {
+public:
+	IronBow();
+};
+class VulcanBow : public Bow {
+public:
+	VulcanBow();
+
+	void useAbility(Dungeon &dungeon, Actors &a);
+
+private:
+	int m_burnChance = 10;
 };
 
 class BronzeDagger : public Weapon {
@@ -322,7 +517,6 @@ public:
 	BronzeDagger();
 
 	void useAbility(Dungeon &dungeon, Actors &a);
-
 	int getBleedChance() const;
 
 private:
@@ -332,7 +526,49 @@ private:
 class IronLance : public Weapon {
 public: 
 	IronLance();
+
+	void usePattern(Dungeon &dungeon, bool &moveUsed);
 };
+
+class VulcanSword : public Weapon {
+public:
+	VulcanSword();
+
+	void useAbility(Dungeon &dungeon, Actors &a);
+
+private:
+	int m_burnChance = 10;
+};
+
+class VulcanHammer : public Weapon {
+public:
+	VulcanHammer();
+	void usePattern(Dungeon &dungeon, bool &moveUsed);
+	void useAbility(Dungeon &dungeon, Actors &a);
+
+private:
+	int m_burnChance = 10;
+	bool m_woundUp = false; // hammers have a one turn wind-up before launching
+};
+
+class ArcaneStaff : public Weapon {
+public:
+	ArcaneStaff();
+	void applyBonus(Actors &a);
+	void unapplyBonus(Actors &a);
+	void usePattern(Dungeon &dungeon, bool &moveUsed);
+	void useAbility(Dungeon &dungeon, Actors &a);
+
+private:
+	bool m_bonusApplied = false;
+	bool m_isCast = false; // for telling if staff's ability was cast
+
+	// tells the player's past position, cast is not reset until player moves
+	int m_px;
+	int m_py;
+};
+
+
 
 ///	BOSS WEAPONS
 class SmashersFists : public Weapon {
@@ -351,6 +587,8 @@ public:
 	// used for shield archetype copy constructors
 	Shield(int defense, int durability, int max_durability, int coverage, std::string type, std::string image);
 
+	virtual void useAbility(Dungeon &dungeon, Actors &a) { ; };
+
 	int getDefense() const;
 	void setDefense(int defense);
 	int getDurability() const;
@@ -359,6 +597,8 @@ public:
 	void setMaxDurability(int durability);
 	int getCoverage() const;
 	void setCoverage(int coverage);
+	bool hasAbility() const;
+	void setAbility(bool ability);
 
 private:
 	// provides x amount of armor/protection against attacks when used
@@ -379,6 +619,9 @@ private:
 	// a higher coverage stat allows the shield to block from more directions
 	// Key: 1-front only, 2-front and front diagonals, 3-front and sides, 4-full coverage
 	int m_coverage;
+
+	// hasAbility tells if the shield has some extra abilty
+	bool m_hasAbility = false;
 };
 
 class WoodShield : public Shield {
@@ -395,17 +638,83 @@ public:
 	IronShield(int x, int y);
 };
 
+class ThornedShield : public Shield {
+public:
+	ThornedShield(int x = 0, int y = 0);
+
+	void useAbility(Dungeon &dungeon, Actors &a);
+};
+
+class FrostShield : public Shield {
+public:
+	FrostShield(int x = 0, int y = 0);
+
+	void useAbility(Dungeon &dungeon, Actors &a);
+};
+
+class ReflectShield : public Shield {
+public:
+	ReflectShield(int x = 0, int y = 0);
+
+	void useAbility(Dungeon &dungeon, Actors &a);
+	void checkLineOfFire(Dungeon &dungeon, Actors &a);
+};
+
 
 //	BEGIN TRAPS
 class Traps : public Objects {
 public:
-	Traps(int x, int y, std::string name, int damage, bool destructible = false);
+	Traps(int x, int y, std::string name, std::string image, int damage, bool destructible = false);
+
+	// trap actions for when actives is being checked
+	virtual void activeTrapAction(Traps &trap, Dungeon &dungeon, Actors &a);
+	virtual void activeTrapAction(Dungeon &dungeon, Actors &a) { ; };
+
+	// trap actions for when a player/monster steps on a trap
+	virtual void trapAction(Traps &trap, Dungeon &dungeon, Actors &a);
+	virtual void trapAction(Dungeon &dungeon, Actors &a);
+	virtual void trapAction(Actors &a) { ; };
 
 	int getDmg() const;
 	void setDmg(int damage);
 
+	// if a trap is temporary, it is removed after being activated/encountered
+	bool isTemporary() const;
+	void setTemporary(int temp);
+
+	// tells if the trap's status constantly needs to be checked
+	bool isActive() const;
+	void setActive(bool active);
+
+	// tells if the trap also acts as a wall
+	bool actsAsWall() const;
+	void setWallFlag(bool wall);
+
+	// tells if trap immediately damages
+	bool isLethal() const;
+	void setLethal(bool lethal);
+
+	// tells if this can be set off by explosions
+	bool isExplosive() const;
+	void setExplosive(bool explosive);
+
 private:
 	int m_trapdmg;
+	bool m_temp = false;
+	bool m_active;
+	bool m_wall = false;
+	bool m_lethal = false;
+	bool m_explosive = false;
+};
+
+class Stairs : public Traps {
+public:
+	Stairs(int x = 0, int y = 0);
+};
+
+class Button : public Traps {
+public:
+	Button(int x = 0, int y = 0);
 };
 
 class Pit : public Traps {
@@ -414,16 +723,27 @@ public:
 	Pit();
 	Pit(int x, int y);
 
-	void fall(Actors &a);
+	void trapAction(Dungeon &dungeon, Actors &a);
 };
 
 class FallingSpike : public Traps {
 public:
 	FallingSpike(int x, int y, int speed);
+
+	void activeTrapAction(Dungeon &dungeon, Actors &a);
+	void trapAction(Dungeon &dungeon, Actors &a); // used if a player steps in the way
+
 	int getSpeed() const;
 	void setSpeed(int speed);
 private:
 	int m_speed;
+};
+
+class Spikes : public Traps {
+public:
+	Spikes(int x, int y);
+
+	void trapAction(Dungeon &dungeon, Actors &a); // used if a player steps in the way
 };
 
 class SpikeTrap : public Traps {
@@ -431,7 +751,9 @@ public:
 	SpikeTrap();
 	SpikeTrap(int x, int y, int speed);
 
-	void cycle(Actors &a);
+	void activeTrapAction(Dungeon &dungeon, Actors &a); // called if player was standing on top of one that becomes active
+	void trapAction(Dungeon &dungeon, Actors &a); // used if player steps on one already active
+	//void trapAction(Actors &a); 
 	void setSpriteVisibility(bool deactive, bool primed, bool active);
 
 	int getSpeed() const;
@@ -455,7 +777,9 @@ class TriggerSpike : public Traps {
 public:
 	TriggerSpike(int x, int y);
 
-	void trigger(Actors &a);
+	void activeTrapAction(Dungeon &dungeon, Actors &a);
+	void trapAction(Dungeon &dungeon, Actors &a);
+	void trapAction(Actors &a);
 	void setSpriteVisibility(bool deactive, bool primed, bool active);
 
 	bool isTriggered() const;
@@ -476,19 +800,21 @@ class Puddle : public Traps {
 public:
 	Puddle(int x, int y);
 	
-	void slip(Actors &a);
+	void trapAction(Dungeon &dungeon, Actors &a);
 private:
 	
 };
 
 class Firebar : public Traps {
 public:
-	Firebar(int x, int y);
+	Firebar(int x, int y, int rows);
 	Firebar(int x, int y, std::string firebar); // for double firebar
+	virtual ~Firebar();
 
-	void burn(Actors &a);
+	void activeTrapAction(Dungeon &dungeon, Actors &a);
+	void trapAction(Actors &a);
 
-	virtual void setInitialFirePosition(int x, int y);
+	virtual void setInitialFirePosition(int x, int y, int rows);
 	int getAngle() const;
 	void setAngle(int angle);
 	bool isClockwise() const;
@@ -496,6 +822,7 @@ public:
 	virtual bool playerWasHit(const Actors &a);
 	virtual void setFirePosition(char move);
 
+	void setSpriteColor(cocos2d::Color3B color);
 	virtual void setSpriteVisibility(bool visible);
 
 	cocos2d::Sprite* getInner();
@@ -508,18 +835,22 @@ private:
 	Objects m_innerFire;
 	Objects m_outerFire;
 
-	cocos2d::Sprite* m_inner;
-	cocos2d::Sprite* m_outer;
+	cocos2d::Sprite* m_inner = nullptr;
+	cocos2d::Sprite* m_outer = nullptr;
 };
 
 class DoubleFirebar : public Firebar {
 public:
-	DoubleFirebar(int x, int y);
+	DoubleFirebar(int x, int y, int rows);
+	~DoubleFirebar();
 
-	void setInitialFirePosition(int x, int y);
+	void activeTrapAction(Dungeon &dungeon, Actors &a);
+
+	void setInitialFirePosition(int x, int y, int rows);
 	bool playerWasHit(const Actors &a);
 	void setFirePosition(char move);
 
+	void setSpriteColor(cocos2d::Color3B color);
 	void setSpriteVisibility(bool visible);
 	cocos2d::Sprite* getInner();
 	cocos2d::Sprite* getInnerMirror();
@@ -532,17 +863,17 @@ private:
 	Objects m_outerFire;
 	Objects m_outerFireMirror;
 
-	cocos2d::Sprite* m_inner;
-	cocos2d::Sprite* m_innerMirror;
-	cocos2d::Sprite* m_outer;
-	cocos2d::Sprite* m_outerMirror;
+	cocos2d::Sprite* m_inner = nullptr;
+	cocos2d::Sprite* m_innerMirror = nullptr;
+	cocos2d::Sprite* m_outer = nullptr;
+	cocos2d::Sprite* m_outerMirror = nullptr;
 };
 
 class Lava : public Traps {
 public:
 	Lava(int x, int y);
 
-	void burn(Actors &a);
+	void trapAction(Actors &a);
 };
 
 class Spring : public Traps {
@@ -568,11 +899,14 @@ public:
 	*/
 	Spring(int x, int y, bool trigger, bool known, bool cardinal);
 
-	void trigger(Dungeon &dungeon, Actors &a);
+	void activeTrapAction(Dungeon &dungeon, Actors &a);
+	void trapAction(Dungeon &dungeon, Actors &a);
 
 	char getDirection() const;
+	void setDirection(char dir);
 	bool isTrigger() const;
 	bool triggered() const;
+	void setImage();
 
 	// tells if the trap bounces in multiple directions
 	bool isMultiDirectional() const;
@@ -582,6 +916,13 @@ public:
 
 	// if multidirectional, tells if bounces only in cardinal directions
 	bool isCardinal() const;
+
+	// tells if two spring traps are pointing toward each other
+	// for preventing infinite bouncing loops
+	bool isOpposite(Spring other) const;
+
+	void oppositeSprings(Dungeon &dungeon);
+
 private:
 	char m_dir; // used if spring is a single direction
 
@@ -601,7 +942,8 @@ public:
 	*/
 	Turret(int x, int y, char move, int range = 10);
 
-	void shoot(Dungeon &dungeon, Actors &a);
+	void activeTrapAction(Dungeon &dungeon, Actors &a);
+	void trapAction(Dungeon &dungeon, Actors &a);
 	void checkLineOfFire(Dungeon &dungeon);
 
 	char getDirection() const;
@@ -623,7 +965,8 @@ class MovingBlock : public Traps {
 public:
 	MovingBlock(int x, int y, char pattern, int spaces = 3);
 
-	void move(Dungeon &dungeon, Actors &a);
+	void activeTrapAction(Dungeon &dungeon, Actors &a);
+	void trapAction(Dungeon &dungeon, Actors &a);
 
 	char getPattern() const;
 	void setPattern(char pattern);
@@ -658,5 +1001,81 @@ private:
 	// m_turn is tells it to move in the opposite direction if spaces reaches zero
 	bool m_turn = false;
 };
+
+class ActiveBomb : public Traps {
+public:
+	ActiveBomb(int x, int y, int timer = 3);
+	ActiveBomb(int x, int y, std::string type, std::string image, int damage, int timer = 3);
+
+	void activeTrapAction(Dungeon &dungeon, Actors &a);
+	virtual void explosion(Dungeon &dungeon, Actors &a);
+
+	int getTimer() const;
+	void setTimer(int timer);
+
+private:
+	int m_timer;
+	int m_fuseID; // for getting and stopping fuse sound when bomb explodes
+};
+
+class ActiveMegaBomb : public ActiveBomb {
+public:
+	ActiveMegaBomb(int x, int y);
+
+	void activeTrapAction(Dungeon &dungeon, Actors &a);
+
+private:
+	//
+};
+
+class PoisonBomb : public ActiveBomb {
+public:
+	PoisonBomb(int x, int y, int turns);
+
+	void activeTrapAction(Dungeon &dungeon, Actors &a);
+	void trapAction(Dungeon &dungeon, Actors &a);
+	void explosion(Dungeon &dungeon, Actors &a);
+	void radiusCheck(Dungeon &dungeon, Actors &a);
+
+private:
+	int m_turns;
+	bool m_blown;
+	bool m_triggered = false;
+};
+
+class BearTrap : public Traps {
+public:
+	BearTrap(int x, int y);
+
+	void activeTrapAction(Dungeon &dungeon, Actors &a);
+	void trapAction(Dungeon &dungeon, Actors &a);
+
+private:
+	bool m_triggered = false;
+	int m_wait = 1;
+};
+
+class CrumbleFloor : public Traps {
+public:
+	CrumbleFloor(int x, int y , int strength = 4);
+	CrumbleFloor(int x, int y, int strength, std::string name, std::string image);
+
+	void activeTrapAction(Dungeon &dungeon, Actors &a);
+	void trapAction(Dungeon &dungeon, Actors &a);
+
+private:
+	int m_strength; // how many turns before the floor crumbles away
+	bool m_crossed = false; // flag for when player walks off
+
+	int m_x, m_y; // saves coordinates of whatever walked on it
+};
+
+class CrumbleLava : public CrumbleFloor {
+public:
+	CrumbleLava(int x, int y, int strength = 4);
+
+};
+
+
 
 #endif

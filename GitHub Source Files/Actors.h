@@ -21,6 +21,8 @@ void playHitSmasher(float volume = 1.0f);
 void playShieldEquip(std::string shield);
 void playShieldHit(std::string shield);
 void playShieldBroken(std::string shield);
+void gotStunned(cocos2d::Sprite* sprite);
+void bloodlustTint(Actors &a);
 
 class Actors {
 public:
@@ -40,11 +42,11 @@ public:
 	int getDex() const;
 	int getInt() const;
 	int getLuck() const;
-	//virtual Weapon getWeapon() const;
 	virtual std::shared_ptr<Weapon>& getWeapon();
 	std::string getName() const;
 	std::vector<std::shared_ptr<Afflictions>>& getAfflictions();
 	cocos2d::Sprite* getSprite();
+	std::string getImageName() const;
 	
 	void setPosX(int x);
 	void setPosY(int y);
@@ -61,18 +63,43 @@ public:
 	void setName(std::string name);
 	void addAffliction(std::shared_ptr<Afflictions> affliction);
 	void setSprite(cocos2d::Sprite* sprite);
+	void setImageName(std::string image);
 
+	bool isPlayer() const;
+	void setPlayerFlag(bool player);
+
+	bool isMonster() const;
+	void setMonsterFlag(bool monster);
 
 	//	AFFLICTIONS
 	void checkAfflictions();
 	int findAffliction(std::string name);
 	void removeAffliction(std::string name);
 
+	bool lavaImmune() const; // immunity to lava
+	void setLavaImmunity(bool immune);
+
+	bool isFlying() const;
+	void setFlying(bool flying);
+
+	bool isSturdy() const; // tells if this gets knocked back by attacks or not
+	void setSturdy(bool sturdy);
+
+	bool hasBloodlust() const;
+	void setBloodlust(bool lust);
+
 	bool canBeStunned() const;
 	bool canBeBurned() const;
 	bool canBeBled() const;
 	bool canBeHealed() const;
 	bool canBeFrozen() const;
+	bool canBePoisoned() const;
+	void setCanBeStunned(bool stunnable);
+	void setCanBeBurned(bool burnable);
+	void setCanBeBled(bool bleedable);
+	void setCanBeHealed(bool healable);
+	void setCanBeFrozen(bool freezable);
+	void setCanBePoisoned(bool poisonable);
 
 	bool isBurned() const;
 	void setBurned(bool burned);
@@ -86,6 +113,9 @@ public:
 	bool isFrozen() const;
 	void setFrozen(bool freeze);
 
+	bool isPoisoned() const;
+	void setPoisoned(int poisoned);
+
 	bool isInvisible() const;
 	void setInvisible(int invisible);
 
@@ -94,6 +124,15 @@ public:
 
 	bool isConfused() const;
 	void setConfused(int confused);
+
+	bool isBuffed() const;
+	void setBuffed(int buffed);
+
+	bool isInvulnerable() const;
+	void setInvulnerable(bool invulnerable);
+
+	bool isStuck() const;
+	void setStuck(int stuck);
 	
 private:
 	int m_x;
@@ -105,29 +144,40 @@ private:
 	int m_dex;
 	int m_int = 0;
 	int m_luck = 0;
-	//Weapon m_wep;
 	std::shared_ptr<Weapon> m_wep;
 	std::string m_name;
+	std::string m_image;
 	
 	// Keeps track of any afflictions inflicted on the actor
 	std::vector<std::shared_ptr<Afflictions>> m_afflictions;
+
+	bool m_isPlayer = false;
+	bool m_isMonster = true;
+	bool m_lavaImmune = false;
+	bool m_bloodlust = false;
+	bool m_flying = false;
+	bool m_sturdy = true;
 
 	bool m_burnable;
 	bool m_stunnable;
 	bool m_bleedable;
 	bool m_healable;
 	bool m_freezable;
+	bool m_poisonable = true;
 
 	bool m_burned;
 	bool m_bled;
 	bool m_healed;
-	bool m_poisoned;
 	bool m_stunned;
 	bool m_frozen;
+	bool m_poisoned = false;
+	bool m_stuck = false;
 
 	bool m_invisible = false;
 	bool m_ethereal = false;
 	bool m_confused = false;
+	bool m_buffed = false;
+	bool m_invulnerable = false;
 
 	cocos2d::Sprite* m_sprite = nullptr;
 };
@@ -146,20 +196,23 @@ public:
 
 	int getMoney() const;
 	void setMoney(int money);
-	//std::vector<Weapon> getWeaponInv() const;
+	int getMoneyMultiplier() const;
+	void setMoneyMultiplier(int multiplier);
+	float getMoneyBonus() const;
+	void setMoneyBonus(float bonus);
+	void increaseMoneyBonus();
+	void decreaseMoneyBonus();
+	int getMaxMoneyBonus() const;
 	std::vector<std::shared_ptr<Weapon>>& getWeapons();
-	//std::vector<Drops> getItemInv() const;
 	std::vector<std::shared_ptr<Drops>>& getItems();
-	//int getInventorySize() const;
-	//int getItemInvSize() const;
 	int getMaxWeaponInvSize() const;
 	int getMaxItemInvSize() const;
 
 	bool hasShield() const;
 	void setShieldPossession(bool possesses);
-	Shield& getShield();
-	Shield getPlayerShield() const;
-	void equipShield(Shield shield);
+	std::shared_ptr<Shield>& getShield();
+	std::shared_ptr<Shield> getPlayerShield() const;
+	void equipShield(Dungeon &dungeon, std::shared_ptr<Shield> shield, bool shop = false);
 	void dropShield(std::vector<_Tile> &dungeon, const int maxrows, const int maxcols);
 	void shieldBroken();
 	void repairShield(int repairs);
@@ -169,18 +222,28 @@ public:
 	bool shieldCoverage(int mx, int my);
 	char facingDirection() const;
 	void setFacingDirection(char facing);
+	char getAction() const;
+	void setAction(char action);
 
-	//void addWeapon(Weapon w);
 	void addWeapon(std::shared_ptr<Weapon> weapon);
-	//void wield(std::vector<std::string> &text);
-	//void wield(); // menu arrow selection version of wield
 	void wield(int index);
-	//void addItem(Drops drop);
 	void addItem(std::shared_ptr<Drops> drop);
-	//void use(std::vector<std::shared_ptr<Objects>> &active, _Tile &tile, std::vector<std::string> &text);
 	void use(Dungeon &dungeon, _Tile &tile, int index); // new version
 
-	void rollHeal(std::vector<std::string> &text);
+	bool hasTrinket() const;
+	void setTrinketFlag(bool hasTrinket);
+	std::shared_ptr<Trinket>& getTrinket();
+	void equipTrinket(Dungeon &dungeon, std::shared_ptr<Trinket> trinket, bool shop = false);
+	void swapTrinket(Dungeon& dungeon, std::shared_ptr<Trinket> trinket, bool shop = false);
+
+	void setItemToFront(int index); // used for item quick access
+
+	int getVision() const;
+	void setVision(int vision);
+
+	bool canLifesteal() const;
+	void setLifesteal(bool steal);
+	void rollHeal();
 
 	bool hasSkeletonKey() const;
 	void checkKeyConditions(std::vector<std::string> &text);
@@ -193,12 +256,8 @@ public:
 	void setDeath(std::string m);
 
 private:
-	std::vector<Weapon> m_inv;
 	std::vector<std::shared_ptr<Weapon>> m_weapons;
-	unsigned m_invsize;
-	std::vector<Drops> m_iteminv;
 	std::vector<std::shared_ptr<Drops>> m_items;
-	unsigned m_iteminvsize;
 
 	int m_maxhp;
 	int m_maxarmor = 99;
@@ -207,11 +266,25 @@ private:
 	int m_maxwepinv = 5;
 	int m_maxiteminv = 5;
 	int m_money = 0;
+	int m_moneyMultiplier = 1; // money multiplied upon monster death
 
-	bool m_hasShield;
-	Shield m_shield;
+	// flat extra money, not based on multiplier
+	// increases by 0.25 upon successful hit; decreases by 0.50 if hit
+	float m_moneyBonus = 0;
+	int m_maxMoneyBonus = 10;
+
+	int m_vision = 5;
+	bool m_lifesteal = false;
+
+	std::shared_ptr<Shield> m_shield;
+	bool m_hasShield = false;
 	bool m_blocking;
 	char m_facing;
+	char m_action = '-'; // used for non-movement actions
+
+	std::shared_ptr<Trinket> m_trinket;
+	bool m_hasTrinket = false;
+
 
 	// keyhp is the limit before the skeleton key breaks.
 	// it is set below the key's set minimum if player is already below this minimum threshold when they pick it up
@@ -221,6 +294,49 @@ private:
 	std::string m_death;
 };
 
+
+
+class NPC : public Actors {
+public:
+	NPC(int x, int y, std::string name, std::string image);
+
+	void talk(Dungeon& dungeon);
+	virtual void checkSatisfaction(Dungeon &dungeon) { ; };
+	virtual void reward(Dungeon& dungeon) { ; };
+
+	void playDialogue(Dungeon &dungeon);
+	void setDialogue(std::vector<std::string> dialogue);
+	virtual void addInteractedDialogue(std::vector<std::string> &dialogue) { ; };
+	virtual void addSatisfiedDialogue(std::vector<std::string> &dialogue) { ; };
+	virtual void addFinalDialogue(std::vector<std::string> &dialogue) { ; };
+	void setSatisfaction(bool satisfied);
+
+private:
+	std::vector<std::string> m_dialogue;
+
+	bool m_interacted = false; // flag for initial interaction with player
+	bool m_satisfied = false; // flag for determining if player has met the NPCs request
+	bool m_rewardGiven = false; // flag so that players are not given more than one reward
+};
+
+class CreatureLover : public NPC {
+public:
+	CreatureLover(int x, int y);
+
+	void checkSatisfaction(Dungeon& dungeon);
+	void reward(Dungeon& dungeon);
+
+	void addInteractedDialogue(std::vector<std::string> &dialogue);
+	void addSatisfiedDialogue(std::vector<std::string> &dialogue);
+	void addFinalDialogue(std::vector<std::string> &dialogue);
+
+private:
+	std::string m_wantedCreature;
+	std::shared_ptr<Monster> m_creature = nullptr;
+};
+
+
+
 class Monster : public Actors {
 public:
 	Monster();
@@ -229,25 +345,52 @@ public:
 	Monster(int x, int y, int hp, int armor, int str, int dex, std::string name, bool burnable = true, bool bleedable = true, bool healable = true, bool stunnable = true, bool freezable = true);
 	~Monster();
 
+	virtual void move(Monster &m, Dungeon &dungeon);
+	virtual void move(Dungeon &dungeon) { ; };
 	virtual void encounter(Player &p, Monster &m, std::vector<std::string> &text);
+	virtual void encounter(Dungeon &dungeon, Player &p, Monster &m);
 	virtual void encounter(Monster &m1, Monster &m2);
 	virtual void attack(Player &p, std::vector<std::string> &text);
-	virtual void attack(Monster &m);
-	
-	bool isFlying() const;
-	void setFlying(bool flying);
+	virtual void attack(Dungeon &dungeon, Player &p);
+	virtual void attack(Monster &m) { ; };
+	virtual void death(Monster &m, Dungeon &dungeon);
+	virtual void death(Dungeon &dungeon) { ; };
+	void destroy(Dungeon &dungeon); // same as destroyMonster in Dungeon
+
+	bool attemptChase(std::vector<_Tile> &dungeon, int maxcols, int &shortest, int smelldist, int origdist, int x, int y, char &first_move, char &optimal_move);
+	bool attemptSmartChase(Dungeon &dungeon, int cols, int &shortest, int currentDist, int origDist, int x, int y, char &first_move, char &optimal_move);
+	bool playerInRange(Player p, int range);
+	bool playerInDiagonalRange(Player p, int range);
+	void moveWithSuccessfulChase(Dungeon &dungeon, char move);
+	void moveMonsterRandomly(Dungeon &dungeon);
+	bool wallCollision(Dungeon &dungeon, char direction, int p_move, int m_move);
+	bool clearLineOfSight(Dungeon &dungeon, Player &p);
 
 	bool chasesPlayer() const;
 	void setChasesPlayer(bool chases);
 
+	bool isSmart() const; // tells if monster (that chases), will or will not walk on lethal traps
+	void setSmart(bool smart);
+
+	bool hasExtraSprites();
+	void setExtraSpritesFlag(bool extras);
+	virtual void setSpriteColor(cocos2d::Color3B color) { ; };
+	bool emitsLight() const; // tells if the sprite should emit extra light
+	void setEmitsLight(bool emits);
+
 private:
-	bool m_flying = false;
 	bool m_chases = false;
+	bool m_smart = false;
+	bool m_hasExtraSprites = false;
+	bool m_emitsLight = false;
 };
 
 class Goblin : public Monster {
 public:
-	Goblin(int smelldist);
+	Goblin(int x, int y, int smelldist);
+
+	void move(Dungeon &dungeon);
+	void death(Dungeon &dungeon);
 
 	int getSmellDistance() const;
 private:
@@ -256,13 +399,19 @@ private:
 
 class Wanderer : public Monster {
 public:
-	Wanderer();
+	Wanderer(int x, int y);
+
+	void move(Dungeon &dungeon);
+	void death(Dungeon &dungeon);
 };
 
 class Archer : public Monster {
 public:
-	Archer();
+	Archer(int x, int y);
 	
+	void move(Dungeon &dungeon);
+	void death(Dungeon &dungeon);
+
 	bool isPrimed() const;
 	void prime(bool p);
 private:
@@ -271,14 +420,21 @@ private:
 
 class Zapper : public Monster {
 public:
-	Zapper();
+	Zapper(int x, int y, int rows);
+	~Zapper();
 
+	void move(Dungeon &dungeon);
 	void attack(Player &p, std::vector<std::string> &text);
+	void death(Dungeon &dungeon);
+
 	bool onCooldown() const;
 	void setCooldown();
 	bool cardinalAttack() const;
 	void swapDirection();
 	std::map<int, cocos2d::Sprite*> getSparks();
+	void moveSprites(int x, int y, int rows);
+	void setSpriteColor(cocos2d::Color3B color);
+
 private:
 	bool m_cooldown;
 	bool m_attack;
@@ -288,11 +444,14 @@ private:
 
 class Spinner : public Monster {
 public:
-	Spinner();
+	Spinner(int x, int y, int rows);
+	~Spinner();
 
+	void move(Dungeon &dungeon);
 	void attack(Player &p, std::vector<std::string> &text);
+	void death(Dungeon &dungeon);
 
-	void setInitialFirePosition(int x, int y);
+	void setInitialFirePosition(int x, int y, int rows);
 	void setFirePosition(char move);
 
 	bool isClockwise() const;
@@ -303,6 +462,9 @@ public:
 
 	cocos2d::Sprite* getInner() const;
 	cocos2d::Sprite* getOuter() const;
+	void setSpriteVisibility(bool visible);
+	void setSpriteColor(cocos2d::Color3B color);
+
 private:
 	bool m_clockwise;
 	int m_angle;
@@ -316,9 +478,12 @@ private:
 
 class Bombee : public Monster {
 public:
-	Bombee();
+	Bombee(int x, int y);
 
-	void attack(Player &p, std::vector<std::string> &text);
+	void move(Dungeon &dungeon);
+	void attack(Dungeon &dungeon, Player &p);
+	void death(Dungeon &dungeon);
+
 	int getFuse() const;
 	void setFuse();
 	bool isFused() const;
@@ -331,9 +496,12 @@ private:
 
 class MountedKnight : public Monster {
 public:
-	MountedKnight();
+	MountedKnight(int x, int y);
 
-	//void attack(Player &p, std::vector<std::string> &text);
+	void move(Dungeon &dungeon);
+	void step(Dungeon &dungeon);
+	void death(Dungeon &dungeon);
+
 	bool isAlerted() const;
 	void toggleAlert();
 	char getDirection() const;
@@ -345,18 +513,35 @@ private:
 
 class Roundabout : public Monster {
 public:
-	Roundabout();
+	Roundabout(int x, int y);
+	Roundabout(int x, int y, std::string name, std::string image, int hp, int armor, int str, int dex);
 
+	void move(Dungeon &dungeon);
 	void attack(Player &p, std::vector<std::string> &text);
+	void death(Dungeon &dungeon);
+
 	char getDirection() const;
 	void setDirection(char dir);
+
 private:
 	char m_direction;
 };
 
+class FireRoundabout : public Roundabout {
+public:
+	FireRoundabout(int x, int y);
+
+	void move(Dungeon &dungeon);
+	void death(Dungeon &dungeon);
+};
+
 class Seeker : public Monster {
 public:
-	Seeker(int range);
+	Seeker(int x, int y, int range);
+	Seeker(int x, int y, int range, std::string name, std::string image);
+
+	void move(Dungeon &dungeon);
+	void death(Dungeon &dungeon);
 
 	int getRange() const;
 	bool getStep() const;
@@ -366,6 +551,71 @@ private:
 	bool m_step;
 };
 
+class DeadSeeker : public Seeker {
+public:
+	DeadSeeker(int x, int y, int range = 13);
+
+	void death(Dungeon &dungeon);
+
+private:
+	int m_range;
+	bool m_step;
+};
+
+class ItemThief : public Monster {
+public:
+	ItemThief(int x, int y, int range = 7);
+
+	void move(Dungeon &dungeon);
+	void run(Dungeon& dungeon);
+	void attack(Dungeon &dungeon, Player &p);
+	void death(Dungeon &dungeon);
+
+	int getRange() const;
+
+private:
+	bool m_stole = false; // flag for telling that they successfully stole from the player
+	std::shared_ptr<Objects> m_stolenItem = nullptr;
+	int m_stolenGold = 0;
+	int m_range;
+};
+
+class GooSack : public Monster {
+public:
+	// This enemy is stationary, but if the player is close, it will attempt to jump on them
+	GooSack(int x, int y);
+
+	void move(Dungeon &dungeon);
+	void attack(Dungeon &dungeon, Player &p);
+	void death(Dungeon &dungeon);
+
+private:
+	bool m_primed = false;
+
+	// coordinates for where the player was when this was primed
+	int m_x;
+	int m_y;
+};
+
+class Broundabout : public Roundabout {
+public:
+	// This enemy moves in straight lines, back and forth. However, like the GooSack, it will try to jump onto nearby players.
+	// After jumping it will continue moving in the direction it was originally moving in, unless the player is still nearby.
+	Broundabout(int x, int y);
+
+	void move(Dungeon &dungeon);
+	void attack(Dungeon &dungeon, Player &p);
+	void death(Dungeon &dungeon);
+
+private:
+	bool m_primed = false;
+
+	// coordinates for where the player was when this was primed
+	int m_x;
+	int m_y;
+};
+
+
 
 //	BOSSES
 class Smasher : public Monster {
@@ -374,6 +624,7 @@ public:
 
 	void attack(Player &p, std::vector<std::string> &text);
 	void attack(Monster &m);
+	void death(Dungeon &dungeon);
 
 	bool isActive() const;
 	void setActive(bool status);

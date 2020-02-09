@@ -4,8 +4,15 @@
 #include <string>
 
 void playBleed(float volume = 1.0f);
+void playPoison(float volume = 1.0f);
 void playBirdSound(float volume = 1.0f);
+void playCrowSound(float volume = 1.0f);
 void tintFrozen(cocos2d::Sprite* sprite);
+void tintStunned(cocos2d::Sprite* sprite);
+void tintPoisoned(cocos2d::Sprite* sprite);
+void tintItemCast(cocos2d::Sprite* sprite);
+void tintStaffCast(cocos2d::Sprite* sprite);
+void untint(cocos2d::Sprite* sprite);
 void fadeTransparent(cocos2d::Sprite* sprite);
 void fadeIn(cocos2d::Sprite* sprite);
 
@@ -90,6 +97,17 @@ public:
 	void afflict(Actors &a);
 };
 
+class Poison : public Afflictions {
+public:
+	// Poisoning weakens the actor's str and dex and applies a slow poisoning effect
+	Poison(int turns, int wait, int str, int dex);
+
+	void afflict(Actors &a);
+private:
+	int m_str;
+	int m_dex;
+};
+
 class Invisibility : public Afflictions {
 public:
 	Invisibility(int turns = 10);
@@ -108,6 +126,32 @@ class Confusion : public Afflictions {
 public:
 	// Reverses player movement, but increases their dodgeability (+dex)
 	Confusion(int turns = 10);
+
+	void afflict(Actors &a);
+};
+
+class Buff : public Afflictions {
+public:
+	Buff(int turns, int str, int dex, int intellect);
+
+	void afflict(Actors &a);
+
+private:
+	int m_str;
+	int m_dex;
+	int m_int;
+};
+
+class Invulnerability : public Afflictions {
+public:
+	Invulnerability(int turns = 1);
+
+	void afflict(Actors &a);
+};
+
+class Stuck : public Afflictions {
+public:
+	Stuck(int turns);
 
 	void afflict(Actors &a);
 };

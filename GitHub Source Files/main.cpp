@@ -27,7 +27,6 @@
 #include "cocos2d.h"
 #include <ctime>
 #include <cstdlib>
-//#include "Game.h"
 
 USING_NS_CC;
 

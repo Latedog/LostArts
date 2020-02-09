@@ -2,8 +2,8 @@
 #define GUI_H
 
 #include "cocos2d.h"
-#include "LightEffect.h"
-#include "EffectSprite.h"
+//#include "LightEffect.h"
+//#include "EffectSprite.h"
 #include "DynamicLight.h"
 #include "DynamicLightManager.h"
 #include "Dungeon.h"
@@ -15,7 +15,7 @@ struct Dungeons {
 	Dungeons() { ; };
 
 	Dungeon* DUNGEON1 = nullptr;
-	FirstShop* SHOP1 = nullptr;
+	Shop* SHOP1 = nullptr;
 	SecondFloor* DUNGEON2 = nullptr;
 	ThirdFloor* DUNGEON3 = nullptr;
 	FirstBoss* BOSS1 = nullptr;
@@ -27,6 +27,8 @@ public:
 
 	virtual bool init();
 
+	void keyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
+
 	void startGameCallback(cocos2d::Ref* pSender);
 	void exitGameCallback(cocos2d::Ref* pSender);
 
@@ -34,6 +36,7 @@ public:
 private:
 	cocos2d::Sprite* playerSprite;
 	int id;
+	int index = 0;
 };
 
 class HUDLayer : public cocos2d::Layer {
@@ -48,10 +51,15 @@ public:
 	void showBossHP();
 	void updateBossHUD(Dungeon &dungeon);
 
+	void NPCInteraction(cocos2d::EventListenerKeyboard* listener, Dungeon &dungeon, std::vector<std::string> dialogue);
+	void NPCKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, Dungeon *dungeon);
+
 	// For second dungeon
 	void devilsWaters(cocos2d::EventListenerKeyboard* listener, Dungeon &dungeon);
 	void devilKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, Dungeon *dungeon);
 
+	void inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dungeon);
+	void inventoryMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, Dungeon *dungeon);
 
 	void weaponMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dungeon);
 	void weaponMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, Dungeon *dungeon);
@@ -67,7 +75,11 @@ public:
 	void winnerKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
 
 	void deconstructMenu(std::multimap<std::string, cocos2d::Sprite*> &sprites);
+	void constructShieldHUD();
 	void deconstructShieldHUD();
+	void constructItemHUD();
+	void deconstructItemHUD();
+	void deconstructTrinketHUD();
 	void deconstructShopHUD();
 	void deconstructBossHUD();
 
@@ -79,17 +91,35 @@ public:
 private:
 	std::map<std::string, cocos2d::Sprite*> HUD;
 	std::map<std::string, cocos2d::Label*> labels;
+	std::map<std::string, cocos2d::Label*> keyLabels;
 	std::multimap<std::string, cocos2d::Sprite*> weaponMenuSprites;
 	std::multimap<std::string, cocos2d::Sprite*> itemMenuSprites;
+	std::multimap<std::string, cocos2d::Sprite*> inventoryMenuSprites;
 	cocos2d::Label* goldcount;
-	//cocos2d::Label* itemprice = nullptr;
+	cocos2d::Label* numericalHP;
+	cocos2d::Label* str = nullptr;
+	cocos2d::Label* dex;
+	cocos2d::Label* intellect;
+	cocos2d::Label* armor;
+	cocos2d::Label* moneyBonus;
+	cocos2d::Label* qKey = nullptr;
 
 	cocos2d::EventListenerKeyboard* activeListener;
 	cocos2d::EventListenerKeyboard* release; // used to properly enable the gameplay event listener
 
 	Player p;
 	int index = 0;
+	int quick = 1; // For quick access slot; 1 = at least one item in player inv, 0 = no items
 
+	// holds information about the player's item
+	// 1st string: Item name, 2nd string: Item description
+	std::pair<std::string, std::string> inventoryText[14];
+	cocos2d::Label* itemName;
+	cocos2d::Label* itemDescription;
+
+	std::vector<std::string> m_dialogue; // for npc dialogue
+	cocos2d::Label* line;
+	int lineIndex = 0;
 };
 
 class BackgroundLayer : public cocos2d::Layer {
@@ -110,12 +140,10 @@ public:
 	virtual bool init();
 	void renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &x, int &y); // shows dungeon for the first time
 	cocos2d::Sprite* createSprite(std::string image, int maxrows, int x, int y, int z);
-	void graySprite(cocos2d::Sprite* sprite);
-	EffectSprite* createEffectSprite(std::string image, int maxrows, int x, int y, int z);
+	//void graySprite(cocos2d::Sprite* sprite);
+	//EffectSprite* createEffectSprite(std::string image, int maxrows, int x, int y, int z);
 
-	// gameplay functions
 	void Level1KeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
-	//void NoKeyPressed(cocos2d::Event* event);
 
 	void pauseMenu();
 	void advanceLevel();
@@ -139,8 +167,8 @@ public:
 	int bg_music_id;
 
 	// :::: new lighting stuff ::::
-	EffectSprite* m_playerLight;
-	LightEffect* m_lighting;
+	//EffectSprite* m_playerLight;
+	//LightEffect* m_lighting;
 
 	DynamicLightManager* lightManager;
 
@@ -166,6 +194,7 @@ private:
 	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> spinner_buddies;
 	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> zapper_sparks;
 	std::vector<cocos2d::Sprite*> walls;
+	std::vector<cocos2d::Sprite*> doors;
 	std::vector<cocos2d::Sprite*> floors;
 
 	// for menu selection
@@ -174,9 +203,9 @@ private:
 
 class Shop1Scene : public cocos2d::Scene {
 public:
-	Shop1Scene(HUDLayer* hud, Player p);
-	static cocos2d::Scene* createScene(Player p);
-	static Shop1Scene* create(HUDLayer* hud, Player p);
+	Shop1Scene(HUDLayer* hud, Player p, int level);
+	static cocos2d::Scene* createScene(Player p, int level);
+	static Shop1Scene* create(HUDLayer* hud, Player p, int level);
 	virtual bool init();
 	void renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &x, int &y); // shows dungeon for the first time
 	cocos2d::Sprite* createSprite(std::string image, int maxrows, int x, int y, int z);
@@ -205,14 +234,11 @@ private:
 
 	Dungeons m_dungeons;
 
-	FirstShop* SHOP1;
+	Shop* SHOP1;
+	int m_level;
 
-	std::vector<cocos2d::Sprite*> monsters;
 	std::vector<cocos2d::Sprite*> items;
 	std::vector<cocos2d::Sprite*> traps;
-	std::vector<cocos2d::Sprite*> projectiles;
-	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> spinner_buddies;
-	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> zapper_sparks;
 	std::vector<cocos2d::Sprite*> walls;
 	std::vector<cocos2d::Sprite*> doors;
 	
@@ -248,6 +274,7 @@ private:
 	Dungeons m_dungeons;
 	SecondFloor* DUNGEON2;
 
+	std::vector<cocos2d::Sprite*> money;
 	std::vector<cocos2d::Sprite*> monsters;
 	std::vector<cocos2d::Sprite*> items;
 	std::vector<cocos2d::Sprite*> traps;
@@ -255,11 +282,10 @@ private:
 	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> spinner_buddies;
 	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> zapper_sparks;
 	std::vector<cocos2d::Sprite*> walls;
+	std::vector<cocos2d::Sprite*> doors;
 	std::vector<cocos2d::Sprite*> floors;
 };
 
-
-//		LEVEL 3 SCENE
 class Level3Scene : public cocos2d::Scene {
 public:
 	Level3Scene(HUDLayer* hud, Player p);
