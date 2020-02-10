@@ -214,3 +214,6 @@
 - Item hash now checks for traps, so that items cannot land on top of traps
 - Changed menu, level 2 and level 3 music tracks
 - Updated help menu and added main menu options to the pause menu and game over screen
+
+2/10/2020:
+- Added boundary flag to Tile struct so that players cannot use that spell to go out of bounds
