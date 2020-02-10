@@ -209,3 +209,7 @@
 2/8/2020:
 - Added item descriptions and inventory screen so the player can receive brief information on their items.
 - Fixed inventory selection box movement and added helper text to weapon and item menus.
+
+2/9/2020:
+- Item hash now checks for traps, so that items cannot land on top of traps
+- Changed menu, level 2 and level 3 music tracks
