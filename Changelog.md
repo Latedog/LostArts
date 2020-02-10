@@ -213,3 +213,4 @@
 2/9/2020:
 - Item hash now checks for traps, so that items cannot land on top of traps
 - Changed menu, level 2 and level 3 music tracks
+- Updated help menu and added main menu options to the pause menu and game over screen
