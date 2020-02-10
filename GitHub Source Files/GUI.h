@@ -144,6 +144,7 @@ public:
 	//EffectSprite* createEffectSprite(std::string image, int maxrows, int x, int y, int z);
 
 	void Level1KeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
+	void scheduleTimer();
 
 	void pauseMenu();
 	void advanceLevel();
@@ -183,19 +184,11 @@ private:
 	static std::map<cocos2d::EventKeyboard::KeyCode,
 		std::chrono::high_resolution_clock::time_point> keys;
 	cocos2d::Label* label;
-
-	//cocos2d::EventListenerKeyboard* kbListener;
 	
 	std::vector<cocos2d::Sprite*> money;
-	std::vector<cocos2d::Sprite*> monsters;
 	std::vector<cocos2d::Sprite*> items;
-	std::vector<cocos2d::Sprite*> traps;
-	std::vector<cocos2d::Sprite*> projectiles;
-	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> spinner_buddies;
-	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> zapper_sparks;
 	std::vector<cocos2d::Sprite*> walls;
 	std::vector<cocos2d::Sprite*> doors;
-	std::vector<cocos2d::Sprite*> floors;
 
 	// for menu selection
 	int index = 0;
@@ -238,7 +231,6 @@ private:
 	int m_level;
 
 	std::vector<cocos2d::Sprite*> items;
-	std::vector<cocos2d::Sprite*> traps;
 	std::vector<cocos2d::Sprite*> walls;
 	std::vector<cocos2d::Sprite*> doors;
 	
@@ -275,15 +267,9 @@ private:
 	SecondFloor* DUNGEON2;
 
 	std::vector<cocos2d::Sprite*> money;
-	std::vector<cocos2d::Sprite*> monsters;
 	std::vector<cocos2d::Sprite*> items;
-	std::vector<cocos2d::Sprite*> traps;
-	std::vector<cocos2d::Sprite*> projectiles;
-	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> spinner_buddies;
-	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> zapper_sparks;
 	std::vector<cocos2d::Sprite*> walls;
 	std::vector<cocos2d::Sprite*> doors;
-	std::vector<cocos2d::Sprite*> floors;
 };
 
 class Level3Scene : public cocos2d::Scene {
@@ -316,16 +302,10 @@ private:
 	Dungeons m_dungeons;
 	ThirdFloor* DUNGEON3;
 
-	std::vector<cocos2d::Sprite*> monsters;
 	std::vector<cocos2d::Sprite*> items;
 	std::vector<cocos2d::Sprite*> money;
-	std::vector<cocos2d::Sprite*> traps;
-	std::vector<cocos2d::Sprite*> projectiles;
-	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> spinner_buddies;
-	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> zapper_sparks;
 	std::vector<cocos2d::Sprite*> walls;
 	std::vector<cocos2d::Sprite*> doors;
-	std::vector<cocos2d::Sprite*> floors;
 };
 
 
@@ -363,10 +343,7 @@ private:
 	std::vector<cocos2d::Sprite*> monsters;
 	std::vector<cocos2d::Sprite*> items;
 	std::vector<cocos2d::Sprite*> traps;
-	std::vector<cocos2d::Sprite*> projectiles;
 	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> spike_projectiles;
-	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> spinner_buddies;
-	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> zapper_sparks;
 	std::vector<cocos2d::Sprite*> walls;
 	std::vector<cocos2d::Sprite*> doors;
 };
@@ -376,6 +353,8 @@ private:
 class PauseMenuScene : public cocos2d::Scene {
 public:
 	CREATE_FUNC(PauseMenuScene);
+	//PauseMenuScene(cocos2d::Scene* scene);
+	//static PauseMenuScene* create(cocos2d::Scene* scene);
 	static cocos2d::Scene* createScene();
 	virtual bool init();
 
@@ -391,6 +370,8 @@ private:
 
 	cocos2d::EventListenerKeyboard* pauseSelectListener;
 	cocos2d::EventListenerKeyboard* helpSelectListener;
+
+	cocos2d::Scene* m_scene = nullptr;
 
 	Player p;
 	int index = 0;

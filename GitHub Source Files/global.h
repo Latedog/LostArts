@@ -206,9 +206,9 @@ const std::string THORNED_SHIELD = "Thorned Shield";
 const std::string FROST_SHIELD = "Frost Shield";
 const std::string REFLECT_SHIELD = "Reflect Shield";
 
-const std::string FREEZE_SPELL = "Freeze Spell";
-const std::string EARTHQUAKE_SPELL = "Earthquake Spell";
-const std::string FIREBLAST_SPELL = "Fire Blast Spell";
+const std::string FREEZE_SPELL = "Frost";
+const std::string EARTHQUAKE_SPELL = "Earthquake";
+const std::string FIREBLAST_SPELL = "Fire Blast";
 const std::string WIND_SPELL = "Wind Spell";
 const std::string INVISIBILITY_SPELL = "Invisibility Spell";
 const std::string ETHEREAL_SPELL = "Ethereal Spell";

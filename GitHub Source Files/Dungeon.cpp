@@ -47,6 +47,7 @@ Dungeon::Dungeon() : m_level(1) {
 			m_maze[i*cols + j].traptile = UNBREAKABLE_WALL;
 
 			m_maze[i*cols + j].wall = true;
+			m_maze[i*cols + j].boundary = true;
 		}
 		i += (rows - 2);
 	}
@@ -57,6 +58,8 @@ Dungeon::Dungeon() : m_level(1) {
 		m_maze[i*cols + cols - 1].top = m_maze[i*cols + cols -1].bottom = m_maze[i*cols + cols - 1].traptile = UNBREAKABLE_WALL;
 		m_maze[i*cols].wall = true;
 		m_maze[i*cols + cols - 1].wall = true;
+		m_maze[i*cols].boundary = true;
+		m_maze[i*cols + cols - 1].boundary = true;
 	}
 
 
@@ -453,7 +456,7 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 	int cols = getCols();
 
 	char top, projectile, bottom, traptile;
-	bool wall, item, trap, enemy, npc;
+	bool boundary, wall, item, trap, enemy, npc;
 
 	int initHP = player.at(0).getHP(); // used for checking if player took damage ever
 	
@@ -526,6 +529,7 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 				bottom = m_maze[(y + m)*cols + (x + n)].bottom;
 				traptile = m_maze[(y + m)*cols + (x + n)].traptile;
 
+				boundary = m_maze[(y + m)*cols + (x + n)].boundary;
 				wall = (player.at(0).isEthereal() ? false : m_maze[(y + m)*cols + (x + n)].wall);
 				item = m_maze[(y + m)*cols + (x + n)].item;
 				trap = m_maze[(y + m)*cols + (x + n)].trap;
@@ -535,7 +539,7 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 				if (npc) {
 					interactWithNPC(x + n, y + m);
 				}
-				else if (!(wall || enemy)) {
+				else if (!(wall || enemy || boundary)) {
 					m_maze[y*cols + x].hero = false;
 					m_maze[(y + m)*cols + (x + n)].hero = true;
 					player.at(0).setPosX(x + n); player.at(0).setPosY(y + m);
@@ -555,7 +559,7 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 						foundItem(m_maze, x + n, y + m);
 					}
 				}
-				else if (wall) {
+				else if (wall && !boundary) {
 					if (top == DOOR_H || top == DOOR_V) {
 						openDoor(x + n, y + m);
 					}
@@ -604,11 +608,11 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 		goldPickup(m_maze, player.at(0).getPosX(), player.at(0).getPosY());
 	}
 
-	// update sprite lighting
-	updateLighting();
-
 	// check active items in play
 	checkActive();
+
+	// update sprite lighting
+	updateLighting();
 
 	// if there are any doors, check them
 	if (!getDoors().empty()) {
@@ -1259,9 +1263,10 @@ void Dungeon::pushPlayer(char move) {
 void Dungeon::itemHash(std::vector<_Tile> &dungeon, int &x, int &y) {
 	bool item = dungeon[y*getCols() + x].item;
 	bool wall = dungeon[y*getCols() + x].wall;
+	bool trap = dungeon[y*getCols() + x].trap;
 
 	// if current tile has no item and the position is valid, return to set item here
-	if (!(item || wall)) {
+	if (!(item || wall || trap)) {
 		return;
 	}
 
@@ -3717,6 +3722,7 @@ void Dungeon::fillLevel(std::vector<std::string> finalvec, Player p, int start, 
 			else if (finalvec.at(count) == UNB_WALL) {
 				getDungeon()[i*cols + j].top = UNBREAKABLE_WALL;
 				getDungeon()[i*cols + j].wall = true;
+				getDungeon()[i*cols + j].boundary = true;
 			}
 			else if (finalvec.at(count) == DOOR_HORIZONTAL) {
 				getDungeon()[i*cols + j].top = getDungeon()[i*cols + j].traptile = DOOR_H;
@@ -3786,13 +3792,14 @@ void Dungeon::fillLevel(std::vector<std::string> finalvec, Player p, int start, 
 				//player.at(0).addItem(std::make_shared<PoisonCloud>());
 				//player.at(0).addItem(std::make_shared<Teleport>());
 				//player.at(0).addItem(std::make_shared<DizzyElixir>());
-				//player.at(0).addItem(std::make_shared<EarthquakeSpell>());
+				//player.at(0).addItem(std::make_shared<EtherealSpell>());
+				//player.at(0).addItem(std::make_shared<EtherealSpell>());
 				//player.at(0).addWeapon(std::make_shared<ArcaneStaff>());
 				//player.at(0).addWeapon(std::make_shared<VulcanHammer>());
 				//player.at(0).addWeapon(std::make_shared<IronLongSword>());
 				player.at(0).equipShield(*this, std::make_shared<WoodShield>());
 				//player.at(0).equipShield(*this, std::make_shared<ReflectShield>());
-				//player.at(0).equipTrinket(*this, std::make_shared<Bloodlust>());
+				//player.at(0).equipTrinket(*this, std::make_shared<VulcanRune>());
 			}
 			else if (finalvec.at(count) == GOBLIN) {
 				getDungeon()[i*cols + j].enemy = true;
@@ -4256,7 +4263,6 @@ Shop::Shop(Player p, int level) : Dungeon(level) {
 			switch (v.at(i*cols + j)) {
 			case c_PLAYER: {
 				m_shop1[i*cols + j].hero = true;
-				//m_shop1[i*cols + j].bottom = SPACE;
 				player.at(0) = p;
 				player.at(0).setPosX(j);
 				player.at(0).setPosY(i);
@@ -4266,6 +4272,7 @@ Shop::Shop(Player p, int level) : Dungeon(level) {
 			case '#': {
 				m_shop1[i*cols + j].top = m_shop1[i*cols + j].bottom = m_shop1[i*cols + j].traptile = UNBREAKABLE_WALL;
 				m_shop1[i*cols + j].wall = true;
+				m_shop1[i*cols + j].boundary = true;
 				break;
 			}
 			case DOOR_V: {
@@ -4281,6 +4288,8 @@ Shop::Shop(Player p, int level) : Dungeon(level) {
 				break;
 			}
 			case STAIRS: {
+				std::shared_ptr<Traps> stairs = std::make_shared<Stairs>(j, i);
+				getTraps().emplace_back(stairs);
 				m_shop1[i*cols + j].top = m_shop1[i*cols + j].bottom = SPACE;
 				m_shop1[i*cols + j].exit = true;
 				m_shop1[i*cols + j].trap_name = STAIRCASE;
@@ -4301,6 +4310,7 @@ Shop::Shop(Player p, int level) : Dungeon(level) {
 			case 'c': {
 				m_shop1[i*cols + j].shop_action = "countertop";
 				m_shop1[i*cols + j].wall = true;
+				m_shop1[i*cols + j].boundary = true;
 				break;
 			}
 				// shopkeeper
@@ -4326,6 +4336,7 @@ Shop::Shop(Player p, int level) : Dungeon(level) {
 				case 1: m_shop1[i*cols + j].object = std::make_shared<ShieldRepair>(); m_shop1[i*cols + j].item_name = SHIELD_REPAIR; m_shop1[i*cols + j].price = 25 * m_priceMultiplier; break;
 				}
 				m_shop1[i*cols + j].shop_action = "shop_item";
+				m_shop1[i*cols + j].boundary = true;
 				m_shop1[i*cols + j].wall = true;
 				m_shop1[i*cols + j].item = true;
 				break;
@@ -4336,6 +4347,7 @@ Shop::Shop(Player p, int level) : Dungeon(level) {
 				case 1: m_shop1[i*cols + j].object = std::make_shared<Bomb>(); m_shop1[i*cols + j].item_name = BOMB; m_shop1[i*cols + j].price = 25 * m_priceMultiplier; break;
 				case 2: m_shop1[i*cols + j].object = std::make_shared<StatPotion>(); m_shop1[i*cols + j].item_name = STATPOT; m_shop1[i*cols + j].price = 23 * m_priceMultiplier; break;
 				}
+				m_shop1[i*cols + j].boundary = true;
 				m_shop1[i*cols + j].wall = true;
 				m_shop1[i*cols + j].item = true;
 				m_shop1[i*cols + j].shop_action = "shop_item";
@@ -4346,6 +4358,7 @@ Shop::Shop(Player p, int level) : Dungeon(level) {
 				case 0: m_shop1[i*cols + j].object = std::make_shared<LifePotion>(); m_shop1[i*cols + j].item_name = LIFEPOT; m_shop1[i*cols + j].price = 30 * m_priceMultiplier; break;
 				case 1: m_shop1[i*cols + j].object = std::make_shared<Bomb>(); m_shop1[i*cols + j].item_name = BOMB; m_shop1[i*cols + j].price = 25 * m_priceMultiplier; break;
 				}
+				m_shop1[i*cols + j].boundary = true;
 				m_shop1[i*cols + j].wall = true;
 				m_shop1[i*cols + j].item = true;
 				m_shop1[i*cols + j].shop_action = "shop_item";
@@ -4363,6 +4376,7 @@ Shop::Shop(Player p, int level) : Dungeon(level) {
 				case 6: m_shop1[i*cols + j].object = std::make_shared<IronShield>(j, i); m_shop1[i*cols + j].price = 65 * m_priceMultiplier; break;
 				case 7: m_shop1[i*cols + j].object = std::make_shared<BloodShortSword>(); m_shop1[i*cols + j].price = (70 + randInt(8)) * m_priceMultiplier; break;
 				}
+				m_shop1[i*cols + j].boundary = true;
 				m_shop1[i*cols + j].wall = true;
 				m_shop1[i*cols + j].item = true;
 				m_shop1[i*cols + j].item_name = m_shop1[i*cols + j].object->getItem();
@@ -4380,6 +4394,7 @@ Shop::Shop(Player p, int level) : Dungeon(level) {
 				case 6: m_shop1[i*cols + j].object = std::make_shared<VulcanRune>(); m_shop1[i*cols + j].price = (68 + randInt(5)) * m_priceMultiplier; break;
 				case 7: m_shop1[i*cols + j].object = std::make_shared<EtherealSpell>(); m_shop1[i*cols + j].price = (54) * m_priceMultiplier; break;
 				}
+				m_shop1[i*cols + j].boundary = true;
 				m_shop1[i*cols + j].wall = true;
 				m_shop1[i*cols + j].item = true;
 				m_shop1[i*cols + j].item_name = m_shop1[i*cols + j].object->getItem();
@@ -4397,6 +4412,7 @@ Shop::Shop(Player p, int level) : Dungeon(level) {
 				// 5% chance
 				else if (n > 95) { m_shop1[i*cols + j].object = std::make_shared<GoldenChest>(); m_shop1[i*cols + j].item_name = GOLDEN_CHEST; m_shop1[i*cols + j].price = 100 * m_priceMultiplier; }
 
+				m_shop1[i*cols + j].boundary = true;
 				m_shop1[i*cols + j].wall = true;
 				m_shop1[i*cols + j].item = true;
 				m_shop1[i*cols + j].shop_action = "shop_item";
@@ -4423,7 +4439,7 @@ Shop& Shop::operator=(Shop const &dungeon) {
 
 void Shop::peekDungeon(int x, int y, char move) {
 	char top, projectile, bottom, traptile;
-	bool wall, item, trap, enemy;
+	bool boundary, wall, item, trap, enemy;
 
 	int rows = m_rows;
 	int cols = m_cols;
@@ -4495,12 +4511,13 @@ void Shop::peekDungeon(int x, int y, char move) {
 			bottom = m_shop1[(y + m)*cols + (x + n)].bottom;
 			traptile = m_shop1[(y + m)*cols + (x + n)].traptile;
 
+			boundary = m_shop1[(y + m)*cols + (x + n)].boundary;
 			wall = (player.at(0).isEthereal() ? false : m_shop1[(y + m)*cols + (x + n)].wall);
 			item = m_shop1[(y + m)*cols + (x + n)].item;
 			trap = m_shop1[(y + m)*cols + (x + n)].trap;
 			enemy = m_shop1[(y + m)*cols + (x + n)].enemy;
 
-			if (!(wall || enemy)) {
+			if (!(wall || enemy || boundary)) {
 				// move character to the left
 				m_shop1[y*cols + x].hero = false;
 				m_shop1[(y + m)*cols + (x + n)].hero = true;
@@ -4528,7 +4545,7 @@ void Shop::peekDungeon(int x, int y, char move) {
 					scene->deconstructShopHUD();
 				}
 			}
-			else if (wall) {
+			else if (wall && !boundary) {
 				if (top == DOOR_H || top == DOOR_V) {
 					openDoor(x + n, y + m);
 				}
@@ -4843,6 +4860,7 @@ SecondFloor::SecondFloor(Player p) : Dungeon(3), m_openexit(false), m_watersUsed
 			m_maze2[i*cols + j].bottom = UNBREAKABLE_WALL;
 			m_maze2[i*cols + j].traptile = UNBREAKABLE_WALL;
 			m_maze2[i*cols + j].wall = true;
+			m_maze2[i*cols + j].boundary = true;
 		}
 		i += (rows - 2);
 	}
@@ -4854,6 +4872,8 @@ SecondFloor::SecondFloor(Player p) : Dungeon(3), m_openexit(false), m_watersUsed
 	
 		m_maze2[i*cols].wall = true;
 		m_maze2[i*cols + cols - 1].wall = true;
+		m_maze2[i*cols].boundary = true;
+		m_maze2[i*cols + cols - 1].boundary = true;
 	}
 
 
@@ -4992,7 +5012,7 @@ void SecondFloor::peekDungeon(int x, int y, char move) {
 	int cols = getCols();
 
 	char top, bottom, traptile;
-	bool wall, item, trap, enemy;
+	bool boundary, wall, item, trap, enemy;
 	std::string trap_name;
 
 	int initHP = player.at(0).getHP();
@@ -5061,12 +5081,13 @@ void SecondFloor::peekDungeon(int x, int y, char move) {
 				trap_name = m_maze2[(y + m)*cols + (x + n)].trap_name;
 				traptile = m_maze2[(y + m)*cols + (x + n)].traptile;
 
+				boundary = m_maze2[(y + m)*cols + (x + n)].boundary;
 				wall = (player.at(0).isEthereal() ? false : m_maze2[(y + m)*cols + (x + n)].wall);
 				item = m_maze2[(y + m)*cols + (x + n)].item;
 				trap = m_maze2[(y + m)*cols + (x + n)].trap;
 				enemy = m_maze2[(y + m)*cols + (x + n)].enemy;
 
-				if (!(wall || enemy)) {
+				if (!(wall || enemy || boundary)) {
 					m_maze2[y*cols + x].hero = false;
 					m_maze2[(y + m)*cols + (x + n)].hero = true;
 					player.at(0).setPosX(x + n); player.at(0).setPosY(y + m);
@@ -5115,7 +5136,7 @@ void SecondFloor::peekDungeon(int x, int y, char move) {
 						}
 					}
 				}
-				else if (wall) {
+				else if (wall && !boundary) {
 					if (top == DOOR_H || top == DOOR_V) {
 						openDoor(x + n, y + m);
 					}
@@ -5171,9 +5192,6 @@ void SecondFloor::peekDungeon(int x, int y, char move) {
 		goldPickup(m_maze2, player.at(0).getPosX(), player.at(0).getPosY());
 	}
 
-	// update sprite lighting
-	updateLighting();
-
 	// check if player entered devil's waters and killed all guardians
 	if (m_guardians == 0 && m_watersCleared) {
 		guardiansDefeated();
@@ -5189,6 +5207,8 @@ void SecondFloor::peekDungeon(int x, int y, char move) {
 		checkDoors();
 	}
 
+	// update sprite lighting
+	updateLighting();
 
 	//	if player is dead then return
 	if (player.at(0).getHP() <= 0) {
@@ -6431,6 +6451,7 @@ ThirdFloor::ThirdFloor(Player p) : Dungeon(4), m_locked(false) {
 			m_maze3[i*cols + j].bottom = UNBREAKABLE_WALL;
 			m_maze3[i*cols + j].traptile = UNBREAKABLE_WALL;
 			m_maze3[i*cols + j].wall = true;
+			m_maze3[i*cols + j].boundary = true;
 		}
 		i += (rows - 2);
 	}
@@ -6442,6 +6463,8 @@ ThirdFloor::ThirdFloor(Player p) : Dungeon(4), m_locked(false) {
 	
 		m_maze3[i*cols].wall = true;
 		m_maze3[i*cols + cols - 1].wall = true;
+		m_maze3[i*cols].boundary = true;
+		m_maze3[i*cols + cols - 1].boundary = true;
 	}
 
 	/*
@@ -6756,7 +6779,7 @@ void ThirdFloor::peekDungeon(int x, int y, char move) {
 	int cols = getCols();
 
 	char top, bottom, traptile;
-	bool wall, item, enemy, trap;
+	bool boundary, wall, item, enemy, trap;
 
 	int initHP = player.at(0).getHP();
 
@@ -6823,12 +6846,13 @@ void ThirdFloor::peekDungeon(int x, int y, char move) {
 				bottom = m_maze3[(y + m)*cols + (x + n)].bottom;
 				traptile = m_maze3[(y + m)*cols + (x + n)].traptile;
 
+				boundary = m_maze3[(y + m)*cols + (x + n)].boundary;
 				wall = (player.at(0).isEthereal() ? false : m_maze3[(y + m)*cols + (x + n)].wall);
 				item = m_maze3[(y + m)*cols + (x + n)].item;
 				trap = m_maze3[(y + m)*cols + (x + n)].trap;
 				enemy = m_maze3[(y + m)*cols + (x + n)].enemy;
 
-				if (!(wall || enemy)) {
+				if (!(wall || enemy || boundary)) {
 					m_maze3[y*cols + x].hero = false;
 					m_maze3[(y + m)*cols + (x + n)].hero = true;
 					player.at(0).setPosX(x + n); player.at(0).setPosY(y + m);
@@ -6845,7 +6869,7 @@ void ThirdFloor::peekDungeon(int x, int y, char move) {
 						trapEncounter(x + n, y + m);
 					}
 				}
-				else if (wall) {
+				else if (wall && !boundary) {
 					if (top == DOOR_H || top == DOOR_V) {
 						openDoor(x + n, y + m);
 					}
@@ -7692,11 +7716,11 @@ void ThirdFloor::leftEdgeChunks(std::vector<std::vector<std::vector<std::string>
 		{ wll,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,  wll,  unb},
 		{ wll,   sp, t_sk,  m_g,   sp,   sp,   sp,   sp,   sp,  m_g, t_sk,   sp,  wll,  unb},
 		{ wll,   sp,   sp,   sp,   sp,   sp,  t_s,   sp,   sp,   sp,   sp,   sp,  wll,  unb},
-		{  sp,   sp,   sp,   sp,   sp,  t_s, t_cf,  t_s,   sp,   sp,   sp,   sp,  wll,  unb},
+		{ wll,   sp,   sp,   sp,   sp,  t_s, t_cf,  t_s,   sp,   sp,   sp,   sp,   sp,  _dv},
 		{ wll,   sp,   sp,   sp,   sp,   sp,  t_s,   sp,   sp,   sp,   sp,   sp,  wll,  unb},
 		{ wll,   sp, t_sk,  m_g,   sp,   sp,   sp,   sp,   sp,  m_g, t_sk,   sp,  wll,  unb},
 		{ wll,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,  wll,  unb},
-		{ wll,  wll,  wll,  wll,  wll,  wll,  wll,  wll,  wll,  wll,  wll,  wll,  wll,  unb}, };
+		{ wll,  wll,  wll,  wll,  wll,  wll,   sp,  wll,  wll,  wll,  wll,  wll,  wll,  unb}, };
 
 	std::vector<std::vector<std::string>> vii =
 	{   { unb,  unb,  unb,  unb,  unb,  unb,  _dh,  unb,  unb,  unb,  unb,  unb,  unb,  unb},
@@ -7704,11 +7728,11 @@ void ThirdFloor::leftEdgeChunks(std::vector<std::vector<std::vector<std::string>
 		{ wll,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,  wll,  unb},
 		{ wll,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,  wll,  unb},
 		{ wll,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,  wll,  unb},
-		{  sp,   sp,   sp,   sp,   sp,   sp,  wll,   sp,   sp,   sp,   sp,   sp,  wll,  unb},
+		{ wll,   sp,   sp,   sp,   sp,   sp,  wll,   sp,   sp,   sp,   sp,   sp,  wll,  _dv},
 		{ wll,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,  wll,  unb},
 		{ wll,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,  wll,  unb},
 		{ wll,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp,  wll,  unb},
-		{ wll,  wll,  wll,  wll,  wll,  wll,  wll,  wll,  wll,  wll,  wll,  wll,  wll,  unb}, };
+		{ wll,  wll,  wll,  wll,  wll,  wll,   sp,  wll,  wll,  wll,  wll,  wll,  wll,  unb}, };
 
 	std::vector<std::vector<std::string>> viii =
 	{   { unb,  unb,  unb,  unb,  unb,  unb,  _dh,  unb,  unb,  unb,  unb,  unb,  unb,  unb},
@@ -8475,6 +8499,7 @@ FirstBoss::FirstBoss(Player p) : Dungeon(5) {
 			m_boss[i*cols + j].bottom = UNBREAKABLE_WALL;
 			m_boss[i*cols + j].traptile = UNBREAKABLE_WALL;
 			m_boss[i*cols + j].wall = true;
+			m_boss[i*cols + j].boundary = true;
 		}
 		i += (BOSSROWS - 2);
 	}
@@ -8485,6 +8510,8 @@ FirstBoss::FirstBoss(Player p) : Dungeon(5) {
 	
 		m_boss[i*cols].wall = true;
 		m_boss[i*cols + cols - 1].wall = true;
+		m_boss[i*cols].boundary = true;
+		m_boss[i*cols + cols - 1].boundary = true;
 	}
 
 
@@ -8492,7 +8519,6 @@ FirstBoss::FirstBoss(Player p) : Dungeon(5) {
 	player.at(0) = p;
 	player.at(0).setPosX(cols / 2);
 	player.at(0).setPosY(BOSSROWS - 3);
-	//m_boss[player.at(0).getPosY()*cols + player.at(0).getPosX()].top = PLAYER;
 	m_boss[player.at(0).getPosY()*cols + player.at(0).getPosX()].hero = true;
 
 
@@ -8592,7 +8618,7 @@ void FirstBoss::peekDungeon(int x, int y, char move) {
 	int cols = getCols();
 
 	char upper, top, bottom, traptile;
-	bool wall, item, trap, enemy;
+	bool boundary, wall, item, trap, enemy;
 
 	int initHP = player.at(0).getHP();
 
@@ -8649,12 +8675,13 @@ void FirstBoss::peekDungeon(int x, int y, char move) {
 				bottom = m_boss[(y + m)*cols + (x + n)].bottom;
 				traptile = m_boss[(y + m)*cols + (x + n)].traptile;
 
+				boundary = m_boss[(y + m)*cols + (x + n)].boundary;
 				wall = (player.at(0).isEthereal() ? false : m_boss[(y + m)*cols + (x + n)].wall);
 				item = m_boss[(y + m)*cols + (x + n)].item;
 				trap = m_boss[(y + m)*cols + (x + n)].trap;
 				enemy = m_boss[(y + m)*cols + (x + n)].enemy;
 
-				if (!(wall || enemy)) {
+				if (!(wall || enemy || boundary)) {
 					m_boss[y*cols + x].hero = false;
 					m_boss[(y + m)*cols + (x + n)].hero = true;
 					player.at(0).setPosX(x + n); player.at(0).setPosY(y + m);
@@ -8663,7 +8690,7 @@ void FirstBoss::peekDungeon(int x, int y, char move) {
 						trapEncounter(x + n, y + m);
 					}
 				}
-				else if (wall) {
+				else if (wall && !boundary) {
 					if (top == DOOR_H || top == DOOR_V) {
 						openDoor(x + n, y + m);
 					}

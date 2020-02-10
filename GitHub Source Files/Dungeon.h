@@ -53,6 +53,7 @@ struct _Tile {
 
 
 	// tells if there is already something present in a particular spot
+	bool boundary = false;
 	bool wall;
 	bool item;
 	bool trap;

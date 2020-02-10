@@ -846,7 +846,7 @@ void RingOfCasting::unapply(Dungeon &dungeon, Player &p) {
 }
 
 VulcanRune::VulcanRune(int x, int y) : Trinket(x, y, VULCAN_RUNE, "Vulcan_Rune_48x48.png", false) {
-	setDescription("Some say this rune was forged by a legendary blacksmith\n that then hid their wares deep inside a volcano.");
+	setDescription("Some say this rune was forged by a legendary\n blacksmith that then hid their wares deep\n inside a volcano.");
 }
 void VulcanRune::apply(Dungeon &dungeon, Player &p) {
 	//p.setLavaImmunity(true);
@@ -4368,6 +4368,7 @@ void Turret::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	// if on cooldown, come off cooldown and return
 	if (onCooldown()) {
 		m_cooldown = false;
+
 		return;
 	}
 
@@ -4380,6 +4381,10 @@ void Turret::activeTrapAction(Dungeon &dungeon, Actors &a) {
 				// play trigger sound effect
 				cocos2d::experimental::AudioEngine::play2d("Turret_Trigger.mp3", false, 1.0f);
 
+				std::string image = "Spring_Arrow_Left_Red_48x48.png";
+				getSprite()->removeFromParent();
+				setSprite(dungeon.createSprite(tx, ty, 1, image));
+
 				m_triggered = true;
 				return;
 			}
@@ -4390,6 +4395,10 @@ void Turret::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			if (ay == ty && ax - tx >= 1 && ax - tx <= m_range && !dungeon.wallCollision(dungeon.getDungeon(), dungeon.getCols(), 'x', ax, tx)) {
 				// play trigger sound effect
 				cocos2d::experimental::AudioEngine::play2d("Turret_Trigger.mp3", false, 1.0f);
+
+				std::string image = "Spring_Arrow_Right_Red_48x48.png";
+				getSprite()->removeFromParent();
+				setSprite(dungeon.createSprite(tx, ty, 1, image));
 
 				m_triggered = true;
 				return;
@@ -4402,6 +4411,10 @@ void Turret::activeTrapAction(Dungeon &dungeon, Actors &a) {
 				// play trigger sound effect
 				cocos2d::experimental::AudioEngine::play2d("Turret_Trigger.mp3", false, 1.0f);
 
+				std::string image = "Spring_Arrow_Up_Red_48x48.png";
+				getSprite()->removeFromParent();
+				setSprite(dungeon.createSprite(tx, ty, 1, image));
+
 				m_triggered = true;
 				return;
 			}
@@ -4412,6 +4425,10 @@ void Turret::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			if (ax == tx && ay - ty >= 1 && ay - ty <= m_range && !dungeon.wallCollision(dungeon.getDungeon(), dungeon.getCols(), 'y', ay, ty)) {
 				// play trigger sound effect
 				cocos2d::experimental::AudioEngine::play2d("Turret_Trigger.mp3", false, 1.0f);
+
+				std::string image = "Spring_Arrow_Down_Red_48x48.png";
+				getSprite()->removeFromParent();
+				setSprite(dungeon.createSprite(tx, ty, 1, image));
 
 				m_triggered = true;
 				return;
@@ -4429,38 +4446,36 @@ void Turret::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	// else if it is triggered, shoot in the proper direction
 	switch (m_dir) {
 	case 'l': {
-		//// if turret and actor are on the same column, and there aren't any walls in the way, shoot them
-		//if (ay == ty && !dungeon.wallCollision(dungeon.getDungeon(), dungeon.getCols(), 'x', ax, tx)) {
-		//	a.setHP(a.getHP() - getDmg());
-		//}
+		// if turret and actor are on the same column, and there aren't any walls in the way, shoot them
 		checkLineOfFire(dungeon);
 		break;
 	}
 	case 'r': {
-		//// if turret and actor are on the same column, and there aren't any walls in the way, shoot them
-		//if (ay == ty && !dungeon.wallCollision(dungeon.getDungeon(), dungeon.getCols(), 'x', ax, tx)) {
-		//	a.setHP(a.getHP() - getDmg());
-		//}
+		// if turret and actor are on the same column, and there aren't any walls in the way, shoot them
 		checkLineOfFire(dungeon);
 		break;
 	}
 	case 'u': {
-		//// if turret and actor are on the same row, and there aren't any walls in the way, shoot them
-		//if (ax == tx && !dungeon.wallCollision(dungeon.getDungeon(), dungeon.getCols(), 'y', ay, ty)) {
-		//	a.setHP(a.getHP() - getDmg());
-		//}
+		// if turret and actor are on the same row, and there aren't any walls in the way, shoot them
 		checkLineOfFire(dungeon);
 		break;
 	}
 	case 'd': {
-		//// if turret and actor are on the same row, and there aren't any walls in the way, shoot them
-		//if (ax == tx && !dungeon.wallCollision(dungeon.getDungeon(), dungeon.getCols(), 'y', ay, ty)) {
-		//	a.setHP(a.getHP() - getDmg());
-		//}
+		// if turret and actor are on the same row, and there aren't any walls in the way, shoot them
 		checkLineOfFire(dungeon);
 		break;
 	}
 	}
+
+	std::string image;
+	switch (m_dir) {
+	case 'l': image = "Spring_Arrow_Left_48x48.png"; break;
+	case 'r': image = "Spring_Arrow_Right_48x48.png"; break;
+	case 'u': image = "Spring_Arrow_Up_48x48.png"; break;
+	case 'd': image = "Spring_Arrow_Down_48x48.png"; break;
+	}
+	getSprite()->removeFromParent();
+	setSprite(dungeon.createSprite(tx, ty, 1, image));
 
 	m_cooldown = true;
 	m_triggered = false;

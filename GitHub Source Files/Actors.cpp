@@ -349,7 +349,7 @@ void Actors::setStuck(int stuck) {
 // ================================================
 //				:::: THE PLAYERS ::::
 // ================================================
-Player::Player() : Actors(randInt(MAXCOLS) + 1, randInt(MAXROWS) + 1, 100, 2, 2, 2, std::make_shared<ShortSword>(), "Player") {
+Player::Player() : Actors(randInt(MAXCOLS) + 1, randInt(MAXROWS) + 1, 1000, 2, 2, 2, std::make_shared<ShortSword>(), "Player") {
 	m_hasShield = false;
 	m_blocking = false;
 	m_maxhp = 100;

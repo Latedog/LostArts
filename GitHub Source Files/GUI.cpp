@@ -30,8 +30,8 @@ bool StartScene::init()
 	}
 
 
-	id = experimental::AudioEngine::play2d("Title Theme.mp3", true, 0.7f);
-
+	//id = experimental::AudioEngine::play2d("Title Theme.mp3", true, 0.7f);
+	id = experimental::AudioEngine::play2d("PetterTheSturgeon - Anything_1.waw_.mp3", true, 1.0f);
 
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
@@ -49,7 +49,7 @@ bool StartScene::init()
 	this->addChild(playerSprite, 1);*/
 
 	// background pic
-	auto background = Sprite::create("super_pixel_cave_wallpaper_B.png");
+	auto background = Sprite::create("super_pixel_cave_wallpaper_C.png");
 	background->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
 	background->setScale(0.55);
 	this->addChild(background, -5);
@@ -57,7 +57,8 @@ bool StartScene::init()
 	// arrow sprite for selection
 	auto arrow = Sprite::create("Right_Arrow.png");
 	arrow->setPosition(-2.5f * MENU_SPACING + visibleSize.width / 2, -1.2f * MENU_SPACING + visibleSize.height / 2);
-	arrow->setScale(2.0);
+	arrow->setScale(2.5);
+	arrow->setColor(cocos2d::Color3B(255, 150, 200));
 	this->addChild(arrow, 4);
 
 	// start button
@@ -1074,7 +1075,8 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 	labels.insert(std::make_pair("item name", itemName));
 
 	itemDescription = Label::createWithTTF("", "fonts/Marker Felt.ttf", 20);
-	itemDescription->setPosition(130 * RES_ADJUST, -185 * RES_ADJUST);
+	itemDescription->setPosition(130 * RES_ADJUST, -170 * RES_ADJUST);
+	itemDescription->setAnchorPoint(Vec2(0.5, 1.0));
 	itemDescription->setOpacity(230);
 	itemDescription->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
 	itemDescription->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
@@ -1687,14 +1689,19 @@ void HUDLayer::gameOver() {
 	pause->setPosition(0, 4.8 * MENU_SPACING);
 	this->addChild(pause, 3);
 
-	// Resume option
+	// Back to Menu option
+	auto back = Label::createWithTTF("Main Menu", "fonts/Marker Felt.ttf", 36);
+	back->setPosition(0, 2 * MENU_SPACING);
+	this->addChild(back, 3);
+
+	// Restart option
 	auto resume = Label::createWithTTF("Restart", "fonts/Marker Felt.ttf", 36);
-	resume->setPosition(0, 2 * MENU_SPACING);
+	resume->setPosition(0, 1 * MENU_SPACING);
 	this->addChild(resume, 3);
 
 	// Quit option
 	auto exit = Label::createWithTTF("Exit Game", "fonts/Marker Felt.ttf", 36);
-	exit->setPosition(0, -1 * MENU_SPACING);
+	exit->setPosition(0, -2 * MENU_SPACING);
 	this->addChild(exit, 3);
 
 
@@ -1744,14 +1751,19 @@ void HUDLayer::gameOver(cocos2d::Scene &scene) {
 	pause->setPosition(0, 4.8 * MENU_SPACING);
 	this->addChild(pause, 3);
 
+	// Back to Menu option
+	auto back = Label::createWithTTF("Main Menu", "fonts/Marker Felt.ttf", 36);
+	back->setPosition(0, 2 * MENU_SPACING);
+	this->addChild(back, 3);
+
 	// Resume option
 	auto resume = Label::createWithTTF("Restart", "fonts/Marker Felt.ttf", 36);
-	resume->setPosition(0, 2 * MENU_SPACING);
+	resume->setPosition(0, 1 * MENU_SPACING);
 	this->addChild(resume, 3);
 
 	// Quit option
 	auto exit = Label::createWithTTF("Exit Game", "fonts/Marker Felt.ttf", 36);
-	exit->setPosition(0, -1 * MENU_SPACING);
+	exit->setPosition(0, -2 * MENU_SPACING);
 	this->addChild(exit, 3);
 
 
@@ -1766,7 +1778,13 @@ void HUDLayer::gameOverKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 
 	switch (keyCode) {
 	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
-		if (index > 0) {
+		if (index == 1) {
+			index--;
+			event->getCurrentTarget()->setPosition(pos.x, pos.y + 1 * MENU_SPACING);
+
+			cocos2d::experimental::AudioEngine::play2d("Select 1.mp3", false, 1.0f);
+		}
+		else if (index == 2) {
 			index--;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y + 3 * MENU_SPACING);
 
@@ -1775,7 +1793,13 @@ void HUDLayer::gameOverKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 		break;
 	}
 	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
-		if (index < 1) {
+		if (index == 0) {
+			index++;
+			event->getCurrentTarget()->setPosition(pos.x, pos.y - 1 * MENU_SPACING);
+
+			cocos2d::experimental::AudioEngine::play2d("Select 1.mp3", false, 1.0f);
+		}
+		else if (index == 1) {
 			index++;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y - 3 * MENU_SPACING);
 
@@ -1784,9 +1808,23 @@ void HUDLayer::gameOverKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 		break;
 	}
 	case EventKeyboard::KeyCode::KEY_ENTER:
-	case EventKeyboard::KeyCode::KEY_SPACE:
+	//case EventKeyboard::KeyCode::KEY_SPACE:
 		switch (index) {
-		case 0: { // Restart
+		case 0: { // Back to main menu
+			// stop music
+			cocos2d::experimental::AudioEngine::stopAll();
+			auto audio = experimental::AudioEngine::play2d("Confirm 1.mp3", false, 1.0f);
+
+			auto visibleSize = Director::getInstance()->getVisibleSize();
+
+			// advance to start menu scene
+			auto startScene = StartScene::createScene();
+			//startScene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
+
+			Director::getInstance()->replaceScene(startScene); // replace with new scene
+			return;
+		}
+		case 1: { // Restart
 
 			// generates a new dungeon and replaces the current one
 			
@@ -1805,7 +1843,7 @@ void HUDLayer::gameOverKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 			Director::getInstance()->replaceScene(level1Scene); // replace with new scene
 			return;
 		}
-		case 1: // Exit Game
+		case 2: // Exit Game
 			Director::getInstance()->end();
 			return;
 		}
@@ -2150,19 +2188,14 @@ bool Level1Scene::init()
 
 	Dungeons dungeons;
 	m_dungeons = dungeons;
-	//delete dungeons;
 
-	//Dungeon dungeon;
 	m_dungeons.DUNGEON1 = &DUNGEON;
-	//*m_dungeons.DUNGEON1 = dungeon;
-	//delete dungeon;
 
-	// set dungeon map
-	//DUNGEON = dungeon;
 
 	// music
 	//id = experimental::AudioEngine::play2d("Abandoned Hopes.mp3", true);
 	bg_music_id = experimental::AudioEngine::play2d("Exploring a cave.mp3", true, 0.8f);
+	cocos2d::experimental::AudioEngine::setMaxAudioInstance(200);
 
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
@@ -2283,15 +2316,9 @@ bool Level1Scene::init()
 	/*DUNGEON.setPlayerSprite(m_player);
 	DUNGEON.getPlayerVector().at(0).setSprite(m_player);
 
-	DUNGEON.setMonsterSprites(monsters);
 	DUNGEON.setItemSprites(items);
 	DUNGEON.setMoneySprites(money);
-	DUNGEON.setTrapSprites(traps);
-	DUNGEON.setProjectileSprites(projectiles);
-	DUNGEON.setSpinnerSprites(spinner_buddies);
-	DUNGEON.setZapperSprites(zapper_sparks);
 	DUNGEON.setWallSprites(walls);
-	DUNGEON.setFloorSprites(floors);
 	DUNGEON.setScene(this);*/
 
 	//
@@ -2310,147 +2337,6 @@ bool Level1Scene::init()
 	kbListener = EventListenerKeyboard::create();
 	kbListener->onKeyPressed = CC_CALLBACK_2(Level1Scene::Level1KeyPressed, this);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(kbListener, m_player); // check this for player
-
-	/*
-	eventListener->onKeyPressed = [timer, x, y, c, this](EventKeyboard::KeyCode keyCode, Event* event) mutable {
-		p = dungeon.getPlayer();
-		x = p.getPosX(); y = p.getPosY();
-		Vec2 pos = event->getCurrentTarget()->getPosition();
-		switch (keyCode) {
-		case EventKeyboard::KeyCode::KEY_LEFT_ARROW:
-		//case EventKeyboard::KeyCode::KEY_A:
-			dungeon.peekDungeon(x, y, 'l');
-			if (x != dungeon.getPlayer().getPosX())
-				event->getCurrentTarget()->setPosition(pos.x - SPACING_FACTOR, pos.y);
-			
-			break;
-		case EventKeyboard::KeyCode::KEY_RIGHT_ARROW:
-		//case EventKeyboard::KeyCode::KEY_D:
-			dungeon.peekDungeon(x, y, 'r');
-			if (x != dungeon.getPlayer().getPosX())
-				event->getCurrentTarget()->setPosition(pos.x + SPACING_FACTOR, pos.y);
-			
-			break;
-		case EventKeyboard::KeyCode::KEY_UP_ARROW:
-		//case EventKeyboard::KeyCode::KEY_W:
-			dungeon.peekDungeon(x, y, 'u');
-			if (y != dungeon.getPlayer().getPosY())
-				event->getCurrentTarget()->setPosition(pos.x, pos.y + SPACING_FACTOR);
-			
-			break;
-		case EventKeyboard::KeyCode::KEY_DOWN_ARROW:
-		//case EventKeyboard::KeyCode::KEY_S:
-			dungeon.peekDungeon(x, y, 'd');
-			if (y != dungeon.getPlayer().getPosY())
-				event->getCurrentTarget()->setPosition(pos.x, pos.y - SPACING_FACTOR);
-			
-			break;
-		
-		// Non-movement actions
-		case EventKeyboard::KeyCode::KEY_I: // open inventory for viewing
-			c = 'i';
-			p.showInventory();
-			waitForInverse(c);
-			dungeon.peekDungeon(0, 0, '-'); // moves monsters
-			break;
-		case EventKeyboard::KeyCode::KEY_W: // open weapon menu
-			Director::getInstance()->pushScene(this);
-
-			c = 'w';
-			dungeon.peekDungeon(0, 0, 'w');
-			weaponMenu(dungeon, p);
-
-			Director::getInstance()->popScene();
-
-			//c = 'w';
-			//dungeon.peekDungeon(0, 0, 'w');
-			break;
-		case EventKeyboard::KeyCode::KEY_E: // pick up item/interact
-			//c = 'e';
-			dungeon.peekDungeon(x, y, 'e');
-			break;
-		case EventKeyboard::KeyCode::KEY_C: // open item menu
-			itemMenu(p);
-
-			c = 'c';
-			dungeon.peekDungeon(x, y, 'c');
-			break;
-		case EventKeyboard::KeyCode::KEY_H: // open help menu
-			c = 'h';
-			help(dungeon, c);
-			break;
-		case EventKeyboard::KeyCode::KEY_P:
-		case EventKeyboard::KeyCode::KEY_ESCAPE: // open pause menu
-			c = 'p';
-			pause(c);
-			if (c == 'r') {
-				reset(dungeon);
-			}
-			else if (c == 'q') {
-				quit = true;
-			}
-			dungeon.peekDungeon(x, y, '-');
-			break;
-		default:
-			dungeon.peekDungeon(x, y, '-');
-			break;
-		}
-
-
-		// check if player is dead
-		if (dungeon.getPlayer().getHP() <= 0) {
-			if (!gameOver(dungeon.getPlayer(), dungeon)) {
-				c = 'q';
-			}
-			reset(dungeon);
-
-			c = getCharacter();
-		}
-		// check if player advanced to next floor
-		else if (dungeon.getLevel() != 1) {
-			p = dungeon.getPlayer();
-		}
-		// else get next input
-		else {
-			timer.start();
-		//while (timer.elapsed() < 750) {
-				//if (getCharIfAny(c))
-					//break;
-				//else
-					//c = '-';
-			}
-		}
-	
-	};
-	*/
-
-	/*
-	auto inactionListener = [this](EventCustom* event) mutable {
-		auto actions = this->getActionManager();
-
-		// resumes follow if it was paused
-		if (actions->getNumberOfRunningActions() == 0) {
-			auto visibleSize = Director::getInstance()->getVisibleSize();
-			this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
-		}
-		// if there are any lingering actions, finish them instantly
-		while (actions->getNumberOfRunningActions() > 1) { // >1 because follow player is always running
-			actions->update(1.0);
-		}
-
-		m_dungeons.DUNGEON1->peekDungeon(m_dungeons.DUNGEON1->getPlayer().getPosX(), m_dungeons.DUNGEON1->getPlayer().getPosY(), '-');
-		m_hud->updateHUD(*m_dungeons.DUNGEON1);
-
-		// Check if player is dead, if so, run game over screen
-		if (m_dungeons.DUNGEON1->getPlayer().getHP() <= 0) {
-			m_hud->gameOver();
-		}
-	};
-	
-	
-	//inactionListener = EventListenerCustom::create("NoKeyPressed", const &Level1Scene::NoKeyPressed);
-	//this->_eventDispatcher->addEventListenerWithSceneGraphPriority(inactionListener, this);
-	*/
 
 	Director::getInstance()->getScheduler()->schedule([this](float) {
 		auto actions = this->getActionManager();
@@ -2713,31 +2599,7 @@ void Level1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 					}
 					zapper.reset();
 				}
-				/*
-				switch (tile->top) {
-				case c_SPINNER: {
-					// add spinner buddies to the scene
-					std::shared_ptr<Spinner> spinner = std::dynamic_pointer_cast<Spinner>(monster.at(dungeon.findMonster(j, i)));
-
-					this->addChild(spinner->getInner(), 0);
-					this->addChild(spinner->getOuter(), 0);
-
-					spinner.reset();
-					break;
-				}
-				case c_ZAPPER: {
-					// add the sparks to the scene
-					std::shared_ptr<Zapper> zapper = std::dynamic_pointer_cast<Zapper>(monster.at(dungeon.findMonster(j, i)));
-					for (int m = 0; m < 8; m++) {
-						this->addChild(zapper->getSparks()[m], 0);
-					}
-					zapper.reset();
-					break;
-				}
-				default: image = "cheese.png"; break;
-				}
-				*/
-
+				
 				int pos = dungeon.findMonster(j, i);
 				image = monster.at(pos)->getImageName();
 				Sprite* monsterSprite = createSprite(image, maxrows, j, i, 1);
@@ -2824,8 +2686,6 @@ void Level1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 				if (tile->trap_name == SPRING) {
 					trap->setScale(0.5);
 				}
-				
-				//traps.push_back(trap);
 
 				int pos = dungeon.findTrap(j, i);
 				if (pos != -1)
@@ -2993,8 +2853,7 @@ void Level1Scene::Level1KeyPressed(EventKeyboard::KeyCode keyCode, Event* event)
 		break;
 	}
 
-	// Player can be pushed around (by springs), so need to update to true location by
-	// taking (new player pos - old player pos) * SpacingFactor
+	// Player can be pushed around (by springs), so need to update to true location
 	int px = m_dungeons.DUNGEON1->getPlayer().getPosX() - x;
 	int py = m_dungeons.DUNGEON1->getPlayer().getPosY() - y;
 
@@ -3002,8 +2861,6 @@ void Level1Scene::Level1KeyPressed(EventKeyboard::KeyCode keyCode, Event* event)
 	if (px != 0 || py != 0) {
 		playFootstepSound();
 	}
-	//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px * SPACING_FACTOR, -py * SPACING_FACTOR));
-	//event->getCurrentTarget()->runAction(move);
 
 
 	// update the HUD
@@ -3036,8 +2893,7 @@ void Level1Scene::Level1KeyPressed(EventKeyboard::KeyCode keyCode, Event* event)
 
 		m_dungeons.DUNGEON1->peekDungeon(m_dungeons.DUNGEON1->getPlayer().getPosX(), m_dungeons.DUNGEON1->getPlayer().getPosY(), '-');
 
-		// Player can be pushed around (by springs), so need to update to true location by
-		// taking (new player pos - old player pos) * SpacingFactor
+		// Player can be pushed around (by springs), so need to update to true location
 		int px = m_dungeons.DUNGEON1->getPlayer().getPosX() - x;
 		int py = m_dungeons.DUNGEON1->getPlayer().getPosY() - y;
 
@@ -3045,8 +2901,6 @@ void Level1Scene::Level1KeyPressed(EventKeyboard::KeyCode keyCode, Event* event)
 		if (px != 0 || py != 0) {
 			playFootstepSound();
 		}
-		//cocos2d::Action* move = cocos2d::MoveBy::create(.10, cocos2d::Vec2(px * SPACING_FACTOR, -py * SPACING_FACTOR));
-		//m_player->runAction(move);
 
 		// update HUD
 		m_hud->updateHUD(*m_dungeons.DUNGEON1);
@@ -3055,6 +2909,43 @@ void Level1Scene::Level1KeyPressed(EventKeyboard::KeyCode keyCode, Event* event)
 		if (m_dungeons.DUNGEON1->getPlayer().getHP() <= 0) {
 			m_hud->gameOver(*this);
 			//Director::getInstance()->getScheduler()->unschedule("level 1 timer", this);
+		}
+	}, this, 0.75, false, "level 1 timer");
+}
+void Level1Scene::scheduleTimer() {
+	Director::getInstance()->getScheduler()->schedule([this](float) {
+		auto actions = this->getActionManager();
+
+		// resumes follow if it was paused
+		if (actions->getNumberOfRunningActions() == 0) {
+			auto visibleSize = Director::getInstance()->getVisibleSize();
+			this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
+		}
+		// if there are any lingering actions, finish them instantly
+		while (actions->getNumberOfRunningActions() > 1 && m_dungeons.DUNGEON1->getLevel() == 1) { // >1 because follow player is always running
+			actions->update(1.0);
+		}
+
+		p = m_dungeons.DUNGEON1->getPlayer();
+		int x = p.getPosX(); int y = p.getPosY();
+
+		m_dungeons.DUNGEON1->peekDungeon(m_dungeons.DUNGEON1->getPlayer().getPosX(), m_dungeons.DUNGEON1->getPlayer().getPosY(), '-');
+
+		// Player can be pushed around (by springs), so need to update to true location
+		int px = m_dungeons.DUNGEON1->getPlayer().getPosX() - x;
+		int py = m_dungeons.DUNGEON1->getPlayer().getPosY() - y;
+
+		// play step sound effect if player moved
+		if (px != 0 || py != 0) {
+			playFootstepSound();
+		}
+
+		// update HUD
+		m_hud->updateHUD(*m_dungeons.DUNGEON1);
+
+		// Check if player is dead, if so, run game over screen
+		if (m_dungeons.DUNGEON1->getPlayer().getHP() <= 0) {
+			m_hud->gameOver(*this);
 		}
 	}, this, 0.75, false, "level 1 timer");
 }
@@ -3071,7 +2962,7 @@ void Level1Scene::advanceLevel() {
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
 	auto nextScene = Shop1Scene::createScene(m_dungeons.DUNGEON1->getPlayer(), m_dungeons.DUNGEON1->getLevel());
-	//auto nextScene = Level2Scene::createScene(m_dungeons.DUNGEON1->getPlayer());
+	//auto nextScene = Level3Scene::createScene(m_dungeons.DUNGEON1->getPlayer());
 	nextScene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
 
 	// stop music
@@ -3124,12 +3015,9 @@ bool Shop1Scene::init()
 		return false;
 	}
 
-	//Shop dungeon(DUNGEON.getPlayer());
-	//SHOP1 = dungeon;
 
 	Dungeons dungeons;
 	m_dungeons = dungeons;
-	//delete dungeons;
 
 	Shop* SHOP1 = new Shop(p, m_level);
 	m_dungeons.SHOP1 = SHOP1;
@@ -3387,286 +3275,33 @@ void Shop1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &
 				}
 			}
 			if (tile->trap) {
+
 				z = -4;
+				image = dungeon.getTraps()[dungeon.findTrap(j, i)]->getImageName();
 
 				if (tile->trap_name == FIREBAR) {
-					image = "Firebar_Totem_48x48.png";
 					z = 1;
-					// set firebar buddy positions
-					for (int n = 0; n < dungeonTraps.size(); n++) {
-						if (dungeonTraps.at(n)->getPosX() == j && dungeonTraps.at(n)->getPosY() == i) {
-							std::shared_ptr<Firebar> firebar = std::dynamic_pointer_cast<Firebar>(dungeonTraps.at(n));
 
-							this->addChild(firebar->getInner(), 0);
-							this->addChild(firebar->getOuter(), 0);
+					// add firebar buddies to the scene
+					std::shared_ptr<Firebar> firebar = std::dynamic_pointer_cast<Firebar>(dungeonTraps.at(dungeon.findTrap(j, i)));
 
-							if (firebar->isClockwise()) {
-								switch (firebar->getAngle()) {
-								case 1:
-									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 2:
-									firebar->getInner()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 3:
-									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 4:
-									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 5:
-									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 6:
-									firebar->getInner()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 7:
-									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 8:
-									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								}
-							}
-							else {
-								switch (firebar->getAngle()) {
-								case 1:
-									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 2:
-									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 3:
-									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 4:
-									firebar->getInner()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 5:
-									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 6:
-									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 7:
-									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 8:
-									firebar->getInner()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								}
-							}
+					this->addChild(firebar->getInner(), 0);
+					this->addChild(firebar->getOuter(), 0);
 
-							firebar->getInner()->setVisible(false);
-							firebar->getOuter()->setVisible(false);
-
-							firebar.reset();
-						}
-					}
+					firebar.reset();
 				}
 				else if (tile->trap_name == DOUBLE_FIREBAR) {
 					z = 1;
-					image = "Firebar_Totem_48x48.png";
-					// set firebar buddy positions
-					for (int n = 0; n < dungeonTraps.size(); n++) {
-						if (dungeonTraps.at(n)->getPosX() == j && dungeonTraps.at(n)->getPosY() == i) {
-							std::shared_ptr<DoubleFirebar> firebar = std::dynamic_pointer_cast<DoubleFirebar>(dungeonTraps.at(n));
 
-							this->addChild(firebar->getInner(), 0);
-							this->addChild(firebar->getInnerMirror(), 0);
-							this->addChild(firebar->getOuter(), 0);
-							this->addChild(firebar->getOuterMirror(), 0);
+					// add firebar buddies to the scene
+					std::shared_ptr<DoubleFirebar> firebar = std::dynamic_pointer_cast<DoubleFirebar>(dungeonTraps.at(dungeon.findTrap(j, i)));
 
-							if (firebar->isClockwise()) {
-								switch (firebar->getAngle()) {
-								case 1:
-									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 2:
-									firebar->getInner()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 3:
-									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 4:
-									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 5:
-									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 6:
-									firebar->getInner()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 7:
-									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 8:
-									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
-									break;
-								}
-							}
-							else {
-								switch (firebar->getAngle()) {
-								case 1:
-									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 2:
-									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 3:
-									firebar->getInner()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 4:
-									firebar->getInner()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 5:
-									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 6:
-									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i))*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - i)*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 7:
-									firebar->getInner()->setPosition((j - 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition((j - 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition((j + 1) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition((j + 2) * SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								case 8:
-									firebar->getInner()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuter()->setPosition(j * SPACING_FACTOR - X_OFFSET, (maxrows - (i - 2))*SPACING_FACTOR - Y_OFFSET);
-									// opposite
-									firebar->getInnerMirror()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 1))*SPACING_FACTOR - Y_OFFSET);
-									firebar->getOuterMirror()->setPosition((j)* SPACING_FACTOR - X_OFFSET, (maxrows - (i + 2))*SPACING_FACTOR - Y_OFFSET);
-									break;
-								}
-							}
+					this->addChild(firebar->getInner(), 0);
+					this->addChild(firebar->getInnerMirror(), 0);
+					this->addChild(firebar->getOuter(), 0);
+					this->addChild(firebar->getOuterMirror(), 0);
 
-							firebar->setSpriteVisibility(false);
-
-							firebar.reset();
-						}
-					}
-				}
-				else if (tile->trap_name == PUDDLE) {
-					image = "Puddle.png";
-					z = -4;
-				}
-				else if (tile->trap_name == PIT) {
-					image = "Pit_48x48.png";
-					z = -4;
-				}
-				else if (tile->trap_name == SPRING) {
-					z = -4;
-					std::shared_ptr<Spring> spring = std::dynamic_pointer_cast<Spring>(dungeonTraps.at(dungeon.findTrap(j, i)));
-					char type = spring->getDirection();
-					switch (type) {
-					case 'l': image = "Spring_Arrow_Left_48x48.png"; break;
-					case 'r': image = "Spring_Arrow_Right_48x48.png"; break;
-					case 'u': image = "Spring_Arrow_Up_48x48.png"; break;
-					case 'd': image = "Spring_Arrow_Down_48x48.png"; break;
-					case '1': image = "Spring_Arrow_UpRight_48x48.png"; break;
-					case '2': image = "Spring_Arrow_UpLeft_48x48.png"; break;
-					case '3': image = "Spring_Arrow_DownLeft_48x48.png"; break;
-					case '4': image = "Spring_Arrow_DownRight_48x48.png"; break;
-					case '#':
-					case '+':
-					case 'x':
-					default: image = "cheese.png"; break;
-					}
-					spring.reset();
-				}
-				else if (tile->trap_name == TURRET) {
-					z = 1;
-					std::shared_ptr<Turret> turret = std::dynamic_pointer_cast<Turret>(dungeonTraps.at(dungeon.findTrap(j, i)));
-					char type = turret->getDirection();
-					switch (type) {
-					case 'l': image = "Spring_Arrow_Left_48x48.png"; break;
-					case 'r': image = "Spring_Arrow_Right_48x48.png"; break;
-					case 'u': image = "Spring_Arrow_Up_48x48.png"; break;
-					case 'd': image = "Spring_Arrow_Down_48x48.png"; break;
-					default: image = "cheese.png"; break;
-					}
-					turret.reset();
-				}
-				else if (tile->trap_name == MOVING_BLOCK) {
-					image = "Breakable_Crate_48x48.png";
-					z = 2;
-
-					// change this tile to not be a trap because of invisible wall bug
-					dungeon.getDungeon()[i*maxcols + j].trap = false;
+					firebar.reset();
 				}
 				else if (tile->trap_name == AUTOSPIKE_DEACTIVE) {
 					int n = dungeon.findTrap(j, i);
@@ -3678,6 +3313,10 @@ void Shop1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &
 					this->addChild(spiketrap->getSpriteD(), -4);
 					this->addChild(spiketrap->getSpriteP(), -4);
 					this->addChild(spiketrap->getSpriteA(), -4);
+
+					spiketrap->setSpriteVisibility(false, false, false);
+
+					continue;
 				}
 				else if (tile->trap_name == TRIGGERSPIKE_DEACTIVE) {
 					int n = dungeon.findTrap(j, i);
@@ -3689,10 +3328,19 @@ void Shop1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &
 					this->addChild(spiketrap->getSpriteD(), -4);
 					this->addChild(spiketrap->getSpriteP(), -4);
 					this->addChild(spiketrap->getSpriteA(), -4);
+
+					spiketrap->setSpriteVisibility(false, false, false);
+
+					continue;
 				}
-				else if (tile->trap_name == LAVA) {
-					image = "Lava_Tile1_48x48.png";
-					z = -4;
+				else if (tile->trap_name == MOVING_BLOCK) {
+					z = 2;
+
+					// change this tile to not be a trap because of invisible wall bug
+					dungeon.getDungeon()[i*maxcols + j].trap = false;
+				}
+				else if (tile->trap_name == TURRET) {
+					z = 1;
 				}
 				else if (tile->trap_name == STAIRCASE) {
 					image = "Stairs_48x48.png";
@@ -3710,13 +3358,14 @@ void Shop1Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int &
 					image = "Water_Tile1_48x48.png";
 					z = -4;
 				}
+				else {
+					z = -4;
+				}
 
 				Sprite* trap = createSprite(image, maxrows, j, i, z);
 				if (tile->trap_name == SPRING) {
 					trap->setScale(0.5);
 				}
-
-				traps.push_back(trap);
 
 				int pos = dungeon.findTrap(j, i);
 				if (pos != -1)
@@ -3949,18 +3598,16 @@ bool Level2Scene::init()
 		return false;
 	}
 
-	//SecondFloor dungeon(SHOP1.getPlayer());
-	//DUNGEON2 = dungeon;
-
 	Dungeons dungeons;
 	m_dungeons = dungeons;
-	//delete dungeons;
 
 	SecondFloor* DUNGEON2 = new SecondFloor(p);
 	m_dungeons.DUNGEON2 = DUNGEON2;
 
 	// music
-	id = experimental::AudioEngine::play2d("Sunstrider.mp3", true);
+	//id = experimental::AudioEngine::play2d("Sunstrider.mp3", true);
+	id = experimental::AudioEngine::play2d("Tower of Lava.mp3", true);
+	cocos2d::experimental::AudioEngine::setMaxAudioInstance(200);
 
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
@@ -4387,8 +4034,6 @@ void Level2Scene::renderDungeon(Dungeon &dungeon, int maxrows, int maxcols, int 
 					trap->setScale(0.5);
 				}
 
-				//traps.push_back(trap);
-
 				int pos = dungeon.findTrap(j, i);
 				if (pos != -1)
 					dungeonTraps.at(pos)->setSprite(trap);
@@ -4654,14 +4299,14 @@ bool Level3Scene::init()
 
 	Dungeons dungeons;
 	m_dungeons = dungeons;
-	//delete dungeons;
 
 	ThirdFloor* DUNGEON3 = new ThirdFloor(p);
 	m_dungeons.DUNGEON3 = DUNGEON3;
 
 	// music
-	id = experimental::AudioEngine::play2d("Zero Respect.mp3", true, 1.0f);
-	cocos2d::experimental::AudioEngine::setMaxAudioInstance(150);
+	//id = experimental::AudioEngine::play2d("Zero Respect.mp3", true, 1.0f);
+	id = experimental::AudioEngine::play2d("Who turned off the lights.mp3", true, 1.0f);
+	cocos2d::experimental::AudioEngine::setMaxAudioInstance(200);
 
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
@@ -4684,7 +4329,6 @@ bool Level3Scene::init()
 
 	// Render all the sprites on the first floor
 	int px = 0, py = 0;
-	//renderDungeon(DUNGEON3, MAXROWS3, MAXCOLS3, px, py);
 	renderDungeon(*m_dungeons.DUNGEON3, m_dungeons.DUNGEON3->getRows(), m_dungeons.DUNGEON3->getCols(), px, py);
 	m_player->setPosition(px, py);
 
@@ -5320,12 +4964,8 @@ bool Boss1Scene::init()
 		return false;
 	}
 
-	//FirstBoss dungeon(DUNGEON3.getPlayer());
-	//BOSS1 = dungeon;
-
 	Dungeons dungeons;
 	m_dungeons = dungeons;
-	//delete dungeons;
 
 	FirstBoss* BOSS1 = new FirstBoss(p);
 	m_dungeons.BOSS1 = BOSS1;
@@ -5360,7 +5000,6 @@ bool Boss1Scene::init()
 
 	// Render all the sprites on the first floor
 	int px = 0, py = 0;
-	//renderDungeon(BOSS1, BOSSROWS, BOSSCOLS, px, py);
 	renderDungeon(*m_dungeons.BOSS1, m_dungeons.BOSS1->getRows(), m_dungeons.BOSS1->getCols(), px, py);
 	m_player->setPosition(px, py);
 
@@ -5380,10 +5019,7 @@ bool Boss1Scene::init()
 	BOSS1.setMonsterSprites(monsters);
 	BOSS1.setItemSprites(items);
 	BOSS1.setTrapSprites(traps);
-	BOSS1.setProjectileSprites(projectiles);
 	BOSS1.setSpikeProjectileSprites(spike_projectiles);
-	BOSS1.setSpinnerSprites(spinner_buddies);
-	BOSS1.setZapperSprites(zapper_sparks);
 	BOSS1.setWallSprites(walls);
 	BOSS1.setDoorSprites(doors);
 	BOSS1.setScene(this);*/
@@ -5391,7 +5027,6 @@ bool Boss1Scene::init()
 	m_dungeons.BOSS1->setPlayerSprite(m_player);
 	m_dungeons.BOSS1->getPlayerVector().at(0).setSprite(m_player);
 
-	//m_dungeons.BOSS1->setMonsterSprites(monsters);
 	m_dungeons.BOSS1->setItemSprites(items);
 	m_dungeons.BOSS1->setSpikeProjectileSprites(spike_projectiles);
 	m_dungeons.BOSS1->setWallSprites(walls);
@@ -5932,6 +5567,26 @@ void Boss1Scene::advanceLevel() {
 
 
 //		PAUSE MENU SCENE
+
+/*
+PauseMenuScene::PauseMenuScene(cocos2d::Scene* levelcene) : m_scene(scene) {
+
+}
+PauseMenuScene* PauseMenuScene::create(cocos2d::Scene* scene) {
+	PauseMenuScene *pRet = new(std::nothrow) PauseMenuScene(scene);
+	if (pRet && pRet->init())
+	{
+		pRet->autorelease();
+		return pRet;
+	}
+	else
+	{
+		delete pRet;
+		pRet = NULL;
+		return NULL;
+	}
+}
+*/
 Scene* PauseMenuScene::createScene() {
 	auto scene = Scene::create();
 
@@ -5974,7 +5629,7 @@ bool PauseMenuScene::init() {
 	auto sprite = Sprite::create("Right_Arrow.png");
 	sprite->setPosition(-2 * MENU_SPACING, 2 * MENU_SPACING);
 	this->addChild(sprite, 3);
-	sprite->setScale(2.0);
+	sprite->setScale(2.5);
 
 	// Pause option
 	auto pause = Label::createWithTTF("PAUSE", "fonts/Marker Felt.ttf", 48);
@@ -5996,13 +5651,15 @@ bool PauseMenuScene::init() {
 	help->setPosition(0, 0 * MENU_SPACING);
 	this->addChild(help, 3);
 
+	// Back to Menu option
+	auto back = Label::createWithTTF("Main Menu", "fonts/Marker Felt.ttf", 36);
+	back->setPosition(0, -1 * MENU_SPACING);
+	this->addChild(back, 3);
+
 	// Quit option
 	auto exit = Label::createWithTTF("Exit Game", "fonts/Marker Felt.ttf", 36);
-	exit->setPosition(0, -1 * MENU_SPACING);
+	exit->setPosition(0, -2 * MENU_SPACING);
 	this->addChild(exit, 3);
-	/*auto sprite = Sprite::create("Right_Arrow.png");
-	sprite->setPosition(-2 * MENU_SPACING, MENU_SPACING);
-	this->addChild(sprite, 4);*/
 
 
 	pauseSelectListener = EventListenerKeyboard::create();
@@ -6026,7 +5683,7 @@ void PauseMenuScene::pauseMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode
 		break;
 	}
 	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
-		if (index < 3) {
+		if (index < 4) {
 			index++;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y - MENU_SPACING);
 
@@ -6067,7 +5724,18 @@ void PauseMenuScene::pauseMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode
 			helpScreen();
 			break;
 		}
-		case 3: // Exit Game
+		case 3: {
+			// stop music
+			cocos2d::experimental::AudioEngine::stopAll();
+			auto audio = experimental::AudioEngine::play2d("Confirm 1.mp3", false, 1.0f);
+
+			// advance to start menu scene
+			auto startScene = StartScene::createScene();
+
+			Director::getInstance()->replaceScene(startScene); // replace with new scene
+			return;
+		}
+		case 4: // Exit Game
 			auto audio = experimental::AudioEngine::play2d("Confirm 1.mp3", false, 1.0f);
 
 			Director::getInstance()->end();
@@ -6225,31 +5893,32 @@ bool HelpScene::init() {
 	Sprite* box = Sprite::create("Pause_Menu_Border_Red.png");
 	this->addChild(box, 2);
 	box->setPosition(0, 0);
-	box->setScale(.2);
+	box->setScale(.3);
 	box->setOpacity(170);
 
 	// arrow sprite for selection
 	auto sprite = Sprite::create("Right_Arrow.png");
-	sprite->setPosition(-2 * MENU_SPACING, -2 * MENU_SPACING);
+	sprite->setPosition(-2 * MENU_SPACING, -5.2 * MENU_SPACING);
 	this->addChild(sprite, 3);
-	sprite->setScale(2.0);
+	sprite->setScale(2.5);
 
 	// Go back
 	auto resume = Label::createWithTTF("OK", "fonts/Marker Felt.ttf", 36);
-	resume->setPosition(0, -2 * MENU_SPACING);
+	resume->setPosition(0, -5.2 * MENU_SPACING);
 	this->addChild(resume, 3);
 
 	// HOW TO PLAY
 	auto pause = Label::createWithTTF("How to play", "fonts/Marker Felt.ttf", 48);
-	pause->setPosition(0, 4.8 * MENU_SPACING);
+	pause->setPosition(0, 5.0 * MENU_SPACING);
 	this->addChild(pause, 3);
 
 	// Movement
 	auto restart = Label::createWithTTF("Movement:", "fonts/Marker Felt.ttf", 28);
-	restart->setPosition(-5 * MENU_SPACING, 2 * MENU_SPACING);
+	restart->setPosition(-5 * MENU_SPACING, 2.85 * MENU_SPACING);
+	restart->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
 	this->addChild(restart, 3);
 
-	auto up = Sprite::create("KB_Up_Arrow.png");
+	/*auto up = Sprite::create("KB_Up_Arrow.png");
 	up->setPosition(0 * MENU_SPACING, 2.2*MENU_SPACING);
 	up->setScale(1.2);
 	this->addChild(up, 4);
@@ -6267,41 +5936,95 @@ bool HelpScene::init() {
 	auto right = Sprite::create("KB_Right_Arrow.png");
 	right->setPosition(0.4 * MENU_SPACING, 1.8*MENU_SPACING);
 	right->setScale(1.2);
-	this->addChild(right, 4);
+	this->addChild(right, 4);*/
+
+	// new arrows
+	auto arrowKeyUp = Sprite::create("KB_Arrows_U.png");
+	arrowKeyUp->setPosition(0 * MENU_SPACING, 3.35*MENU_SPACING);
+	arrowKeyUp->setScale(0.8);
+	this->addChild(arrowKeyUp, 4);
+
+	auto arrowKeys = Sprite::create("KB_Arrows_LDR.png");
+	arrowKeys->setPosition(0 * MENU_SPACING, 2.6*MENU_SPACING);
+	arrowKeys->setScale(0.8);
+	this->addChild(arrowKeys, 4);
 
 
-	// Use/interact
-	auto uselabel = Label::createWithTTF("Use/Interact:", "fonts/Marker Felt.ttf", 28);
-	uselabel->setPosition(-5 * MENU_SPACING, 1 * MENU_SPACING);
+	// Interact
+	auto uselabel = Label::createWithTTF("Grab/Interact:", "fonts/Marker Felt.ttf", 28);
+	uselabel->setPosition(-5 * MENU_SPACING, 1.5 * MENU_SPACING);
+	uselabel->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
 	this->addChild(uselabel, 3);
 
-	auto use = Sprite::create("KB_E.png");
-	use->setPosition(0 * MENU_SPACING, 1 * MENU_SPACING);
-	use->setScale(1.5);
+	auto use = Sprite::create("KB_Black_E.png");
+	use->setPosition(0 * MENU_SPACING, 1.5 * MENU_SPACING);
+	use->setScale(0.8);
 	this->addChild(use, 4);
 
 
+	// Use item
+	auto item = Label::createWithTTF("Use Item:", "fonts/Marker Felt.ttf", 28);
+	item->setPosition(-5 * MENU_SPACING, 0.5 * MENU_SPACING);
+	item->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
+	this->addChild(item, 3);
+
+	auto itemKey = Sprite::create("KB_Black_Q.png");
+	itemKey->setPosition(0 * MENU_SPACING, 0.5 * MENU_SPACING);
+	itemKey->setScale(0.8);
+	this->addChild(itemKey, 4);
+
+
+	// Shield
+	auto shield = Label::createWithTTF("Use Shield:", "fonts/Marker Felt.ttf", 28);
+	shield->setPosition(-5 * MENU_SPACING, -0.5 * MENU_SPACING);
+	shield->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
+	this->addChild(shield, 3);
+
+	auto spacebar = Label::createWithTTF("SPACE", "fonts/Marker Felt.ttf", 28);
+	spacebar->setPosition(0 * MENU_SPACING, -0.5 * MENU_SPACING);
+	spacebar->setTextColor(cocos2d::Color4B(255, 255, 255, 255));
+	this->addChild(spacebar, 5);
+
+	auto shieldKey = Sprite::create("KB_Black_Space.png");
+	shieldKey->setPosition(0 * MENU_SPACING, -0.5 * MENU_SPACING);
+	shieldKey->setScale(0.8);
+	this->addChild(shieldKey, 4);
+
+
 	// Open/close weapon menu
-	auto weplabel = Label::createWithTTF("Open/Close Weapons Menu:", "fonts/Marker Felt.ttf", 28);
-	weplabel->setPosition(-5 * MENU_SPACING, 0 * MENU_SPACING);
+	auto weplabel = Label::createWithTTF("Open/Close Weapon Menu:", "fonts/Marker Felt.ttf", 28);
+	weplabel->setPosition(-5 * MENU_SPACING, -1.5 * MENU_SPACING);
+	weplabel->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
 	this->addChild(weplabel, 3);
 
-	auto wepmenu = Sprite::create("KB_W.png");
-	wepmenu->setPosition(0 * MENU_SPACING, 0 * MENU_SPACING);
-	wepmenu->setScale(1.5);
+	auto wepmenu = Sprite::create("KB_Black_W.png");
+	wepmenu->setPosition(0 * MENU_SPACING, -1.5 * MENU_SPACING);
+	wepmenu->setScale(0.8);
 	this->addChild(wepmenu, 4);
 
 
 	// Open/close item menu
-	auto itemlabel = Label::createWithTTF("Open/Close Items Menu:", "fonts/Marker Felt.ttf", 28);
-	itemlabel->setPosition(-5 * MENU_SPACING, -1 * MENU_SPACING);
+	auto itemlabel = Label::createWithTTF("Open/Close Item Menu:", "fonts/Marker Felt.ttf", 28);
+	itemlabel->setPosition(-5 * MENU_SPACING, -2.5* MENU_SPACING);
+	itemlabel->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
 	this->addChild(itemlabel, 3);
 
-	auto itemmenu = Sprite::create("KB_C.png");
-	itemmenu->setPosition(0 * MENU_SPACING, -1 * MENU_SPACING);
-	itemmenu->setScale(1.5);
+	auto itemmenu = Sprite::create("KB_Black_C.png");
+	itemmenu->setPosition(0 * MENU_SPACING, -2.5 * MENU_SPACING);
+	itemmenu->setScale(0.8);
 	this->addChild(itemmenu, 4);
 
+
+	// View inventory
+	auto inventory = Label::createWithTTF("Check inventory:", "fonts/Marker Felt.ttf", 28);
+	inventory->setPosition(-5 * MENU_SPACING, -3.5 * MENU_SPACING);
+	inventory->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
+	this->addChild(inventory, 3);
+
+	auto inventoryKey = Sprite::create("KB_Black_Tab.png");
+	inventoryKey->setPosition(0 * MENU_SPACING, -3.5 * MENU_SPACING);
+	inventoryKey->setScale(0.8);
+	this->addChild(inventoryKey, 4);
 
 
 	auto eventListener = EventListenerKeyboard::create();
