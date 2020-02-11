@@ -216,4 +216,7 @@
 - Updated help menu and added main menu options to the pause menu and game over screen
 
 2/10/2020:
-- Added boundary flag to Tile struct so that players cannot use that spell to go out of bounds
+- Added boundary flag to Tile struct so that players cannot use the ethereal spell to go out of bounds
+
+2/11/2020:
+- monsterTrapEncounter() functions now account for monsters taking damage, as well as turrets since they check to damage monsters after checkActive is called
