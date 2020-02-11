@@ -220,3 +220,4 @@
 
 2/11/2020:
 - monsterTrapEncounter() functions now account for monsters taking damage, as well as turrets since they check to damage monsters after checkActive is called
+- Added effect to show that player is blocking with shield
