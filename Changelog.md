@@ -222,3 +222,4 @@
 - monsterTrapEncounter() functions now account for monsters taking damage, as well as turrets since they check to damage monsters after checkActive is called
 - Added effect to show that player is blocking with shield
 - !!!!! Added new function to ActionManager.h and ActionManager.cpp named getNumberOfRunningActionsByTag(int tag) const which allows for updating only those functions whose tag corresponds to one that is a single-time action
+- !!!!! Changed the way pausing works and instead push the pause scene onto the stack instead of replacing the current scene
