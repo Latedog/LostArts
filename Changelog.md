@@ -223,3 +223,8 @@
 - Added effect to show that player is blocking with shield
 - !!!!! Added new function to ActionManager.h and ActionManager.cpp named getNumberOfRunningActionsByTag(int tag) const which allows for updating only those functions whose tag corresponds to one that is a single-time action
 - !!!!! Changed the way pausing works and instead push the pause scene onto the stack instead of replacing the current scene
+
+2/16/2020:
+- Added the other dungeon chunks that were included on the laptop.
+- Added new update() function to ActionManager.h that allows for only updating specific tags
+- Fixed new bug with infinite looping springs since the new chunks uses pieces that are not named SPRING. Changed oppositeSprings() to check for the trap_name as well, since all springs are generated with the name SPRING.
