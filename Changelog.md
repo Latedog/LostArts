@@ -231,4 +231,5 @@
 
 2/22/2020:
 - Removed unused sprite vector member variables
-- Added function for inserting new trap coordinates into the trap removal vector named insertForTrapRemoval() and made the vector itself  a private data member.
+- Added function for inserting new trap coordinates into the trap removal vector named insertForTrapRemoval() and made the vector itself  a protected data member.
+- Moved lightEmitters vector to protected
