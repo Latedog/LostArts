@@ -228,3 +228,7 @@
 - Added the other dungeon chunks that were included on the laptop.
 - Added new update() function to ActionManager.h that allows for only updating specific tags
 - Fixed new bug with infinite looping springs since the new chunks uses pieces that are not named SPRING. Changed oppositeSprings() to check for the trap_name as well, since all springs are generated with the name SPRING.
+
+2/22/2020:
+- Removed unused sprite vector member variables
+- Added function for inserting new trap coordinates into the trap removal vector named insertForTrapRemoval() and made the vector itself  a private data member.
