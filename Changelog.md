@@ -234,3 +234,5 @@
 - Added function for inserting new trap coordinates into the trap removal vector named insertForTrapRemoval() and made the vector itself  a protected data member.
 - Moved lightEmitters vector to protected
 - Added changeWeapon() function to the Dungoen class that does what player->wield() did
+- Changed the Dungeon player and player vector to be shared_ptr's as well as those found in other appropriate functions. As a result, new player types can be created and the Adventurer class was created as the default type.
+- Overhauled the GUI scene to use a single level scene in conjunction with the shop scene by adding appropriate new functions for settings the current dungeon, music, sprites, and timer speed.
