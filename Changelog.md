@@ -237,3 +237,4 @@
 - Changed the Dungeon player and player vector to be shared_ptr's as well as those found in other appropriate functions. As a result, new player types can be created and the Adventurer class was created as the default type.
 - Overhauled the GUI scene to use a single level scene in conjunction with the shop scene by adding appropriate new functions for settings the current dungeon, music, sprites, and timer speed.
 - Renamed Level1Scene to LevelScene to reflect that only one scene is technically needed
+- Completed GUI transition to two scenes (level and shop), moved all member variables in GUI.h to be protected/private and added functions to access NPC screens and devils water
