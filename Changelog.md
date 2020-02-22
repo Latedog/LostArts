@@ -236,3 +236,4 @@
 - Added changeWeapon() function to the Dungoen class that does what player->wield() did
 - Changed the Dungeon player and player vector to be shared_ptr's as well as those found in other appropriate functions. As a result, new player types can be created and the Adventurer class was created as the default type.
 - Overhauled the GUI scene to use a single level scene in conjunction with the shop scene by adding appropriate new functions for settings the current dungeon, music, sprites, and timer speed.
+- Renamed Level1Scene to LevelScene to reflect that only one scene is technically needed
