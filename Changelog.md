@@ -238,3 +238,5 @@
 - Overhauled the GUI scene to use a single level scene in conjunction with the shop scene by adding appropriate new functions for settings the current dungeon, music, sprites, and timer speed.
 - Renamed Level1Scene to LevelScene to reflect that only one scene is technically needed
 - Completed GUI transition to two scenes (level and shop), moved all member variables in GUI.h to be protected/private and added functions to access NPC screens and devils water
+- Fixed broken shop camera and dark floor bugs. Dark floor was related to settings the floor sprites to (0, 0, 0) in renderDungeon and the broken player camera was from not running the actions in the Shop dungeon (the shop scene incorrectly moved the player before).
+- Shop1Scene was renamed to ShopScene and now inherits from LevelScene to reduce code bloat.
