@@ -244,3 +244,5 @@
 2/24/2020:
 - Moved all sprite and sound effects to its own file FX.h and removed utilities.h from the project. randInt was temporarily moved to GUI.h
 - Footstep sound checking removed from GUI.h to the end of the peekDungeon loop
+- Added damageMonster() function to do any monster damaging instead of using the monster vector directly.
+- insertTrapForRemoval() was changed to accept the index of the trap instead of its coordinates. This should potentially fix the bug with bombees exploding and crashing the game, as well as just being more logically sound.
