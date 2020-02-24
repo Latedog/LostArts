@@ -247,3 +247,4 @@
 - Added damageMonster() function to do any monster damaging instead of using the monster vector directly.
 - insertTrapForRemoval() was changed to accept the index of the trap instead of its coordinates. This should potentially fix the bug with bombees exploding and crashing the game, as well as just being more logically sound.
 - Fixed FallingSpikes to not use the spike_sprites vector and crashes resulting from this change. Previously the sprites and themselves were destroyed at the moments of impact, but they are now queued for removal later. Their sprites are now destroyed when their destructor is called.
+- Tons of general code organization (moving members and functions to protected/private, deleting unused functions, inlining functions)
