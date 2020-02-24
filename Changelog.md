@@ -243,3 +243,4 @@
 
 2/24/2020:
 - Moved all sprite and sound effects to its own file FX.h and removed utilities.h from the project. randInt was temporarily moved to GUI.h
+- Footstep sound checking removed from GUI.h to the end of the peekDungeon loop
