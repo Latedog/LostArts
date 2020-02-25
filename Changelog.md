@@ -259,3 +259,4 @@
 - Fire Roundabouts now drop embers randomly which can only burn the player
 - Moved monster checking loop to its own function
 - Added actor removal functions akin to trapRemoval() and dead variable to the Monster class
+- Made the Chests class pure virtual and removed redundant code in GameObjects (functions that take in the calling object's type and then calls the function again without it)
