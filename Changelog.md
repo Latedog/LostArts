@@ -256,3 +256,4 @@
 
 2/25/2020:
 - Changed the trap removal container to be a set and added a destroyed flag for traps. This flag allows destroyed traps to not do anything if it is their turn later in the same loop.
+- Fire Roundabouts now drop embers randomly which can only burn the player
