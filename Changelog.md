@@ -257,3 +257,5 @@
 2/25/2020:
 - Changed the trap removal container to be a set and added a destroyed flag for traps. This flag allows destroyed traps to not do anything if it is their turn later in the same loop.
 - Fire Roundabouts now drop embers randomly which can only burn the player
+- Moved monster checking loop to its own function
+- Added actor removal functions akin to trapRemoval() and dead variable to the Monster class
