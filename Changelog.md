@@ -250,3 +250,6 @@
 - Tons of general code organization (moving members and functions to protected/private, deleting unused functions, inlining functions)
 - Moved Smasher functions to the Smasher class instead of being in FirstBoss
 - Created new member variable wall_type in _Tile_ struct to identify types of walls. This eliminates the need to use top/bottom/traptile for identifying door types and they have been changed as such.
+- More code inlining for GameObjects and Actors
+- Removed unused polymorphism functions from GameObjects and Actors such as move(), trapAction(), etc.
+- Removed many char global constants
