@@ -265,3 +265,4 @@
 3/1/2020:
 - Changed Player constructor to accept hp and weapon type to accomodate for new player types
 - NPCs will now have extra dialogue when player has not fulfilled their needs.
+- Fixed bug where Archers would be stunned from a distance when blocking from above with a normal shield.
