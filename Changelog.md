@@ -266,3 +266,4 @@
 - Changed Player constructor to accept hp and weapon type to accomodate for new player types
 - NPCs will now have extra dialogue when player has not fulfilled their needs.
 - Fixed bug where Archers would be stunned from a distance when blocking from above with a normal shield.
+- The first Dungeon was not doing an opposite-facing spring check when spawning springs. This is now fixed which should resolve all instances of springs facing toward each other.
