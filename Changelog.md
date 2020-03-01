@@ -267,3 +267,4 @@
 - NPCs will now have extra dialogue when player has not fulfilled their needs.
 - Fixed bug where Archers would be stunned from a distance when blocking from above with a normal shield.
 - The first Dungeon was not doing an opposite-facing spring check when spawning springs. This is now fixed which should resolve all instances of springs facing toward each other.
+- Fixed item collection in the shop where sprites would not be removed.
