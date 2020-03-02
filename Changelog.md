@@ -269,3 +269,4 @@
 - The first Dungeon was not doing an opposite-facing spring check when spawning springs. This is now fixed which should resolve all instances of springs facing toward each other.
 - Fixed item collection in the shop where sprites would not be removed.
 - Consolidated the Monster death() function to one for monsters that only drop gold. Monsters that drop other things upon death now have a function called deathDrops() in addition to death().
+- Fixed bug where Broundabouts and Goo Sacks would jump back toward the player if they had pushed them away with a Wind Spell.
