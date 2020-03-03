@@ -274,3 +274,4 @@
 
 3/3/2020:
 - Implemented the Spellcaster character
+- Added character select screen to main menu. The default Dungeon constructor no longer exists and now accepts a Player pointer to address this change.
