@@ -270,3 +270,4 @@
 - Fixed item collection in the shop where sprites would not be removed.
 - Consolidated the Monster death() function to one for monsters that only drop gold. Monsters that drop other things upon death now have a function called deathDrops() in addition to death().
 - Fixed bug where Broundabouts and Goo Sacks would jump back toward the player if they had pushed them away with a Wind Spell.
+- Removed the Shop's peekDungeon() function and added construct/deconstruct ShopHUD functions to the Dungeon class. Also added isShop() identifier function.
