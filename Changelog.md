@@ -276,3 +276,6 @@
 - Implemented the Spellcaster character
 - Added character select screen to main menu. The default Dungeon constructor no longer exists and now accepts a Player pointer to address this change.
 - Fixed crumble tiles so that they do not break multiple times when an enemy is on top of one. Currently they break a little oddly if an enemy breaks them, as there is a delay since there is no check immediately for when an enemy walks off the tile like there is for the player.
+
+3/22/2020:
+- Created Shopkeeper NPC that currently only has dialogue. No special interactions yet.
