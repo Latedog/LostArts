@@ -7,3 +7,7 @@
 6/18:
 
 - Implemented Charger enemy (has temporary artwork as a Goo Sack).
+
+6/19:
+
+- Implemented 3 new Wanderer types: Rabid, Sleeping, and Provocable
