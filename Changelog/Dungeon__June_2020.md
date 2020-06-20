@@ -11,3 +11,4 @@
 6/19:
 
 - Implemented 3 new Wanderer types: Rabid, Sleeping, and Provocable
+- SleepingWanderers now use a less intelligent version of pathfinding using a greedy search.
