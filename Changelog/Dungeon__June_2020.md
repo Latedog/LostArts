@@ -16,3 +16,4 @@
 6/20:
 
 - Implemented Rat enemy
+- Certain enemies had their weapons removed since they shouldn't technically be wielding one. Added hasWeapon() checking function as a result for monster attacks.
