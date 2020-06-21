@@ -17,3 +17,9 @@
 
 - Implemented Rat enemy
 - Certain enemies had their weapons removed since they shouldn't technically be wielding one. Added hasWeapon() checking function as a result for monster attacks.
+
+6/21:
+
+- Implemented Toad enemy
+- Added PoisonPuddle trap that Toads can create
+- Modified moveMonsterRandomly to also check for the player. If the player is invisible, it prevents monsters from overlapping on top of the player.
