@@ -24,3 +24,5 @@
 - Added PoisonPuddle trap that Toads can create
 - Puddles now have a "turn" modifier that signifies if it dissipates over time or stays until it's walked over.
 - Modified moveMonsterRandomly to also check for the player. If the player is invisible, it prevents monsters from overlapping on top of the player.
+- Implemented Ghost enemy
+- Added new Possession affliction which causes the player to become not in control of their actions
