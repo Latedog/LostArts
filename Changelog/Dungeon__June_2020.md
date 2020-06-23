@@ -26,3 +26,8 @@
 - Modified moveMonsterRandomly to also check for the player. If the player is invisible, it prevents monsters from overlapping on top of the player.
 - Implemented Ghost enemy
 - Added new Possession affliction which causes the player to become not in control of their actions
+
+6/22:
+
+- Added Puff enemy which pushes enemies and players
+- Added function linearActorPush() to facilitate new style of actor pushing. This function properly pushes the actors linearly until they are out of range of the pushee.
