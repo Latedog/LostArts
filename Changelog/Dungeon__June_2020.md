@@ -31,3 +31,4 @@
 
 - Added Puff enemy which pushes enemies and players
 - Added function linearActorPush() to facilitate new style of actor pushing. This function properly pushes the actors linearly until they are out of range of the pushee.
+- Added GustyPuff and StrongGustyPuff variants of Puff. GustyPuff pushes in all directions and StrongGustyPuff is a tougher version of it.
