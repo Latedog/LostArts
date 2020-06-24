@@ -38,3 +38,6 @@
 
 - Implemented Spider and ShootingSpider enemies
 - Added Web (spiderweb) trap that is guaranteed to stun the player
+
+6/24:
+- Implemented PouncingSpider enemy
