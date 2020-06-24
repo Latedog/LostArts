@@ -33,3 +33,8 @@
 - Added function linearActorPush() to facilitate new style of actor pushing. This function properly pushes the actors linearly until they are out of range of the pushee.
 - Added GustyPuff and StrongGustyPuff variants of Puff. GustyPuff pushes in all directions and StrongGustyPuff is a tougher version of it.
 - Added InvertedPuff and SpikedInvertedPuff enemies
+
+6/23:
+
+- Implemented Spider and ShootingSpider enemies
+- Added Web (spiderweb) trap that is guaranteed to stun the player
