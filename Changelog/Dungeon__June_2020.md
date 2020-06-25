@@ -40,4 +40,7 @@
 - Added Web (spiderweb) trap that is guaranteed to stun the player
 
 6/24:
+
 - Implemented PouncingSpider enemy
+- Implemented Serpent enemy, a multisegmented monster
+- Added multi-segmented monster infrastructure to allow for more multi-segmented monsters
