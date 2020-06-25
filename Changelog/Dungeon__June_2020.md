@@ -44,3 +44,8 @@
 - Implemented PouncingSpider enemy
 - Implemented Serpent enemy, a multisegmented monster
 - Added multi-segmented monster infrastructure to allow for more multi-segmented monsters
+
+6/25:
+
+- Added CharredBombee variant which is slightly stronger than a regular Bombee but also immune to lava.
+- Implemented ArmoredSerpents and introduced notion of monsters blocking attacks
