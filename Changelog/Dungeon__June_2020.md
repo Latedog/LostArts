@@ -54,3 +54,5 @@
 
 - Potential name for the game: Lost Arts
 - Restructured level creation and moved the first floor into its own class. The Dungeon class now serves as a pseudo pure virtual class.
+- Added Breakables subclass to Monsters which introduces breakable objects
+- Fixed awkward shop lighting of the various objects
