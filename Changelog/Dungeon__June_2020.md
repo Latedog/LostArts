@@ -49,3 +49,8 @@
 
 - Added CharredBombee variant which is slightly stronger than a regular Bombee but also immune to lava.
 - Implemented ArmoredSerpents and introduced notion of monsters blocking attacks
+
+6/26:
+
+- Potential name for the game: Lost Arts
+- Restructured level creation and moved the first floor into its own class. The Dungeon class now serves as a pseudo pure virtual class.
