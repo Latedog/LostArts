@@ -62,3 +62,4 @@
 - Began implementing Tutorial Level and World Hub
 - Added some NPCs for the tutorial
 - Created new callback function that allows for animations to end smoothly with their last frame
+- Implemented NPC textbox prompting infrastructure
