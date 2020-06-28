@@ -63,3 +63,7 @@
 - Added some NPCs for the tutorial
 - Created new callback function that allows for animations to end smoothly with their last frame
 - Implemented NPC textbox prompting infrastructure
+
+6/28:
+
+- Implemented return to menu functionality from the World Hub
