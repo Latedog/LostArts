@@ -75,3 +75,7 @@
 - Partially fixed some funkiness with WindSpell and Spring Traps pushing away the Serpents
 - Rearranged peekDungeon() action ordering so that all objects/monsters move, then the lighting is updated.
 - Removed SecondFloor's fight function since it was redundant.
+
+6/30:
+
+- Consolidated all dungeon map layouts (Tile vectors) in a single one held in the Dungeon base class.
