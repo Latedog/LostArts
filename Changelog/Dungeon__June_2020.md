@@ -67,3 +67,8 @@
 6/28:
 
 - Implemented return to menu functionality from the World Hub
+- Consolidated some of the sound effects into one function so that sound is not unusually loud when player is far away
+
+6/29:
+
+- Partially fixed some funkiness with WindSpell and Spring Traps pushing away the Serpents
