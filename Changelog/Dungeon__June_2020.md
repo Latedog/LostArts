@@ -68,7 +68,10 @@
 
 - Implemented return to menu functionality from the World Hub
 - Consolidated some of the sound effects into one function so that sound is not unusually loud when player is far away
+- Partially implemented Memorizer NPC. Still need to hide the HUD when the player interacts with them.
 
 6/29:
 
 - Partially fixed some funkiness with WindSpell and Spring Traps pushing away the Serpents
+- Rearranged peekDungeon() action ordering so that all objects/monsters move, then the lighting is updated.
+- Removed SecondFloor's fight function since it was redundant.
