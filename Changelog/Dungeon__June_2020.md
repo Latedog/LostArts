@@ -80,3 +80,4 @@
 
 - Consolidated all dungeon map layouts (Tile vectors) in a single one held in the Dungeon base class.
 - Dungeon sprite function cleanup (Redundant/Unused code removal)
+- Globalized affliction names
