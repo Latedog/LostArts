@@ -81,3 +81,5 @@
 - Consolidated all dungeon map layouts (Tile vectors) in a single one held in the Dungeon base class.
 - Dungeon sprite function cleanup (Redundant/Unused code removal)
 - Globalized affliction names
+- Removed "destructible" parameter from the Objects constructors
+- Removed unused Shield constructors
