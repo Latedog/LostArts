@@ -7,3 +7,4 @@
 - Decoy vector added to the Dungeon and associated functions. Monsters will do a greedy chase toward the decoy if they are in range.
 - Notable passives added: SoulSplit, Heavy, BrickBreaker, BombImmune, SteelPunch
 - Added more potion types
+- Added virtual moveTo function to the Actors classes. Streamlines pushing monsters and their sprites to their appropriate locations.
