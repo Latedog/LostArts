@@ -84,3 +84,4 @@
 - Removed "destructible" parameter from the Objects constructors
 - Removed unused Shield constructors
 - Removed unused Weapon constructor and removed "ability" parameter from the constructor
+- Removed "forPlayer" parameter from Drops and Spells constructors
