@@ -85,3 +85,4 @@
 - Removed unused Shield constructors
 - Removed unused Weapon constructor and removed "ability" parameter from the constructor
 - Removed "forPlayer" parameter from Drops and Spells constructors
+- Player can now only hold two weapons. They can quickly switch between the two now and new weapons get swapped out for the currently held one.
