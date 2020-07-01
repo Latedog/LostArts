@@ -87,3 +87,4 @@
 - Removed "forPlayer" parameter from Drops and Spells constructors
 - Player can now only hold two weapons. They can quickly switch between the two now and new weapons get swapped out for the currently held one.
 - Added support for passive items on Inventory screen and revamped it to work with new player weapon scheme
+- Chests are now opened by moving into them instead of walking over them and hitting the "Use" key. As such, the tiles they rest on are now designated as walls.
