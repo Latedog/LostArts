@@ -14,3 +14,5 @@
 7/2:
 
 - Overhauled and reorganized the Weapons class. Added LongWeapon and PiercingWeapon subclasses.
+- Implemented Bo Staff
+- Corrected error in enemy knockback revealed by the Bo Staff (enemies would be knocked on top of the player because it only took player's facing direction into consideration)
