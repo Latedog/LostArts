@@ -10,3 +10,7 @@
 - Added virtual moveTo function to the Actors classes. Streamlines pushing monsters and their sprites to their appropriate locations.
 - Implemented Passive that illuminates traps
 - Updated level lighting to work more closely to how the Shop does. Zappers now have lit spark effects.
+
+7/2:
+
+- Overhauled and reorganized the Weapons class. Added LongWeapon and PiercingWeapon subclasses.
