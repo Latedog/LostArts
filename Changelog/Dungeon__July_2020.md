@@ -27,3 +27,4 @@
 - Implemented some new health potions
 - Finally implemented BearTrap item and trap
 - Added Cripple affliction (used for Bear Trap) which stuns the actor every other turn.
+- Added LifeChest which contains strictly health items.
