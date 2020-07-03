@@ -30,3 +30,4 @@
 - Added LifeChest which contains strictly health items.
 - Added Mattock and Mattock Head weapons. The Mattock can dig out walls but breaks into a Mattock Head.
 - Added Mattock Dust item which is created from breaking the Mattock Head. Currently confuses nearby enemies when used, but might use it for something else later.
+- Added new throwWeaponTo() function for the player that will easily allow for more throwable weapons.
