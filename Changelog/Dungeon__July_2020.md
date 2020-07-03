@@ -17,3 +17,5 @@
 - Implemented Bo Staff
 - Corrected error in enemy knockback revealed by the Bo Staff (enemies would be knocked on top of the player because it only took player's facing direction into consideration)
 - Implemented Nunchuks. Need some identification that enemies have been stunned.
+- Implemented the Estoc, a special lunging weapon
+- Implemented the first metered weapon, the Jian which cuts in a ring around the player
