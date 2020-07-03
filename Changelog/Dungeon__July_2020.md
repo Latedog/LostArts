@@ -20,3 +20,4 @@
 - Implemented the Estoc, a special lunging weapon
 - Implemented the first metered weapon, the Jian which cuts in a ring around the player
 - Implemented Claw weapon which acts like a hook that pulls monsters in. There's some puzzle potential here...
+- Added CursedStrength trinket which lets monsters and traps move first
