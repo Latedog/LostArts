@@ -35,3 +35,7 @@
 - Added Options menu to the Pause Menu
 - Converted most sounds to play using the global sound functions
 - Began playing around with Resolution changing, but it requires much more fiddling with to get right. Will come back to this near the end.
+
+7/4:
+
+- Implemented the ability to rebind keys and reset them
