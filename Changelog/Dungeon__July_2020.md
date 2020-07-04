@@ -34,3 +34,4 @@
 - Added Options menu to the Main Menu which currently includes options to tweak various sound volumes.
 - Added Options menu to the Pause Menu
 - Converted most sounds to play using the global sound functions
+- Began playing around with Resolution changing, but it requires much more fiddling with to get right. Will come back to this near the end.
