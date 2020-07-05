@@ -42,3 +42,10 @@
 - Redesigned the BoneAxe to be throwable.
 - Redesigned the Katana to have an after attack effect.
 - Implemented Boomerang weapon
+
+7/5:
+
+- Implemented FireCascade spell
+- Implemented FireExplosion spell
+- Implemented WindBlast spell
+- Fixed a bug in the linearActorPush() function and created one in the Dungeon class (since that's where it should be)
