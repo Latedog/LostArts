@@ -39,3 +39,6 @@
 7/4:
 
 - Implemented the ability to rebind keys and reset them
+- Redesigned the BoneAxe to be throwable.
+- Redesigned the Katana to have an after attack effect.
+- Implemented Boomerang weapon
