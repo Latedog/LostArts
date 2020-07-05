@@ -49,3 +49,4 @@
 - Implemented FireExplosion spell
 - Implemented WindBlast spell
 - Fixed a bug in the linearActorPush() function and created one in the Dungeon class (since that's where it should be)
+- Implemented IceShard spell
