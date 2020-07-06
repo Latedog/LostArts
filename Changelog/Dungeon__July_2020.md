@@ -50,3 +50,6 @@
 - Implemented WindBlast spell
 - Fixed a bug in the linearActorPush() function and created one in the Dungeon class (since that's where it should be)
 - Implemented IceShard spell
+- Implemented Shockwave spell
+- Implemented RockSummon spell
+- Changed trapEncounter() to accept 'endFirst' parameter so that it can look for RockSummon correctly
