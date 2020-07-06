@@ -53,3 +53,5 @@
 - Implemented Shockwave spell
 - Implemented RockSummon spell
 - Changed trapEncounter() to accept 'endFirst' parameter so that it can look for RockSummon correctly
+- Implemented HailStorm spell
+- Implemented WindVortex spell
