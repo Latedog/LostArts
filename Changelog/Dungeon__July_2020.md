@@ -62,3 +62,6 @@
 - Major: Completely refactored Player class to accept general active item functions. All shield related functions were moved to the Adventurer and Spell functions were removed. Blocking is now generalized and all Monster and Trap functions that took this into consideration have been changed to reflect this.
 - HUD now uses a set of generalized active item update functions
 - Added TheMadman character and Teleporter item
+- Added functionality for multiple character selects
+- Fixed a bug where menus would stay open when the player died
+- HUD now updates correctly upon spawn
