@@ -82,3 +82,4 @@
 - Updated Boomerang to allow player to grab items and open chests at the peak of the throw.
 - Implemented Pistol weapon
 - Moved the Teleport Scroll into Drops instead of the Spell class
+- Implemented MonsterIllumination and ResonantSpells passives
