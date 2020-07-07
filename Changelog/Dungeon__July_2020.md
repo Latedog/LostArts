@@ -74,3 +74,7 @@
 - Implemented Greater and Superior Jian
 - Implemented first types of stat-granting weapons: Radiant, Carbon Fiber, Enchanted, and Lucky
 - Pike replaced the IronLance
+
+7/7:
+
+- Fixed small bug where enemies could be pulled on top of the player when using the WindVortex spell
