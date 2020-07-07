@@ -65,3 +65,12 @@
 - Added functionality for multiple character selects
 - Fixed a bug where menus would stay open when the player died
 - HUD now updates correctly upon spawn
+- Renamed ArcaneStaff's applyBonus function to giveBonus so that the applyBonus function works as intended.
+- Implemented Greater and Superior Estoc
+- Implemented Greater and Superior Katana
+- Implemented Greater and Superior Zweihander
+- Implemented Greater and Superior BoStaff
+- Implemented Greater and Superior Nunchuks
+- Implemented Greater and Superior Jian
+- Implemented first types of stat-granting weapons: Radiant, Carbon Fiber, Enchanted, and Lucky
+- Pike replaced the IronLance
