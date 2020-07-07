@@ -78,3 +78,4 @@
 7/7:
 
 - Fixed small bug where enemies could be pulled on top of the player when using the WindVortex spell
+- Implemented Hammer weapons with Greater and Superior variants
