@@ -79,3 +79,4 @@
 
 - Fixed small bug where enemies could be pulled on top of the player when using the WindVortex spell
 - Implemented Hammer weapons with Greater and Superior variants
+- Updated Boomerang to allow player to grab items and open chests at the peak of the throw.
