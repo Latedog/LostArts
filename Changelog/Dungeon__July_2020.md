@@ -87,3 +87,4 @@
 - Added HauntedChest
 - Added TeleportingChest
 - Implemented ExplodingChest
+- Refactored chests so that they require x and y coordinates in the constructor, the open() functions are now void, and most chest functionality is handled directly in the open() functions.
