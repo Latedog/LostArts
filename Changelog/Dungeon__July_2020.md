@@ -83,3 +83,5 @@
 - Implemented Pistol weapon
 - Moved the Teleport Scroll into Drops instead of the Spell class
 - Implemented MonsterIllumination and ResonantSpells passives
+- Removed unsafe destroy() function from the Dungoen and Monster classes and replaced it with a flag for being destroyed. If a monster is destroyed we: Flag it as destroyed -> insert it for removal -> the death function is called -> the death() function sees that it was destroyed, so it doesn't drop any rewards
+- Added HauntedChest
