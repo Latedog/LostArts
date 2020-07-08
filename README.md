@@ -1,4 +1,4 @@
-# SuperMiniRogue
+# LostArts
 MiniRogue Expansion
 
 9/25:
