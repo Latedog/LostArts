@@ -104,3 +104,8 @@
 - Fixed a bug where the FireExplosion would attempt to give burning to a monster instead of the player.
 - Implemented SmokeBomb item
 - Made BearTraps stackable
+- Added ignite attribute to the Traps class which indicates that it can be set on fire. The accompanying ignite() function activates the event that occurs when ignited.
+- Added Braziers
+- Added Matches item
+- Webs are now igniteable
+- Fixed a bug where you could pick up more than 5 items if the item was stackable.
