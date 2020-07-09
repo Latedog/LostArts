@@ -93,3 +93,10 @@
 
 - Added Radiant, CarbonFiber, Enchanted, and Lucky versions of the ShortSword
 - RustyCutlass now has durability but gives 1 turn of invulnerability on hit.
+
+7/9:
+
+- Added Stackable items class which allows, you guessed it, stackable items
+- Changed the collectItem() functions to reflect this new change
+- Added Firecrackers item
+- Fixed a bug where if an item landed underneath a door, you wouldn't be able to open it
