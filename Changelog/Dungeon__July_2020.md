@@ -115,3 +115,4 @@
 - Embers can now burn monsters
 - Removed useless trapAction() functions from the Firebars, Turrets, and MovingBlocks
 - Firecrackers now have a small chance to ignite things
+- Fixed a bug where Embers would burn the player instead of the monster
