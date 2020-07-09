@@ -100,3 +100,5 @@
 - Changed the collectItem() functions to reflect this new change
 - Added Firecrackers item
 - Fixed a bug where if an item landed underneath a door, you wouldn't be able to open it
+- Fixed a shop bug introduced by the new Chests open functionality where an item purchased from the shop could be collected an infinite number of times.
+- Fixed a bug where the FireExplosion would attempt to give burning to a monster instead of the player.
