@@ -110,3 +110,4 @@
 - Webs are now igniteable
 - Fixed a bug where you could pick up more than 5 items if the item was stackable.
 - All fire spells can now ignite things
+- Fixed a bug where Puddles would immediately dissipate because there was no check for turns == -1.
