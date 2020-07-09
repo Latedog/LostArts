@@ -109,3 +109,4 @@
 - Added Matches item
 - Webs are now igniteable
 - Fixed a bug where you could pick up more than 5 items if the item was stackable.
+- All fire spells can now ignite things
