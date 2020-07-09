@@ -114,3 +114,4 @@
 - Braziers can now be tipped over to produce Embers
 - Embers can now burn monsters
 - Removed useless trapAction() functions from the Firebars, Turrets, and MovingBlocks
+- Firecrackers now have a small chance to ignite things
