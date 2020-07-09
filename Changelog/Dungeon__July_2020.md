@@ -92,3 +92,4 @@
 7/8:
 
 - Added Radiant, CarbonFiber, Enchanted, and Lucky versions of the ShortSword
+- RustyCutlass now has durability but gives 1 turn of invulnerability on hit.
