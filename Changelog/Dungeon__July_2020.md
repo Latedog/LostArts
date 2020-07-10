@@ -119,3 +119,4 @@
 - !!!! All instances of insertActorForRemoval have been from everywhere except the Dungeon class. If a monster is killed or destroyed, a flag is set which will later indicate that it should be removed when checked in the checkMonsters() function.
 - MovingBlock activeTrapAction() function has been cleaned up to use the linearActorPush function. Additionally, linearActorPush has a 'lethal' parameter for cases such as this where the actor should be killed.
 - MovingBlocks now kill instantly and kill the first enemy against a wall if it would block them from moving.
+- Implemented Spelunker character which starts with the Whip and holds Rocks as an active item. Rocks can be stacked infinitely, but cannot be switched out.
