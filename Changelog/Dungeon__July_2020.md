@@ -130,3 +130,5 @@
 - Fixed bug introduced with Player's sprite facing direction introduced by globalizing sprite scaling. The LevelScene now has a member variable to help it with deciding whether to flip the sprite or not.
 - Removed useless default constructor for Pits
 - Fixed a bug for DoubleFirebars where they wouldn't register hits on the player
+- Adjusted FreezeSpell to only work within a limited radius.
+- Removed all instances of insertTrapForRemoval that were not within the Dungeon class
