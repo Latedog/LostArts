@@ -126,3 +126,7 @@
 - Removed the HelpScene class and converted it to a simple function in the PauseMenu class
 - Created a MenuScene class to manage the options menu. StartScene and PauseMenuScene both inherit from this new class.
 - Volume control no longer requires hitting enter to adjust a particular volume.
+- Globalized sprite scaling
+- Fixed bug introduced with Player's sprite facing direction introduced by globalizing sprite scaling. The LevelScene now has a member variable to help it with deciding whether to flip the sprite or not.
+- Removed useless default constructor for Pits
+- Fixed a bug for DoubleFirebars where they wouldn't register hits on the player
