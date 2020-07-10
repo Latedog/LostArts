@@ -116,3 +116,5 @@
 - Removed useless trapAction() functions from the Firebars, Turrets, and MovingBlocks
 - Firecrackers now have a small chance to ignite things
 - Fixed a bug where Embers would burn the player instead of the monster
+- !!!! All instances of insertActorForRemoval have been from everywhere except the Dungeon class. If a monster is killed or destroyed, a flag is set which will later indicate that it should be removed when checked in the checkMonsters() function.
+- MovingBlock activeTrapAction() function has been cleaned up to use the linearActorPush function. Additionally, linearActorPush has a 'lethal' parameter for cases such as this where the actor should be killed.
