@@ -120,3 +120,8 @@
 - MovingBlock activeTrapAction() function has been cleaned up to use the linearActorPush function. Additionally, linearActorPush has a 'lethal' parameter for cases such as this where the actor should be killed.
 - MovingBlocks now kill instantly and kill the first enemy against a wall if it would block them from moving.
 - Implemented Spelunker character which starts with the Whip and holds Rocks as an active item. Rocks can be stacked infinitely, but cannot be switched out. Since Rocks have durability, all enemies have a chance to drop a Rock upon death.
+
+7/10:
+
+- Removed the HelpScene class and converted it to a simple function in the PauseMenu class
+- Created a MenuScene class to manage the options menu. StartScene and PauseMenuScene both inherit from this new class.
