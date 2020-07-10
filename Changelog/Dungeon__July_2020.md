@@ -125,3 +125,4 @@
 
 - Removed the HelpScene class and converted it to a simple function in the PauseMenu class
 - Created a MenuScene class to manage the options menu. StartScene and PauseMenuScene both inherit from this new class.
+- Volume control no longer requires hitting enter to adjust a particular volume.
