@@ -137,3 +137,5 @@
 - The FirstBoss peekDungeon() function has been updated to reflect the updated changes in the Dungeon
 - Webs now leave behind an Ember for a short time if it is ignited
 - RockSummon can now tip over lit Braziers
+- Embers now have animated flames
+- Added new queueMoveSprite function which accepts float coordinates (For positioning the fire on Braziers currently)
