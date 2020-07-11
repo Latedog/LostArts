@@ -1,10 +1,10 @@
+#ifndef DUNGEON_H
+#define DUNGEON_H
+
 #include "cocos2d.h"
 #include "GameObjects.h"
 #include "Actors.h"
 #include <vector>
-
-#ifndef DUNGEON_H
-#define DUNGEON_H
 
 // :::: Level boundaries ::::
 const int MAXROWS = 38;// 18;
@@ -21,12 +21,6 @@ const int MAXCOLS3 = 80 + 5;
 
 const int BOSSROWS = 22;// 32;
 const int BOSSCOLS = 24;
-
-//		SPRITE EFFECTS
-void runPlayerDamage(cocos2d::Sprite* sprite);
-void runMonsterDamage(cocos2d::Sprite* sprite);
-void runMonsterDamageBlink(cocos2d::Sprite* sprite);
-void deathFade(cocos2d::Sprite* sprite);
 
 struct _Tile {
 
@@ -63,12 +57,16 @@ struct _Tile {
 	bool exit;
 
 	bool noSpawn; // nothing allowed to spawn here during level creation if true
+	bool menu = false; // Used only in World Hub to return to the menu
 
 	// shop information
 	int price;
 
 	// saves floor tile sprite for easy access
 	cocos2d::Sprite* floor = nullptr;
+
+	// wall identifier
+	std::string wall_type;
 
 	// monster identifier
 	std::string monster_name;
@@ -79,9 +77,6 @@ struct _Tile {
 
 	// trap identifier
 	std::string trap_name;
-
-	// 
-	std::string actives;
 
 	// shop item identifier
 	std::string shop_action;
@@ -102,183 +97,198 @@ struct _Tile {
 
 class Dungeon {
 public:
-	Dungeon();
-	Dungeon(int level); // used to prevent previous dungeons from being generated
+	Dungeon(int level, int rows, int cols);
 	virtual Dungeon& operator=(Dungeon const &dungeon);
 	_Tile& operator[](int index);
 	virtual ~Dungeon();
 
-	virtual void peekDungeon(int x, int y, char move);
+	virtual void peekDungeon(int x, int y, char move); // Core gameplay loop
+	virtual void specialActions() { return; }; // unique checks made in peekDungeon
+	virtual bool specialTrapCheck(int x, int y) { return false; }; // unique trap checks made when player moves onto a trap
 
-	void checkActive();
+	// :::: User functions ::::
+	void changeWeapon(int index);
+	void assignQuickItem(int index);
+	void callUse(int index);
 
-	int findDoor(int x, int y);
-	void openDoor(int x, int y);
-	virtual void checkDoors();
-
-	int findNPC(int x, int y);
+	// :::: NPC functions ::::
+	int findNPC(int x, int y) const;
 	void interactWithNPC(int x, int y);
+	void playNPCDialogue(NPC &npc, std::vector<std::string> dialogue);
+
+	// :::: Doors ::::
+	void openDoor(int x, int y);
 
 	// :::: Trap Handling ::::
-	void trapRemoval(); // for removing any destroyed traps after iterating through actives
-	int findTrap(int x, int y, bool endFirst = false);
-	void trapEncounter(int x, int y);
-	
-	void monsterTrapEncounter();
+	int findTrap(int x, int y, bool endFirst = false) const;
+	int countTrapNumber(int x, int y); // returns the number of traps with this (x, y) pair
+	void trapEncounter(int x, int y, bool endFirst = false); // endFirst is used to find traps that we know were spawned after the initial construction (such as RockSummon)
+	void damagePlayer(int damage);
 	void singleMonsterTrapEncounter(int pos);
 
-	virtual int findMonster(int mx, int my);
+	// :::: Decoys ::::
+	void addDecoy(std::shared_ptr<Decoy> decoy) { m_decoys.push_back(decoy); };
+
+	// :::: Monster Handling ::::
+	int findMonster(int mx, int my) const;
 	virtual void fight(int x, int y);
-	void destroyMonster(int pos);
+	void damageMonster(int index, int damage);
+	void giveAffliction(int index, std::shared_ptr<Afflictions> affliction);
 	virtual void monsterDeath(int pos);
-	bool monsterHash(Dungeon &dungeon, int &x, int &y, bool &switched, char move);
-	void pushMonster(Dungeon &dungeon, int &mx, int &my, char move, int cx = 0, int cy = 0);
-	void pushPlayer(char move);
+
+	void pushMonster(int &mx, int &my, char move, int cx = 0, int cy = 0, bool strict = false);
+	virtual void pushPlayer(char move, bool strict = false);
+
+	// For pushing players/monsters in straight lines properly (i.e. no weird skipping through enemies)
+	// @x and @y is the target to be pushed. @lethal indicates that the actor should die if pushed against a wall
+	void linearActorPush(int x, int y, int limit, char move, bool pulling = false, bool lethal = false);
+
+	// @sx and @sy are the source or start point. @tx and @ty is the target to be moved.
+	// Can be used in conjunction with linearActorPush.
+	char getDirectionRelativeTo(int sx, int sy, int tx, int ty, bool pulling = false);
 
 	// :::: Item Collection ::::
-	virtual void itemHash(std::vector<_Tile> &dungeon, int &x, int &y);
-	void foundItem(std::vector<_Tile> &dungeon, int x, int y);
-	virtual void collectItem(Dungeon &dungeon, int x, int y);
-	void goldPickup(std::vector<_Tile> &dungeon, int x, int y);
+	void itemHash(int &x, int &y);
+	virtual void purchaseItem(int x, int y) { return; };
+	virtual void collectItem(int x, int y);
+	void goldPickup(int x, int y);
 
 
 	//	:::: Getters ::::
-	std::vector<Player>& getPlayerVector();
-	Player getPlayer() const;
-	void setPlayer(Player p);
-	int getLevel() const;
-	void setLevel(int level);
+	std::vector<std::shared_ptr<Player>>& getPlayerVector() { return player; };
+	std::shared_ptr<Player> getPlayer() const { return player.at(0); };
+	int getLevel() const { return m_level; };
+	bool returnedToMenu() const { return m_return; };
 
-	virtual std::vector<_Tile>& getDungeon();
-	virtual int getRows() const;
-	virtual int getCols() const;
-	std::vector<std::shared_ptr<NPC>>& getNPCs();
-	std::vector<std::shared_ptr<Monster>>& getMonsters();
-	std::vector<std::shared_ptr<Traps>>& getTraps();
-	std::vector<std::shared_ptr<Door>>& getDoors();
-	void callUse(std::vector<_Tile> &dungeon, int x, int y, int index);
+	std::vector<_Tile>& getDungeon() { return m_maze; };
+	int getRows() const { return m_rows; };
+	int getCols() const { return m_cols; };
+	std::vector<std::shared_ptr<NPC>>& getNPCs() { return m_npcs; };
+	std::vector<std::shared_ptr<Monster>>& getMonsters() { return m_monsters; };
+	std::vector<std::shared_ptr<Traps>>& getTraps() { return m_traps; };
+	std::vector<std::shared_ptr<Door>>& getDoors() { return m_doors; };
+
+	// Helper
+	bool withinBounds(int x, int y);
+
+	// For shops prices
+	virtual bool isShop() const { return false; };
+	virtual void constructShopHUD(int x, int y);
+	virtual void deconstructShopHUD();
 
 
 	// .......deprecated.......
-	bool wallCollision(std::vector<_Tile> &dungeon, int maxcols, char direction, int p_move, int m_move);
-	virtual void enemyOverlap(std::vector<_Tile> &dungeon, int maxrows, int maxcols, int x, int y);
-	virtual void showText();
-	void unmarkTiles(); // unused
+	bool wallCollision(char direction, int p_move, int m_move);
+	void showText();
 
 
 	// :::: SPRITE SETTING ::::
+	void setMoneySprites(std::vector<cocos2d::Sprite*> sprites) { money_sprites = sprites; };
+	void setItemSprites(std::vector<cocos2d::Sprite*> sprites) { item_sprites = sprites; };
+	void setWallSprites(std::vector<cocos2d::Sprite*> sprites) { wall_sprites = sprites; };
+	void setDoorSprites(std::vector<cocos2d::Sprite*> sprites) { door_sprites = sprites; };
 
-	void setPlayerSprite(cocos2d::Sprite* sprite);
-	void setMoneySprites(std::vector<cocos2d::Sprite*> sprites);
-	void setItemSprites(std::vector<cocos2d::Sprite*> sprites);
-
-	void setSpikeProjectileSprites(std::multimap<cocos2d::Vec2, cocos2d::Sprite*> sprites);
-
-	void setWallSprites(std::vector<cocos2d::Sprite*> sprites);
-	void setDoorSprites(std::vector<cocos2d::Sprite*> sprites);
-	void setScene(cocos2d::Scene* scene);
+	void setScene(cocos2d::Scene* scene) { m_scene = scene; };
 
 
 	// :::: SPRITE MANIPULATION ::::
-
-	cocos2d::Sprite* findSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y);
+	int findSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y);
 	void setSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y, char move);
 	void teleportSprite(cocos2d::Sprite* sprite, int x, int y);
 
 	// Used for sequencing actions, instead of running them immediately
 	void queueMoveSprite(cocos2d::Sprite* sprite, char move, float time = .1f);
 	void queueMoveSprite(cocos2d::Sprite* sprite, int cx, int cy, float time = .1f, bool front = false);
+	void queueMoveSprite(cocos2d::Sprite* sprite, float cx, float cy, float time = .1f, bool front = false);
 
 	// Moves a particular sprite in a certain direction with @move instantly
-	void moveSprite(cocos2d::Sprite* sprite, char move, float time = .1);
+	void moveSprite(cocos2d::Sprite* sprite, char move, float time = .1f);
 
-	// Moves unordered sprites using @move as the directional parameter
-	void moveSprite(std::vector<cocos2d::Sprite*> &sprites, int maxrows, int x, int y, char move);
+	// Moves vector sprites using @move as the directional parameter
+	void moveSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y, char move);
 
 	// Moves sprites to a certain spot using @cx and @cy to specify the position
-	void moveSprite(std::vector<cocos2d::Sprite*> &sprites, int maxrows, int x, int y, int cx, int cy);
-
-	/* Moves sprites that may be overlapping using @move as the directional parameter
-	*  Currently only used for ceiling spikes that spawn on the Smasher boss fight
-	*/
-	void moveSprite(std::multimap<cocos2d::Vec2, cocos2d::Sprite*> &sprites, int maxrows, int x, int y, char move);
-
-	/* Moves sprites that are associated with another sprite
-	*  X and Y are the "parent" sprite's cooridnates
-	*  x and y are the coordinates of the sprite we want to move
-	*  Vec2 in the multimap contains the coordinates of all such parent sprites
-	*/
-	void moveAssociatedSprite(std::multimap<cocos2d::Vec2, cocos2d::Sprite*> &sprites, int maxrows, int X, int Y, int x, int y, char move);
+	void moveSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y, int cx, int cy);
 
 	// No difference from addSprite, just returns the sprite
 	cocos2d::Sprite* createSprite(int x, int y, int z, std::string image);
+	cocos2d::Sprite* createSprite(float x, float y, int z, std::string image);
 	cocos2d::Sprite* createSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y, int z, std::string image);
-	void addSprite(std::vector<cocos2d::Sprite*> &sprites, int maxrows, int x, int y, int z, std::string image);
-	void addSprite(std::multimap<cocos2d::Vec2, cocos2d::Sprite*> &sprites, int maxrows, int x, int y, int z, std::string image);
-	void addGoldSprite(std::vector<_Tile> &dungeon, int x, int y);
+	void addSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y, int z, std::string image);
+	void addGoldSprite(int x, int y);
 
 	void queueRemoveSprite(cocos2d::Sprite* sprite);
 	void removeSprite(cocos2d::Sprite* sprite);
-	void removeSprite(std::vector<cocos2d::Sprite*> &sprites, int maxrows, int x, int y);
-	void removeSprite(std::multimap<cocos2d::Vec2, cocos2d::Sprite*> &sprites, int maxrows, int x, int y);
-	void removeAssociatedSprite(std::multimap<cocos2d::Vec2, cocos2d::Sprite*> &sprites, int maxrows, int X, int Y, int x, int y);
+	void removeSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y);
 
 	void updateLighting();
 	void updateSecondaryLighting(int x, int y);
+	void updateSecondaryLighting();
+
+	// @strength is how much light is to be provided
+	void addLightSource(int x, int y, double strength);
+	void removeLightSource(int x, int y);
+
+	cocos2d::Vector<cocos2d::SpriteFrame*> getAnimation(const char* format, int count);
+	cocos2d::Vector<cocos2d::SpriteFrame*> getAnimation(std::string format, int count);
+	cocos2d::Sprite* runAnimationForever(cocos2d::Vector<cocos2d::SpriteFrame*> frames, int frameInterval, int x, int y, int z);
+	void runSingleAnimation(cocos2d::Vector<cocos2d::SpriteFrame*> frames, int frameInterval, int x, int y, int z);
+	void runAnimationForever(cocos2d::Vector<cocos2d::SpriteFrame*> frames, int x, int y);
+
+	// This runs the animation and then leaves the final frame remaining.
+	// Allows things such as debris to be left and have their sprites updated with proper lighting.
+	void runAnimationWithCallback(cocos2d::Vector<cocos2d::SpriteFrame*> frames, int frameInterval, int x, int y, int z,
+		std::function<void(Dungeon&, std::vector<cocos2d::Sprite*>&, int, int, int, std::string)> cb, std::string image);
+
+	// :::: Member variables ::::
+	std::vector<std::string> dungeonText;
+
+	std::vector<cocos2d::Sprite*> money_sprites;
+	std::vector<cocos2d::Sprite*> item_sprites;
+	std::vector<cocos2d::Sprite*> wall_sprites;
+	std::vector<cocos2d::Sprite*> door_sprites;
+
+	std::vector<cocos2d::Sprite*> misc_sprites; // For decorations, debris, etc.
+
+protected:
+	// Sets the defaults for all _Tiles
+	void initializeTiles();
+
+	void checkActive();
+	virtual void checkMonsters();
+
+	bool checkDecoys(int mx, int my, int &x, int &y);
+	int findDecoy(int x, int y);
+
+	int findSegmentedMonster(int index) const;
+
+	int findDoor(int x, int y) const;
+	virtual void checkDoors();
+
+	void insertActorForRemoval(int index);
+	void actorRemoval();
+
+	void insertTrapForRemoval(int index);
+	void trapRemoval(); // for removing any destroyed traps after iterating through actives
+	void monsterTrapEncounter();
+
+	// finds a valid spot for a monster after being pushed
+	bool monsterHash(int &x, int &y, bool &switched, char move, bool strict = false);
+
+	void setPlayer(std::shared_ptr<Player> p) { player.at(0) = p; };
+	void setLevel(int level) { m_level = level; };
 
 	int spriteFound(cocos2d::Sprite* sprite);
 	void insertActionIntoSpawn(cocos2d::Sprite* sprite, cocos2d::FiniteTimeAction* action, bool front = false);
 	void runSpawn();
 
+	int findLightSource(int x, int y);
 
 	// :::: LEVEL GENERATION ::::
+	void fillLevel(std::vector<std::string> finalvec, std::shared_ptr<Player> p, int start = 1, int end = -1);
 
-	/*std::vector<char> topChunks(std::vector<std::vector<std::vector<char>>> &c, int maxcols);
-	std::vector<char> middleChunks(std::vector<std::vector<std::vector<char>>> &c, int maxcols);
-	std::vector<char> bottomChunks(std::vector<std::vector<std::vector<char>>> &c, int maxcols);
+	std::vector<std::shared_ptr<Player>> player;
 
-	std::vector<std::vector<std::vector<char>>> mixChunks(std::vector<std::vector<std::vector<char>>> c, int maxcols);*/
-	virtual std::vector<char> combineChunks(std::vector<std::vector<std::vector<char>>> c);
-
-
-	std::vector<std::string> topChunks(std::vector<std::vector<std::vector<std::string>>> &c);
-	std::vector<std::string> middleChunks(std::vector<std::vector<std::vector<std::string>>> &c);
-	std::vector<std::string> bottomChunks(std::vector<std::vector<std::vector<std::string>>> &c);
-
-	std::vector<std::vector<std::vector<std::string>>> mixChunks(std::vector<std::vector<std::vector<std::string>>> c);
-	virtual std::vector<std::string> combineChunks(std::vector<std::vector<std::vector<std::string>>> c);
-
-	virtual std::vector<std::string> generateLevel();
-	virtual void fillLevel(std::vector<std::string> finalvec, Player p, int start = 1, int end = -1);
-
-
-	// :::: Member variables ::::
-	std::vector<Player> player;
-	std::vector<std::string> dungeonText;
-
-	cocos2d::Sprite* player_sprite = nullptr;
-
-	std::vector<cocos2d::Sprite*> money_sprites;
-	std::vector<cocos2d::Sprite*> monster_sprites; // unused
-	std::vector<cocos2d::Sprite*> item_sprites;
-	std::vector<cocos2d::Sprite*> trap_sprites; // unused
-	std::vector<cocos2d::Sprite*> projectile_sprites; // unused
-
-	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> spike_sprites;
-	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> spinner_sprites; // unused
-	std::multimap<cocos2d::Vec2, cocos2d::Sprite*> zapper_sprites; // unused
-
-	std::vector<cocos2d::Sprite*> wall_sprites;
-	std::vector<cocos2d::Sprite*> door_sprites;
-	std::vector<cocos2d::Sprite*> floor_sprites; // unused
-
-	std::vector<std::pair<int, int>> lightEmitters;
-
-	cocos2d::Scene* m_scene; // scene needed to create sprites within dungeon
-
-	std::vector<std::pair<int, int>> m_trapIndexes; // holds the x, y coordinates of traps to be removed at the end of checkActive()
-
-protected:
 	// protected to allow assignment operators access
 	int m_level;
 
@@ -286,13 +296,90 @@ protected:
 	std::vector<std::shared_ptr<Monster>> m_monsters;
 	std::vector<std::shared_ptr<Traps>> m_traps;
 	std::vector<std::shared_ptr<Door>> m_doors;
+	std::vector<std::shared_ptr<Decoy>> m_decoys; // Decoys attract monsters that normally chase the player
 
-	std::unordered_multimap<cocos2d::Sprite*, cocos2d::Vector<cocos2d::FiniteTimeAction*>> m_spawn;
-	//std::vector<std::pair<cocos2d::Sprite*, cocos2d::FiniteTimeAction*>> m_seq;
+	std::set<int> m_trapIndexes;
+	std::set<int> m_deadActorIndexes;
+	std::vector<std::pair<int, int>> lightEmitters;
+
+	// Inner pair: x & y coordinates; Outer pair: The inner pair and the light cutoff value
+	// Holds coordinates and light strength values that should remain constant.
+	std::vector<std::pair<std::pair<int, int>, double>> m_lightSources;
+
+	// Vector containing the sprite movement actions
 	std::vector<std::pair<cocos2d::Sprite*, cocos2d::Vector<cocos2d::FiniteTimeAction*>>> m_seq;
 
-private:
+	cocos2d::Scene* m_scene; // scene needed to create sprites within dungeon
+
+	bool m_return = false; // Flag indicating that the player return to main menu from world hub
+
 	std::vector<_Tile> m_maze;
+
+private:
+	int m_rows;
+	int m_cols;
+};
+
+class TutorialFloor : public Dungeon {
+public:
+	TutorialFloor(std::shared_ptr<Player> p);
+
+private:
+	std::vector<char> generate();
+};
+
+class WorldHub : public Dungeon {
+public:
+	WorldHub(std::shared_ptr<Player> p);
+
+	void specialActions();
+
+private:
+	std::vector<char> generate();
+};
+
+class Shop : public Dungeon {
+public:
+	Shop(std::shared_ptr<Player> p, int level);
+	Shop& operator=(Shop const &dungeon);
+
+	virtual void specialActions();
+
+	bool isShop() const { return true; };
+	void constructShopHUD(int x, int y);
+	void deconstructShopHUD();
+
+	void purchaseItem(int x, int y);
+	void collectItem(int x, int y);
+
+private:
+	// shop layout
+	std::vector<char> generate();
+
+	float m_priceMultiplier;
+};
+
+class Shrine : public Dungeon {
+public:
+	// 
+	Shrine(std::shared_ptr<Player> p);
+
+};
+
+class FirstFloor : public Dungeon {
+public:
+	FirstFloor(std::shared_ptr<Player> p);
+
+private:
+	// :::: LEVEL GENERATION ::::
+	std::vector<std::string> topChunks(std::vector<std::vector<std::vector<std::string>>> &c);
+	std::vector<std::string> middleChunks(std::vector<std::vector<std::vector<std::string>>> &c);
+	std::vector<std::string> bottomChunks(std::vector<std::vector<std::vector<std::string>>> &c);
+
+	std::vector<std::vector<std::vector<std::string>>> mixChunks(std::vector<std::vector<std::vector<std::string>>> c);
+	std::vector<std::string> combineChunks(std::vector<std::vector<std::vector<std::string>>> c);
+
+	std::vector<std::string> generateLevel();
 
 	int playerChunk;
 	int exitChunk;
@@ -302,56 +389,29 @@ private:
 	int layer;
 	int specialChunkLayer1;
 	int specialChunkLayer2;
-
-	int m_rows = MAXROWS;
-	int m_cols = MAXCOLS;
-};
-
-class Shop : public Dungeon {
-public:
-	Shop(Player p, int level);
-	Shop& operator=(Shop const &dungeon);
-
-	void peekDungeon(int x, int y, char move);
-
-	void purchaseItem(std::vector<_Tile> &dungeon, int x, int y);
-	void collectItem(Dungeon &dungeon, int x, int y);
-
-	// shop layout
-	std::vector<char> generate();
-
-	// helper functions
-	std::vector<_Tile>& getDungeon();
-	int getRows() const;
-	int getCols() const;
-
-private:
-	std::vector<_Tile> m_shop1;
-
-	float m_priceMultiplier;
-
-	int m_rows = MAXROWS_SHOP1;
-	int m_cols = MAXCOLS_SHOP1;
 };
 
 class SecondFloor : public Dungeon {
 public:
-	SecondFloor(Player p);
+	SecondFloor(std::shared_ptr<Player> p);
 	SecondFloor& operator=(SecondFloor const &dungeon);
 
-	void peekDungeon(int x, int y, char move);
+	void specialActions();
+	bool specialTrapCheck(int x, int y);
 
 	void devilsWater(bool bathed);
 	void devilsGift();
 	void guardiansDefeated();
 	void devilsWaterPrompt();
-	bool getWaterPrompt();
+	bool getWaterPrompt() { return m_waterPrompt; };
 
 	void monsterDeath(int pos);
-	void fight(int x, int y);
 
+protected:
 	std::vector<std::vector<std::string>> outermostChunks();	// top and bottom rows
 	std::vector<std::vector<std::string>> edgeChunks();			// left and right columns
+	std::vector<std::vector<std::string>> cornerChunks(int corner, bool innerRing = false);			// corner pieces
+	std::vector<std::vector<std::string>> junctionChunks();		// chunks before and after crossing the bridge between rings
 	std::vector<std::vector<std::string>> lavaChunks();			// lava chunks
 	std::vector<std::vector<std::string>> fixedChunks(std::string chunk);	// special chunks that are fixed
 	//std::vector<std::string> innerChunksCT(std::vector<std::vector<std::vector<std::string>>> &c);
@@ -361,14 +421,7 @@ public:
 	std::vector<std::string> generateLevel();
 	std::vector<std::string> combineChunks(std::vector<std::vector<std::vector<std::string>>> c);
 
-
-	std::vector<_Tile>& getDungeon();
-	int getRows() const;
-	int getCols() const;
-
 private:
-	std::vector<_Tile> m_maze2;
-
 	std::vector<std::shared_ptr<Monster>> m_f2guardians;
 
 	bool m_openexit;
@@ -384,31 +437,28 @@ private:
 	int layer = 1;
 	int specialChunkLayer1;
 	int specialChunkLayer2;
-
-	int m_rows = MAXROWS2;
-	int m_cols = MAXCOLS2;
 };
 
 class ThirdFloor : public Dungeon {
 public:
-	ThirdFloor(Player p);
+	ThirdFloor(std::shared_ptr<Player> p);
 	ThirdFloor& operator=(ThirdFloor const &dungeon);
 
-	void peekDungeon(int x, int y, char move);
-	
-	void checkDoors();
-	bool roomCleared();
-	void toggleDoorLocks(int dx, int dy, char doortype);
-
 	void hideRooms();
+
+protected:
+	void checkDoors();
+
+	std::vector<std::string> generateLevel();
+	std::vector<std::string> combineChunks(std::vector<std::vector<std::vector<std::string>>> c);
+
+private:
+	bool roomCleared();
+	void toggleDoorLocks(int dx, int dy, std::string doortype);
 	void revealRoom();
 
-	std::vector<_Tile>& getDungeon();
-	int getRows() const;
-	int getCols() const;
-	
 
-	// LEVEL GENERATION
+	//		LEVEL GENERATION
 	void TLChunks(std::vector<std::vector<std::vector<std::string>>> &current, std::vector<std::vector<std::vector<std::string>>> pool);
 	void topChunks(std::vector<std::vector<std::vector<std::string>>> &current, std::vector<std::vector<std::vector<std::string>>> pool);
 	std::vector<std::string> TRChunks(std::vector<std::vector<std::vector<std::string>>> current, std::vector<std::vector<std::vector<std::string>>> pool);
@@ -427,12 +477,6 @@ public:
 	void mixChunks(std::vector<std::vector<std::vector<std::string>>> &current, std::vector<std::vector<std::vector<std::string>>> pool);
 	void pickSingleChunk(std::vector<std::vector<std::vector<std::string>>> &current, std::vector<std::vector<std::vector<std::string>>> pool);
 
-	std::vector<std::string> generateLevel();
-	std::vector<std::string> combineChunks(std::vector<std::vector<std::vector<std::string>>> c);
-
-private:
-	std::vector<_Tile> m_maze3;
-
 	bool m_locked;
 
 	// used for checking level generation of player and exit chunks
@@ -445,67 +489,95 @@ private:
 	// value from 1-4, tells the location of where the chunks are to be placed
 	int m_playerchunk;
 	int m_exitchunk;
+};
 
-	int m_rows = MAXROWS3;
-	int m_cols = MAXCOLS3;
+class FourthFloor : public Dungeon {
+public:
+	FourthFloor(std::shared_ptr<Player> p);
+
+private:
+	
+};
+
+class FifthFloor : public Dungeon {
+public:
+	FifthFloor(std::shared_ptr<Player> p);
+
+	
+
+private:
+	
+};
+
+class SixthFloor : public Dungeon {
+public:
+	SixthFloor(std::shared_ptr<Player> p);
+
+private:
+	
+};
+
+class SeventhFloor : public Dungeon {
+public:
+	SeventhFloor(std::shared_ptr<Player> p);
+
+	
+
+private:
+	
+};
+
+class EighthFloor : public Dungeon {
+public:
+	EighthFloor(std::shared_ptr<Player> p);
+
+	
+
+private:
+	
+};
+
+class NinthFloor : public Dungeon {
+public:
+	NinthFloor(std::shared_ptr<Player> p);
+
+	
+
+private:
+	
+};
+
+class TenthFloor : public Dungeon {
+public:
+	TenthFloor(std::shared_ptr<Player> p);
+
+	
+
+private:
+	
 };
 
 class FirstBoss : public Dungeon {
 public:
-	FirstBoss(Player p);
+	FirstBoss(std::shared_ptr<Player> p);
 	FirstBoss& operator=(FirstBoss const &dungeon);
 
 	void peekDungeon(int x, int y, char move);
 
-	void monsterDeath(int pos);
-	//using Dungeon::monsterDeath;
-
-	void checkSmasher();
-	void pickMove();
-	void move1();
-	void move2();
-	void avalanche();
-	void move3();
-	void move4();
-	void move5();
-
-	void moveSmasher();
-	void moveSmasherL();
-	void moveSmasherR();
-	void moveSmasherU();
-	void moveSmasherD();
-
-	void resetLeftward();
-	void resetRightward();
-	void resetUpward();
-	void resetDownward();
-
-	bool monsterHash(int &x, int &y, bool &switched, char move);
-	void pushMonster(std::vector<_Tile> &dungeon, int maxrows, int maxcols, int mx, int my, char move, std::vector<std::shared_ptr<Monster>> &monsters, int cx = 0, int cy = 0);
-	void pushPlayer(std::vector<_Tile> &dungeon, int maxrows, int maxcols, char move);
-
 	void fight(int x, int y);
+	void monsterDeath(int pos);
+	bool monsterHash(int &x, int &y, bool &switched, char move);
+	void pushMonster(std::vector<_Tile> &dungeon, int mx, int my, char move, int cx = 0, int cy = 0);
+	void pushPlayer(char move);
 
-	std::vector<_Tile>& getDungeon();
-	int getRows() const;
-	int getCols() const;
-	
-
-	// ......deprecated.......
-	void finishActions();
+protected:
+	void checkMonsters();
 
 private:
-	std::vector<_Tile> m_boss;
-
 	// used for telling what direction smasher is moving in if executing rock slide
 	char move = '0';
-
-	int m_rows = BOSSROWS;
-	int m_cols = BOSSCOLS;
 };
 
 
-void playMonsterDeathByPit(Player p, Monster m);
-void playArcherDaggerSwipe();
 
 #endif

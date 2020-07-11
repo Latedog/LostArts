@@ -4,7 +4,8 @@
 #include "Dungeon.h"
 #include "GameObjects.h"
 #include "Actors.h"
-#include "utilities.h"
+#include "Afflictions.h"
+#include "FX.h"
 #include <iostream>
 #include <memory>
 
@@ -14,416 +15,14 @@ using std::make_shared;
 using std::dynamic_pointer_cast;
 using std::string;
 using std::to_string;
-using std::cout;
-using std::endl;
 
 
-Dungeon::Dungeon() : m_level(1) {
-	int rows = getRows();
-	int cols = getCols();
-
-	_Tile *tile;
-	int i, j;
-	
-	//	initialize entire dungeon to blank space
-	for (i = 0; i < rows; i++) {
-		for (j = 0; j < cols; j++) {
-			tile = new _Tile;
-			tile->upper = tile->top = tile->bottom = tile->projectile = tile->traptile = SPACE;
-			tile->npc = tile->hero = tile->wall = tile->item = tile->trap = tile->enemy = tile->exit = false;
-			tile->gold = 0;
-			tile->marked = tile->noSpawn = false;
-			tile->object = nullptr;
-
-			m_maze.push_back(*tile);
-			delete tile;
-		}
-	}
-
-	for (i = 0; i < rows; i++) { //	initialize top and bottom of dungeon to be unbreakable walls
-		for (j = 0; j < cols; j++) {
-			m_maze[i*cols + j].top = UNBREAKABLE_WALL;
-			m_maze[i*cols + j].bottom = UNBREAKABLE_WALL;
-			m_maze[i*cols + j].traptile = UNBREAKABLE_WALL;
-
-			m_maze[i*cols + j].wall = true;
-			m_maze[i*cols + j].boundary = true;
-		}
-		i += (rows - 2);
-	}
-
-	for (i = 0; i < rows - 1; i++){
-		//	initialize edges of dungeon to be walls
-		m_maze[i*cols].top = m_maze[i*cols].bottom = m_maze[i*cols].traptile = UNBREAKABLE_WALL;
-		m_maze[i*cols + cols - 1].top = m_maze[i*cols + cols -1].bottom = m_maze[i*cols + cols - 1].traptile = UNBREAKABLE_WALL;
-		m_maze[i*cols].wall = true;
-		m_maze[i*cols + cols - 1].wall = true;
-		m_maze[i*cols].boundary = true;
-		m_maze[i*cols + cols - 1].boundary = true;
-	}
-
-
-	// GENERATES LEVEL
-	Player play;
-	std::vector<std::string> finalvec = generateLevel();
-	fillLevel(finalvec, play);
-
-	// END LEVEL GENERATION
-
-
-	bool wall, enemy, _trap, _item, hero, noSpawn;
-	char toptile, bottomtile, traptile;
-	int n, x, y;
-
-
-	// CREATURE LOVER
-	x = 1 + randInt(cols - 2);
-	y = 1 + randInt(rows - 2);
-
-	noSpawn = m_maze[y*cols + x].noSpawn;
-	wall = m_maze[y*cols + x].wall;
-	enemy = m_maze[y*cols + x].enemy;
-	hero = m_maze[y*cols + x].hero;
-	_trap = m_maze[y*cols + x].trap;
-
-	while (noSpawn || wall || enemy || hero || _trap) {
-		x = 1 + randInt(cols - 2);
-		y = 1 + randInt(rows - 2);
-
-		noSpawn = m_maze[y*cols + x].noSpawn;
-		wall = m_maze[y*cols + x].wall;
-		enemy = m_maze[y*cols + x].enemy;
-		hero = m_maze[y*cols + x].hero;
-		_trap = m_maze[y*cols + x].trap;
-	}
-
-	std::shared_ptr<NPC> npc = std::make_shared<CreatureLover>(x, y);
-	m_npcs.emplace_back(npc);
-	m_maze[y*cols + x].npc = true;
-	m_maze[y*cols + x].wall = true; // so they can't be moved
-
-
-	// BEGIN MONSTER GENERATION
-	char monstertype;
-	std::shared_ptr<Monster> monster(nullptr);
-
-	for (int i = 0; i < 11; i++) {
-
-		// number of each enemy to spawn
-		switch (i) {
-		case 0: n = 1 + randInt(3); break;	// Goblin
-		case 1: n = 12 + randInt(5); break; // Wanderer
-		case 2: n = 2 + randInt(4); break;	// Archer
-		case 3: n = 5 + randInt(4); break;	// Zapper
-		case 4: n = 4 + randInt(4); break;	// Broundabout
-		case 5: n = 1; break;				// Bombee
-		case 6: n = 6 + randInt(5); break;	// Roundabout
-		case 7: n = 1 + randInt(2); break;	// Mounted Knight
-		case 8: n = 8 + randInt(4); break;	// Seeker
-		case 9: n = 5 + randInt(3); break;	// Dead Seeker
-		case 10: n = 1; break;				// Item Thief
-		}
-
-		while (n > 0) {
-
-			x = 1 + randInt(cols - 2);
-			y = 1 + randInt(rows - 2);
-
-			noSpawn = m_maze[y*cols + x].noSpawn;
-			wall = m_maze[y*cols + x].wall;
-			enemy = m_maze[y*cols + x].enemy;
-			hero = m_maze[y*cols + x].hero;
-
-			while (noSpawn || wall || enemy || hero) { // while monster position clashes with wall, player, or idol, reroll its position
-				x = 1 + randInt(cols - 2);
-				y = 1 + randInt(rows - 2);
-
-				noSpawn = m_maze[y*cols + x].noSpawn;
-				wall = m_maze[y*cols + x].wall;
-				enemy = m_maze[y*cols + x].enemy;
-				hero = m_maze[y*cols + x].hero;
-			}
-
-			// the type of enemy
-			switch (i) {
-			case 0:
-				monster = std::make_shared<Goblin>(x, y, 10); break;
-			case 1:
-				monster = std::make_shared<Wanderer>(x, y); break;
-			case 2:
-				monster = std::make_shared<Archer>(x, y); break;
-			case 3:
-				monster = std::make_shared<Zapper>(x, y, rows); break;
-			case 4:
-				monster = std::make_shared<Broundabout>(x, y); break;
-			case 5:
-				monster = std::make_shared<Bombee>(x, y); break;
-			case 6:
-				monster = std::make_shared<Roundabout>(x, y);break;
-			case 7:
-				monster = std::make_shared<MountedKnight>(x, y); break;
-			case 8:
-				monster = std::make_shared<Seeker>(x, y, 10); break;
-			case 9:
-				monster = std::make_shared<GooSack>(x, y); break;
-			case 10:
-				monster = std::make_shared<ItemThief>(x, y); break;
-			}
-
-			m_monsters.emplace_back(monster);
-
-			m_maze[y*cols + x].monster_name = monster->getName();
-			m_maze[y*cols + x].enemy = true;
-
-			/*if (monstertype == SPINNER) {
-				std::shared_ptr<Spinner> spinner = std::dynamic_pointer_cast<Spinner>(monster);
-				spinner->setInitialFirePosition(x, y, rows);
-				spinner.reset();
-			}*/
-
-			n--;
-			monster.reset();
-		}
-	}
-	/// END MONSTER GENERATION
-
-	
-	//	TRAP GENERATION
-	char traptype;
-	std::string trap_type = "";
-	std::shared_ptr<Traps> trap(nullptr);
-	
-	for (int i = 0; i < 8; i++) { // i < number_of_different_trap_types
-
-		// number of each trap to spawn
-		switch (i) {
-		case 0: n = 2 + randInt(5); break; // Pit
-		case 1: n = 1 + randInt(3); break; // Firebars
-		case 2: n = 0 + randInt(2); break; // Double Firebars
-		case 3: n = 15 + randInt(5); break; // Puddles
-		case 4: n = 5 + randInt(10); break; // Springs
-		case 5: n = 3 + randInt(3); break; // Turrets
-		case 6: n = 2 + randInt(3); break; // Moving Blocks
-		case 7: n = 10 + randInt(3); break; // 
-		case 8: n = 4 + randInt(4); break; // 
-		default: n = 0; break;
-		}
-
-		while (n > 0) {
-			
-			x = 1 + randInt(cols - 2);
-			y = 1 + randInt(rows - 2);
-
-			noSpawn = m_maze[y*cols + x].noSpawn;
-			_trap = m_maze[y*cols + x].trap;
-			wall = m_maze[y*cols + x].wall;
-			enemy = m_maze[y*cols + x].enemy;
-			hero = m_maze[y*cols + x].hero;
-			_item = m_maze[y*cols + x].item;
-
-			// while item position clashes with wall, player, etc., then reroll its position
-			while (noSpawn || _trap || wall || enemy || hero || _item) {
-				x = 1 + randInt(cols - 2);
-				y = 1 + randInt(rows - 2);
-
-				noSpawn = m_maze[y*cols + x].noSpawn;
-				_trap = m_maze[y*cols + x].trap;
-				wall = m_maze[y*cols + x].wall;
-				enemy = m_maze[y*cols + x].enemy;
-				hero = m_maze[y*cols + x].hero;
-				_item = m_maze[y*cols + x].item;
-			}
-
-			// type of item to spawn
-			switch (i) {
-			case 0:
-				trap = std::make_shared<Pit>(x, y);
-				trap_type = PIT; break;
-			case 1:
-				trap = std::make_shared<Firebar>(x, y, rows);
-				trap_type = FIREBAR; break;
-			case 2:
-				trap = std::make_shared<DoubleFirebar>(x, y, rows);
-				trap_type = DOUBLE_FIREBAR; break;
-			case 3:
-				trap = std::make_shared<Puddle>(x, y);
-				trap_type = PUDDLE; break;
-			case 4:
-				char move;
-				switch (1 + randInt(8)) {
-				case 1: move = 'l'; break;	// L
-				case 2: move = 'r'; break;	// R
-				case 3: move = 'u'; break;	// U
-				case 4: move = 'd'; break;	// D
-				case 5: move = '1'; break;	// Q1
-				case 6: move = '2'; break;	// Q2
-				case 7: move = '3'; break;	// Q3
-				case 8: move = '4'; break;	// Q4
-				}
-				//									(int x, int y, bool trigger, char direction = random)
-				trap = std::make_shared<Spring>(x, y, false);
-				//											(int x, int y, bool trigger, bool known, bool cardinal)
-				//trap = std::make_shared<Spring>(1 + randInt(cols - 2), 1 + randInt(rows - 2), true, true, true);
-				trap_type = SPRING; break;
-			case 5:
-				//char move;
-				switch (1 + randInt(4)) {
-				case 1: move = 'l'; break;	// L
-				case 2: move = 'r'; break;	// R
-				case 3: move = 'u'; break;	// U
-				case 4: move = 'd'; break;	// D
-				}
-				trap = std::make_shared<Turret>(x, y, move);
-				trap_type = TURRET; break;
-			case 6:
-				trap = std::make_shared<MovingBlock>(x, y, (randInt(2) == 0 ? 'h' : 'v'));
-				trap_type = MOVING_BLOCK; break;
-			case 7:
-				trap = std::make_shared<CrumbleFloor>(x, y, 4);
-				trap_type = CRUMBLE_FLOOR; break;
-			case 8:
-				//item = std::make_shared<InfinityBox>();
-				break;//itemtype = INFINITY_BOX; break;
-			}
-
-			m_traps.emplace_back(trap);
-
-			m_maze[y*cols + x].trap_name = trap->getItem();
-			m_maze[y*cols + x].trap = true;
-
-			if (trap->actsAsWall()) {
-				m_maze[y*cols + x].wall = true;
-			}
-			
-
-			n--;
-			trap.reset();
-		}
-	}
-	/// END TRAP GENERATION
-
-
-	//	ITEM GENERATION
-	char itemtype;
-	std::string item_name = "";
-	std::shared_ptr<Objects> item(nullptr);
-
-	for (int i = 0; i < 19; i++) { // i < number_of_different_items
-
-		// number of each item to spawn
-		switch (i) {
-		case 0: n = 1; break; // Life Potion
-		case 1: n = 1; break; // Bomb
-		case 2: n = 1; break; // Brown Chest
-		case 3: n = 1; break; // Rusty Cutlass
-		case 4: n = 1; break; // Skeleton Key
-		case 5: n = 1; break; // Wood Shield
-		case 6: n = 2; break; // Freeze Spell
-		case 7: n = 1 + randInt(3); break; // Earthquake Spell
-		case 8: n = 2 + randInt(3); break; // 
-		case 9: n = 2 + randInt(3); break; // 
-		case 10: n = 2 + randInt(3); break; // 
-		case 11: n = 1 + randInt(1); break; // 
-		case 12: n = 1; break;
-		case 13: n = 1; break;
-		case 14: n = 1; break;
-		case 15: n = 1; break;
-		case 16: n = 1; break;
-		case 17: n = 1; break;
-		case 18: n = 1; break;
-		case 19: n = 1; break;
-		case 20: n = 1; break;
-		case 21: n = 1; break;
-		default: n = 0; break;
-		}
-
-		while (n > 0) {
-
-			x = 1 + randInt(cols - 2);
-			y = 1 + randInt(rows - 2);
-
-			noSpawn = m_maze[y*cols + x].noSpawn;
-			_item = m_maze[y*cols + x].item;
-			wall = m_maze[y*cols + x].wall;
-			_trap = m_maze[y*cols + x].trap;
-			hero = m_maze[y*cols + x].hero;
-
-			// while item position clashes with wall, player, etc., then reroll its position
-			while (noSpawn || _item || wall || _trap || hero) {
-				x = 1 + randInt(cols - 2);
-				y = 1 + randInt(rows - 2);
-
-				noSpawn = m_maze[y*cols + x].noSpawn;
-				_item = m_maze[y*cols + x].item;
-				wall = m_maze[y*cols + x].wall;
-				_trap = m_maze[y*cols + x].trap;
-				hero = m_maze[y*cols + x].hero;
-			}
-
-			// type of item to spawn
-			switch (i) {
-			case 0:
-				item = std::make_shared<LifePotion>(x, y); break;
-			case 1:
-				item = std::make_shared<Bomb>(x, y); break;
-			case 2:
-				item = std::make_shared<BrownChest>(); break;
-			case 3:
-				item = std::make_shared<GoldPot>(x, y); break;
-			case 4:
-				item = std::make_shared<DarkStar>(x, y); break;
-			case 5:
-				item = std::make_shared<WoodShield>(x, y); break;
-			case 6:
-				item = std::make_shared<FreezeSpell>(x, y); break;
-			case 7:
-				item = std::make_shared<EarthquakeSpell>(x, y); break;
-			case 8:
-				item = std::make_shared<FireBlastSpell>(x, y); break;
-			case 9:
-				item = std::make_shared<WindSpell>(x, y); break;
-			case 10:
-				item = std::make_shared<InvisibilitySpell>(x, y); break;
-			case 11:
-				item = std::make_shared<BrightStar>(x, y); break;
-			case 12:
-				item = std::make_shared<Teleport>(x, y); break;
-			case 13:
-				item = std::make_shared<VulcanRune>(x, y); break;
-			case 14:
-				item = std::make_shared<EtherealSpell>(x, y); break;
-			case 15:
-				item = std::make_shared<LuckyPig>(x, y); break;
-			case 16:
-				item = std::make_shared<RingOfCasting>(x, y); break;
-			case 17:
-				item = std::make_shared<Bloodrite>(x, y); break;
-			case 18:
-				item = std::make_shared<Bloodlust>(x, y); break;
-			case 19:
-				item = std::make_shared<InvisibilitySpell>(x, y); break;
-			case 20:
-				item = std::make_shared<InvisibilitySpell>(x, y); break;
-			}
-
-			m_maze[y*cols + x].object = item;
-			m_maze[y*cols + x].item_name = item->getItem();
-			m_maze[y*cols + x].item = true;
-			n--;
-			item.reset();
-		}
-	}
-	/// END ITEM GENERATION
-
-}
-Dungeon::Dungeon(int level) : m_level(level) {
-	Player p;
-	player.push_back(p);
+Dungeon::Dungeon(int level, int rows, int cols) : m_level(level), m_rows(rows), m_cols(cols) {
+	if (!isShop())
+		initializeTiles();
 }
 Dungeon& Dungeon::operator=(Dungeon const &dungeon) {
-	for (unsigned i = 0; i < dungeon.getRows()*dungeon.getCols(); i++) {
-		m_maze[i] = dungeon.m_maze[i];
-	}
+	m_maze = dungeon.m_maze;
 	player = dungeon.player;
 
 	m_npcs = dungeon.m_npcs;
@@ -432,20 +31,13 @@ Dungeon& Dungeon::operator=(Dungeon const &dungeon) {
 	m_doors = dungeon.m_doors;
 
 	m_level = dungeon.m_level;
-	layer = dungeon.layer;
-	playerChunk = dungeon.playerChunk;
-	specialChunk1 = dungeon.specialChunk1;
-	specialChunk2 = dungeon.specialChunk2;
-	specialChunkLayer1 = dungeon.specialChunkLayer1;
-	specialChunkLayer2 = dungeon.specialChunkLayer2;
 
-	//m_spawn.clear();
 	m_seq.clear();
 
 	return *this;
 }
 _Tile& Dungeon::operator[](int index) {
-	return this->getDungeon()[index];
+	return m_maze[index];
 }
 Dungeon::~Dungeon() {
 	
@@ -455,238 +47,180 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 	int rows = getRows();
 	int cols = getCols();
 
-	char top, projectile, bottom, traptile;
-	bool boundary, wall, item, trap, enemy, npc;
+	int initHP = player.at(0)->getHP(); // used for checking if player took damage ever
 
-	int initHP = player.at(0).getHP(); // used for checking if player took damage ever
-	
-	// reset player's blocking stance
-	player.at(0).setBlock(false);
+	bool usedMove = false;
 
-	// set player's facing direction
-	switch (move) {
-	case 'l':
-	case 'r':
-	case 'u':
-	case 'd':
-		player.at(0).setFacingDirection(move); break;
-	}
-
-	// set player's action key (for items that have casting time)
-	player.at(0).setAction(move);
-
-	// red tint if player has bloodlust
-	if (player.at(0).hasBloodlust()) {
-		bloodlustTint(player.at(0));
-	}
-
-	// check for any afflictions
-	player.at(0).checkAfflictions();
-
-	// if player is confused, switch their movement direction
-	if (player.at(0).isConfused()) {
-		switch (move) {
-		case 'l': move = 'r'; break;
-		case 'r': move = 'l'; break;
-		case 'u': move = 'd'; break;
-		case 'd': move = 'u'; break;
-		}
-	}
-
-	// if player was ethereal and is on top of a wall, they die instantly
-	if (!player.at(0).isEthereal() && m_maze[y * cols + x].wall && (m_maze[y*cols + x].top != DOOR_H_OPEN && m_maze[y*cols + x].top != DOOR_V_OPEN)) {
-		cocos2d::experimental::AudioEngine::play2d("Female_Falling_Scream_License.mp3", false, 1.0f);
-		deathFade(player.at(0).getSprite());
-		player.at(0).setHP(0);
-		return;
-	}
-
-	// if player is not immobilized, move them
-	if (!(player.at(0).isStunned() || player.at(0).isFrozen())) {
-
-		bool moveUsed = false;
-
-		// check for special weapon attack patterns
-		if (player.at(0).getWeapon()->hasAttackPattern()) {
-			player.at(0).getWeapon()->usePattern(*this, moveUsed);
-		}
-
-		if (!moveUsed) {
-
-			// if it was a movement action
-			if (move == 'l' || move == 'r' || move == 'u' || move == 'd') {
-				// determines which way to move
-				int n = 0, m = 0;
-
-				switch (move) {
-				case 'l': n = -1; m = 0; break;
-				case 'r': n = 1; m = 0; break;
-				case 'u': n = 0; m = -1; break;
-				case 'd': n = 0; m = 1; break;
-				}
-
-				top = m_maze[(y + m)*cols + (x + n)].top;
-				bottom = m_maze[(y + m)*cols + (x + n)].bottom;
-				traptile = m_maze[(y + m)*cols + (x + n)].traptile;
-
-				boundary = m_maze[(y + m)*cols + (x + n)].boundary;
-				wall = (player.at(0).isEthereal() ? false : m_maze[(y + m)*cols + (x + n)].wall);
-				item = m_maze[(y + m)*cols + (x + n)].item;
-				trap = m_maze[(y + m)*cols + (x + n)].trap;
-				enemy = m_maze[(y + m)*cols + (x + n)].enemy;
-				npc = m_maze[(y + m)*cols + (x + n)].npc;
-
-				if (npc) {
-					interactWithNPC(x + n, y + m);
-				}
-				else if (!(wall || enemy || boundary)) {
-					m_maze[y*cols + x].hero = false;
-					m_maze[(y + m)*cols + (x + n)].hero = true;
-					player.at(0).setPosX(x + n); player.at(0).setPosY(y + m);
-
-					// pick up any gold/money that was on the ground
-					if (m_maze[player[0].getPosY()*cols + player[0].getPosX()].gold > 0) {
-						goldPickup(m_maze, player.at(0).getPosX(), player.at(0).getPosY());
-					}
-
-					if (trap) {
-						// queue player move
-						queueMoveSprite(player.at(0).getSprite(), player.at(0).getPosX(), player.at(0).getPosY());
-
-						trapEncounter(x + n, y + m);
-					}
-					if (item) {
-						foundItem(m_maze, x + n, y + m);
-					}
-				}
-				else if (wall && !boundary) {
-					if (top == DOOR_H || top == DOOR_V) {
-						openDoor(x + n, y + m);
-					}
-					else if (top == DOOR_H_OPEN || top == DOOR_V_OPEN) {
-						m_maze[y*cols + x].hero = false;
-						m_maze[(y + m)*cols + (x + n)].hero = true;
-						player.at(0).setPosX(x + n); player.at(0).setPosY(y + m);
-					}
-					else if (top == DOOR_H_LOCKED || top == DOOR_V_LOCKED) {
-						// play locked door sound
-						cocos2d::experimental::AudioEngine::play2d("Locked.mp3", false, 1.0f);
-					}
-				}
-				else if (enemy) {	// monster encountered
-					fight(x + n, y + m);
-				}
-			}
-
-			else if (move == 'e') {
-				collectItem(*this, x, y);
-
-				if (m_level > 1)
-					return;
-			}
-
-			else if (move == 'b') {
-				if (player.at(0).hasShield()) {
-					// play setting up shield stance sound effect
-					cocos2d::experimental::AudioEngine::play2d("Shield_Stance.mp3", false, 1.0f);
-
-					player.at(0).setBlock(true);
-				}
-			}
-
-		}
-
-	}
-
-	// queue player move
-	if (player.at(0).getPosX() != x || player.at(0).getPosY() != y) {
-		queueMoveSprite(player.at(0).getSprite(), player.at(0).getPosX(), player.at(0).getPosY());
-	}
-
-	// pick up any gold/money that was on the ground
-	if (m_maze[player[0].getPosY()*cols + player[0].getPosX()].gold > 0) {
-		goldPickup(m_maze, player.at(0).getPosX(), player.at(0).getPosY());
+	// Move player, unless they have the `Slow` attribute
+	if (!player.at(0)->isSlow()) {
+		player.at(0)->move(*this, move);
+		usedMove = true;
 	}
 
 	// check active items in play
 	checkActive();
 
+	// if there are any doors, check them
+	checkDoors();
+
+	// Move monsters
+	checkMonsters();
+
+	// Player moves after the monsters if they are Slow
+	if (player.at(0)->isSlow() && !usedMove)
+		player.at(0)->move(*this, move);
+
 	// update sprite lighting
 	updateLighting();
 
-	// if there are any doors, check them
-	if (!getDoors().empty()) {
-		checkDoors();
+	// do any special actions unique to the floor
+	specialActions();
+
+	// check if player is holding the skeleton key
+	if (player.at(0)->hasSkeletonKey()) {
+		player.at(0)->checkKeyConditions();
 	}
 
-	/*
-	//	if player is dead then return
-	if (player.at(0).getHP() <= 0) {
-		//m_maze[y*cols + x].top = 'X'; // change player icon to X to indicate death
+	// invulnerability check: if player is invulnerable and their hp is lower than initial, set hp back to original
+	if (player.at(0)->isInvulnerable() && player.at(0)->getHP() < initHP) {
+		player.at(0)->setHP(initHP);
+	}
 
-		//clearScreen();
-		//showDungeon();
-		if (!dungeonText.empty())
-			showText();
-		return;
-	}*/
+	// flash player sprite if took damage
+	if (player.at(0)->getHP() < initHP) {
 
+		// if player is invisible, they lose invisibility when damaged unless they had enough intellect
+		if (player.at(0)->isInvisible() && player.at(0)->getInt() < 8) {
+			player.at(0)->removeAffliction(INVISIBILITY);
+		}
+
+		runPlayerDamage(player.at(0)->getSprite());
+
+		player.at(0)->decreaseMoneyBonus();
+	}
+
+	// run actions
+	runSpawn();
+
+}
+
+void Dungeon::changeWeapon(int index) {
+	player.at(0)->wield(index);
+}
+void Dungeon::assignQuickItem(int index) {
+	player.at(0)->setItemToFront(index);
+}
+void Dungeon::callUse(int index) {
+	player.at(0)->use(*this, index);
+}
+
+void Dungeon::checkActive() {
+
+	if (!m_traps.empty()) {
+		for (int i = 0; i < (int)m_traps.size(); i++) {
+			if (!m_traps.at(i)->isDestroyed())
+				m_traps.at(i)->activeTrapAction(*this, *player.at(0));
+
+			// If the trap was destroyed, queue it for removal
+			if (m_traps.at(i)->isDestroyed())
+				insertTrapForRemoval(i);			
+		}
+	}
+
+	// Cleans up any destroyed traps
+	trapRemoval();
+}
+void Dungeon::checkMonsters() {
 	// if all monsters are dead?
-	if (getMonsters().empty()) {
-		//if (!dungeonText.empty())
-			//showText();
-
+	if (m_monsters.empty()) {
 		return;
 	}
 
 	// :::: Move monsters ::::
 	int mx, my, mInitHP;
-	for (unsigned i = 0; i < getMonsters().size(); i++) {
-		mInitHP = getMonsters().at(i)->getHP();
-		mx = getMonsters().at(i)->getPosX();
-		my = getMonsters().at(i)->getPosY();
+	for (unsigned i = 0; i < m_monsters.size(); i++) {
+		mInitHP = m_monsters.at(i)->getHP();
+		mx = m_monsters.at(i)->getPosX();
+		my = m_monsters.at(i)->getPosY();
+
+		// Check if monster is dead or was destroyed earlier
+		if (m_monsters.at(i)->isDead() || m_monsters.at(i)->wasDestroyed() || m_monsters.at(i)->getHP() <= 0) {
+			insertActorForRemoval(i);
+			continue;
+		}
 
 		// check for any afflictions
-		getMonsters().at(i)->checkAfflictions();
+		m_monsters.at(i)->checkAfflictions();
 
 		// flash monster sprite if damage was taken
-		if (getMonsters().at(i)->getHP() < mInitHP) {
-			runMonsterDamageBlink(getMonsters().at(i)->getSprite());
-			mInitHP = getMonsters().at(i)->getHP();
+		if (m_monsters.at(i)->getHP() < mInitHP) {
+			runMonsterDamageBlink(m_monsters.at(i)->getSprite());
+			mInitHP = m_monsters.at(i)->getHP();
 		}
 
 		// check if an affliction killed the monster
-		if (getMonsters().at(i)->getHP() <= 0) {
-			monsterDeath(i);
-			i--;
+		if (m_monsters.at(i)->getHP() <= 0) {
+			m_monsters.at(i)->setDead(true);
+			insertActorForRemoval(i);
+
 			continue;
 		}
 
 		// if monster is too far away, don't bother moving them
-		if (abs(player.at(0).getPosX() - mx) + abs(player.at(0).getPosY() - my) > 25) {
+		if (abs(player.at(0)->getPosX() - mx) + abs(player.at(0)->getPosY() - my) > 15) {
 			continue;
 		}
 
 		// if not stunned, use turn to move
-		if (!(getMonsters().at(i)->isStunned() || getMonsters().at(i)->isFrozen())) {
+		if (!(m_monsters.at(i)->isStunned() || m_monsters.at(i)->isFrozen())) {
 
-			// if player is invisible, check if the monster chases them
-			if (player.at(0).isInvisible()) {
-				if (getMonsters().at(i)->chasesPlayer()) {
-					continue;
+			// If monster is possessed, choose a random direction for them to move in
+			if (m_monsters.at(i)->isPossessed()) {
+				
+				char move;
+				switch (randInt(4)) {
+				case 0: move = 'r'; break;
+				case 1: move = 'l'; break;
+				case 2: move = 'd'; break;
+				case 3: move = 'u'; break;
 				}
+				
+				m_monsters.at(i)->attemptMove(*this, move);
+				continue;
 			}
 
-			getMonsters().at(i)->move(*getMonsters().at(i), *this);
+			// If the monster chases the player, then
+			if (m_monsters.at(i)->chasesPlayer()) {
+
+				// If they fell for a decoy, then attempt a greedy chase toward the decoy
+				int x, y;
+				if (checkDecoys(mx, my, x, y)) {
+					m_monsters.at(i)->attemptGreedyChase(*this, true, x, y);
+					continue;
+				}
+
+				// If player is invisible and there are no decoys, then do nothing
+				if (player.at(0)->isInvisible()) {
+					continue;
+				}
+
+			}
+
+			m_monsters.at(i)->moveCheck(*this);
 
 			// flash monster sprite if damage was taken
-			if (getMonsters().at(i)->getHP() < mInitHP) {
-				runMonsterDamage(getMonsters().at(i)->getSprite());
+			if (m_monsters.at(i)->getHP() < mInitHP)
+				runMonsterDamage(m_monsters.at(i)->getSprite());		
+
+			// Check if monster is dead or was destroyed
+			if (m_monsters.at(i)->isDead() || m_monsters.at(i)->wasDestroyed() || m_monsters.at(i)->getHP() <= 0) {
+				insertActorForRemoval(i);
+				continue;
 			}
 
 			//	if player is dead then break
-			if (player.at(0).getHP() <= 0) {
-				player.at(0).setDeath(m_monsters.at(i)->getName());
+			if (player.at(0)->getHP() <= 0) {
+				player.at(0)->setDeath(m_monsters.at(i)->getName());
 				break;
 			}
 		}
@@ -694,66 +228,40 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 
 	// check monsters on traps
 	monsterTrapEncounter();
-
-	// check if player is holding the skeleton key
-	if (player.at(0).hasSkeletonKey()) {
-		player.at(0).checkKeyConditions(dungeonText);
-	}
-
-	// invulnerability check: if player is invulnerable and their hp is lower than initial, set hp back to original
-	if (player.at(0).isInvulnerable() && player.at(0).getHP() < initHP) {
-		player.at(0).setHP(initHP);
-	}
-
-	// flash player sprite if took damage
-	if (player.at(0).getHP() < initHP) {
-
-		// if player is invisible, they lose invisibility when damaged unless they had enough intellect
-		if (player.at(0).isInvisible() && player.at(0).getInt() < 8) {
-			player.at(0).removeAffliction("invisibility");
-		}
-
-		runPlayerDamage(player.at(0).getSprite());
-
-		player.at(0).decreaseMoneyBonus();
-	}
-
-	// run actions
-	runSpawn();
-
-	//if (!dungeonText.empty())
-		//showText();
 }
 
-void Dungeon::checkActive() {
-	int rows = getRows();
-	int cols = getCols();
+bool Dungeon::checkDecoys(int mx, int my, int &x, int &y) {
+	if (m_decoys.empty())
+		return false;
 
-	int px = player.at(0).getPosX();
-	int py = player.at(0).getPosY();
-	int x, y;
-	int pos;
-	int oldSize;
+	int dx, dy;
+	for (int i = 0; i < (int)m_decoys.size(); i++) {
+		dx = m_decoys.at(i)->getPosX();
+		dy = m_decoys.at(i)->getPosY();
 
-	if (!getTraps().empty()) {
-		for (unsigned i = 0; i < getTraps().size(); i++) {
-			int oldSize = getTraps().size();
-
-			getTraps().at(i)->activeTrapAction(*this, player.at(0));
-
-			// if the current trap was removed from actives, decrement to not skip any actives
-			if (getTraps().size() < oldSize)
-				i--;
+		// If monster is in range of the decoy, chase it
+		if (abs(mx - dx) + abs(my - dy) <= m_decoys.at(i)->getAttractRange()) {
+			x = dx;
+			y = dy;
+			return true;
 		}
 	}
 
-	// cleans up any destroyed traps
-	trapRemoval();
+	return false;
+}
+int Dungeon::findDecoy(int x, int y) {
+	for (int i = 0; i < (int)m_decoys.size(); i++) {
+		if (m_decoys.at(i)->getPosX() == x && m_decoys.at(i)->getPosY() == y) {
+			return i;
+		}
+	}
+
+	return -1;
 }
 
-int Dungeon::findDoor(int x, int y) {
-	for (int i = 0; i < getDoors().size(); i++) {
-		if (getDoors().at(i)->getPosX() == x && getDoors().at(i)->getPosY() == y) {
+int Dungeon::findDoor(int x, int y) const {
+	for (int i = 0; i < (int)m_doors.size(); i++) {
+		if (m_doors.at(i)->getPosX() == x && m_doors.at(i)->getPosY() == y) {
 			return i;
 		}
 	}
@@ -773,13 +281,13 @@ void Dungeon::openDoor(int x, int y) {
 	// if the door isn't locked, open it
 	if (!door->isLocked()) {
 		// door opening sound
-		cocos2d::experimental::AudioEngine::play2d("Door_Opened.mp3", false, 1.0f);
+		playSound("Door_Opened.mp3");
 
 		// remove door sprite
-		removeSprite(door_sprites, rows, x, y);
+		removeSprite(door_sprites, x, y);
 
 		door->toggleOpen();
-		getDungeon()[y*cols + x].top = (getDungeon()[y*cols + x].top == DOOR_H ? DOOR_H_OPEN : DOOR_V_OPEN);
+		getDungeon()[y*cols + x].wall_type = (getDungeon()[y*cols + x].wall_type == DOOR_HORIZONTAL ? DOOR_HORIZONTAL_OPEN : DOOR_VERTICAL_OPEN);
 	}
 
 	door.reset();
@@ -790,7 +298,7 @@ void Dungeon::checkDoors() {
 		int cols = getCols();
 		int x, y;
 
-		for (int i = 0; i < getDoors().size(); i++) {
+		for (unsigned int i = 0; i < getDoors().size(); i++) {
 			shared_ptr<Door> door = getDoors().at(i);
 			x = door->getPosX();
 			y = door->getPosY();
@@ -800,18 +308,18 @@ void Dungeon::checkDoors() {
 			hero = getDungeon()[y*cols + x].hero;
 
 			// if door is open, isn't being held, and nothing is in the way
-			if (door->isOpen() && !door->isHeld() && !(enemy || hero) && (getDungeon()[y*cols + x].top == DOOR_H_OPEN || getDungeon()[y*cols + x].top == DOOR_V_OPEN)) {
+			if (door->isOpen() && !door->isHeld() && !(enemy || hero) && (getDungeon()[y*cols + x].wall_type == DOOR_HORIZONTAL_OPEN || getDungeon()[y*cols + x].wall_type == DOOR_VERTICAL_OPEN)) {
 				// close the door
-				cocos2d::experimental::AudioEngine::play2d("Door_Closed.mp3", false, 1.0f);
+				playSound("Door_Closed.mp3");
 
 				// replace sprite with closed door
-				if (getDungeon()[y*cols + x].traptile == DOOR_H)
-					addSprite(door_sprites, rows, x, y, -2, "Door_Horizontal_Closed_48x48.png");
+				if (getDungeon()[y*cols + x].wall_type == DOOR_HORIZONTAL_OPEN)
+					addSprite(door_sprites, x, y, -2, "Door_Horizontal_Closed_48x48.png");
 				else
-					addSprite(door_sprites, rows, x, y, -2, "Door_Vertical_Closed_48x48.png");
+					addSprite(door_sprites, x, y, -2, "Door_Vertical_Closed_48x48.png");
 
 				// close the door
-				getDungeon()[y*cols + x].top = (getDungeon()[y*cols + x].traptile == DOOR_H ? DOOR_H : DOOR_V);
+				getDungeon()[y*cols + x].wall_type = (getDungeon()[y*cols + x].wall_type == DOOR_HORIZONTAL_OPEN ? DOOR_HORIZONTAL : DOOR_VERTICAL);
 				door->toggleOpen();
 				door->toggleHeld();
 			}
@@ -825,9 +333,9 @@ void Dungeon::checkDoors() {
 	}
 }
 
-int Dungeon::findNPC(int x, int y) {
-	for (int i = 0; i < getNPCs().size(); i++) {
-		if (getNPCs().at(i)->getPosX() == x && getNPCs().at(i)->getPosY() == y) {
+int Dungeon::findNPC(int x, int y) const {
+	for (int i = 0; i < (int)m_npcs.size(); i++) {
+		if (m_npcs.at(i)->getPosX() == x && m_npcs.at(i)->getPosY() == y) {
 			return i;
 		}
 	}
@@ -838,8 +346,13 @@ void Dungeon::interactWithNPC(int x, int y) {
 	int pos = findNPC(x, y);
 
 	if (pos != -1) {
-		getNPCs().at(pos)->talk(*this);
+		m_npcs.at(pos)->talk(*this);
 	}
+}
+void Dungeon::playNPCDialogue(NPC &npc, std::vector<std::string> dialogue) {
+	auto scene = dynamic_cast<LevelScene*>(m_scene);
+	scene->enableListener(false);
+	scene->callNPCInteraction(npc, dialogue);
 }
 
 //		Trap handling
@@ -849,21 +362,34 @@ void Dungeon::trapRemoval() {
 	if (m_trapIndexes.empty())
 		return;
 
-	int pos;
-	for (auto &it : m_trapIndexes) {
-		pos = findTrap(it.first, it.second);
-		if (pos != -1) {
-			getTraps().erase(getTraps().begin() + pos);
+	// The index set is ordered from smallest to largest, so we destroy in reverse order
+	int index;
+	for (auto it = m_trapIndexes.crbegin(); it != m_trapIndexes.crend(); it++) {
+		if (*it != -1) {
+			index = *it;
+			
+			// If this is a decoy, remove it from the decoy vector too
+			if (m_traps.at(index)->isDecoy()) {
+				int pos = findDecoy(m_traps.at(index)->getPosX(), m_traps.at(index)->getPosY());
+				if (pos != -1)
+					m_decoys.erase(m_decoys.begin() + pos);
+			}
+
+			m_traps.erase(m_traps.begin() + index);
 		}
 	}
+
 	m_trapIndexes.clear();
 }
-int Dungeon::findTrap(int x, int y, bool endFirst) {
+void Dungeon::insertTrapForRemoval(int index) {
+	m_trapIndexes.insert(index); // queue trap for removal
+}
+int Dungeon::findTrap(int x, int y, bool endFirst) const {
 
 	// search forward
 	if (!endFirst) {
-		for (int i = 0; i < getTraps().size(); i++) {
-			if (getTraps().at(i)->getPosX() == x && getTraps().at(i)->getPosY() == y) {
+		for (int i = 0; i < (int)m_traps.size(); i++) {
+			if (m_traps.at(i)->getPosX() == x && m_traps.at(i)->getPosY() == y) {
 				return i;
 			}
 		}
@@ -872,157 +398,175 @@ int Dungeon::findTrap(int x, int y, bool endFirst) {
 	}
 
 	// else search backward
-	for (int i = getTraps().size() - 1; i >= 0; i--) {
-		if (getTraps().at(i)->getPosX() == x && getTraps().at(i)->getPosY() == y) {
+	for (int i = m_traps.size() - 1; i >= 0; i--) {
+		if (m_traps.at(i)->getPosX() == x && m_traps.at(i)->getPosY() == y) {
 			return i;
 		}
 	}
 
 	return -1;
 }
-void Dungeon::trapEncounter(int x, int y) { // trap's coordinates
+int Dungeon::countTrapNumber(int x, int y) {
+	int count = 0;
+	for (unsigned int i = 0; i < m_traps.size(); i++) {
+		if (m_traps[i]->getPosX() == x && m_traps[i]->getPosY() == y)
+			count++;
+	}
+	
+	return count;
+}
+void Dungeon::trapEncounter(int x, int y, bool endFirst) { // trap's coordinates
 	int rows = getRows();
 	int cols = getCols();
 
-	int i = findTrap(x, y);
+	int i = findTrap(x, y, endFirst);
 
 	if (i == -1)
 		return;
 
-	getTraps().at(i)->trapAction(*getTraps().at(i), *this, player.at(0));
+	m_traps.at(i)->trapAction(*this, *player.at(0));
 
 	trapRemoval();
-
-	/*
-	if (i != -1) {
-
-		getTraps().at(i)->trapAction(*getTraps().at(i), dungeon, player.at(0));
-
-		// if the trap is a one-time only trap, remove it
-		if (dungeon.getTraps().at(i)->isTemporary() && !dungeon.getTraps().at(i)->isActive()) {
-			dungeon[y*cols + x].trap = false;
-			dungeon[y*cols + x].trap_name = "";
-			queueRemoveSprite(x, y, dungeon.getTraps().at(i)->getSprite());
-			dungeon.getTraps().erase(dungeon.getTraps().begin() + i);
-		}
-		// if trap is one-time only and is an active, remove it from the traps and actives pool
-		else if (dungeon.getTraps().at(i)->isTemporary() && dungeon.getTraps().at(i)->isActive()) {
-			dungeon[y*cols + x].trap = false;
-			dungeon[y*cols + x].trap_name = "";
-			dungeon.getTraps().erase(dungeon.getTraps().begin() + i);
-
-			if (pos == -1)
-				return;
-
-			queueRemoveSprite(x, y, dungeon.getActives().at(pos)->getSprite());
-			dungeon.getActives().erase(dungeon.getActives().begin() + pos);
-		}
-	}
-	else if (pos != -1) {
-		//if (dungeon.getTraps().at(i)->isTemporary() && dungeon.getTraps().at(i)->isActive()) {
-			dungeon[y*cols + x].trap = false;
-			dungeon[y*cols + x].trap_name = "";
-			//dungeon.getTraps().erase(dungeon.getTraps().begin() + i);
-
-			queueRemoveSprite(x, y, dungeon.getActives().at(pos)->getSprite());
-			dungeon.getActives().erase(dungeon.getActives().begin() + pos);
-		//}
-	}
-	*/
-
 }
+void Dungeon::damagePlayer(int damage) {
+	playGotHit();
 
+	if (player.at(0)->hasSoulSplit()) {
+		int hpDamage = damage / 2;
+		int moneyDamage = 2 * damage;
+
+		// If player has less money than however much the money damage would do
+		// then the player takes the full damage in hp
+		if (player.at(0)->getMoney() - moneyDamage < 0) {
+			player.at(0)->setHP(player.at(0)->getHP() - damage);
+		}
+		else {
+			player.at(0)->setHP(player.at(0)->getHP() - hpDamage);
+			player.at(0)->setMoney(player.at(0)->getMoney() - moneyDamage);
+		}
+
+		if (player.at(0)->getMoney() < 0)
+			player.at(0)->setMoney(0);
+	}
+	else
+		player.at(0)->setHP(player.at(0)->getHP() - damage);
+
+	// If hp became negative, set it to zero
+	if (player.at(0)->getHP() < 0)
+		player.at(0)->setHP(0);
+}
 void Dungeon::monsterTrapEncounter() {
 	int rows = getRows();
 	int cols = getCols();
-	int x, y;
+
+	int x, y, mInitHP;
 	bool _trap;
-	std::string trap_name;
 	
-	for (int i = 0; i < getMonsters().size(); i++) {
-		x = getMonsters().at(i)->getPosX();
-		y = getMonsters().at(i)->getPosY();
-		_trap = getDungeon()[y*cols + x].trap;
-		trap_name = getDungeon()[y*cols + x].trap_name;
+	for (int i = 0; i < (int)m_monsters.size(); i++) {
+
+		// Ignore if they're dead
+		if (m_monsters.at(i)->isDead() || m_monsters.at(i)->wasDestroyed())
+			continue;
+
+		// Ignore monster segments
+		if (m_monsters.at(i)->isMonsterSegment())
+			continue;
+
+		mInitHP = m_monsters.at(i)->getHP();
+		x = m_monsters.at(i)->getPosX();
+		y = m_monsters.at(i)->getPosY();
+		_trap = m_maze[y*cols + x].trap;
 
 		if (_trap) {
-			std::shared_ptr<Traps> trap = std::dynamic_pointer_cast<Traps>(getTraps().at(findTrap(x, y)));
-			trap->trapAction(*this, *getMonsters().at(i));
-			trap.reset();
-		}
-
-		/*
-		if (trap) {
-			if (trap_name == PIT) {
-				if (!getMonsters().at(i)->isFlying()) {
-					// play falling sound effect
-					playMonsterDeathByPit(player.at(0), *getMonsters().at(i));
-
-					// death animation
-					deathFade(getMonsters().at(i)->getSprite());
-
-					destroyMonster(i);
-				}
-			}
-			else if (trap_name == SPRING) {
-				if (!getMonsters().at(i)->isFlying()) {
-					std::shared_ptr<Spring> spring = std::dynamic_pointer_cast<Spring>(getTraps().at(findTrap(x, y)));
-					spring->trapAction(*this, *getMonsters().at(i));
-					spring.reset();
-				}
+			int pos = findTrap(x, y);
+			if (pos != -1) {
+				std::shared_ptr<Traps> trap = std::dynamic_pointer_cast<Traps>(m_traps.at(pos));
+				trap->trapAction(*this, *m_monsters.at(i));
+				trap.reset();
 			}
 		}
-		*/
+
+		// Died from taking damage
+		if (m_monsters.at(i)->getHP() <= 0 || m_monsters.at(i)->isDead() || m_monsters.at(i)->wasDestroyed()) {
+			m_monsters.at(i)->setDead(true);
+			insertActorForRemoval(i);
+		}
+
+		// flash monster sprite if damage was taken
+		if (m_monsters.at(i)->getHP() < mInitHP)
+			runMonsterDamage(m_monsters.at(i)->getSprite());
+		
 	}
+
+	actorRemoval();
 }
 void Dungeon::singleMonsterTrapEncounter(int pos) {
+
+	if (pos == -1)
+		return;
+
+	// Ignore monster segments
+	if (m_monsters.at(pos)->isMonsterSegment())
+		return;
+
 	int rows = getRows();
 	int cols = getCols();
-	int x, y;
+	int x, y, mInitHP;
 	bool trap;
-	std::string trap_name;
 	
-	x = getMonsters().at(pos)->getPosX();
-	y = getMonsters().at(pos)->getPosY();
-	trap = getDungeon()[y*cols + x].trap;
-	trap_name = getDungeon()[y*cols + x].trap_name;
+	mInitHP = m_monsters.at(pos)->getHP();
+	x = m_monsters.at(pos)->getPosX();
+	y = m_monsters.at(pos)->getPosY();
+	trap = m_maze[y*cols + x].trap;
 
 	if (trap) {
-
 		std::shared_ptr<Traps> trap = std::dynamic_pointer_cast<Traps>(getTraps().at(findTrap(x, y)));
-		trap->trapAction(*this, *getMonsters().at(pos));
+		trap->trapAction(*this, *m_monsters.at(pos));
 		trap.reset();
-
-		/*
-		if (trap_name == PIT) {
-			if (!getMonsters().at(pos)->isFlying()) {
-				// play falling sound effect
-				playMonsterDeathByPit(player.at(0), *getMonsters().at(pos));
-
-				// death animation
-				deathFade(getMonsters().at(pos)->getSprite());
-
-				destroyMonster(pos);
-			}
-		}
-		else if (trap_name == SPRING) {
-			if (!getMonsters().at(pos)->isFlying()) {
-				std::shared_ptr<Spring> spring = std::dynamic_pointer_cast<Spring>(getTraps().at(findTrap(x, y)));
-				spring->trapAction(*this, *getMonsters().at(pos));
-				spring.reset();
-			}
-		}
-		*/
 	}
+
+	// Flash monster sprite if damage was taken
+	if (m_monsters.at(pos)->getHP() < mInitHP)
+		runMonsterDamage(m_monsters.at(pos)->getSprite());
 }
 
-int Dungeon::findMonster(int mx, int my) {
-	for (int i = 0; i < getMonsters().size(); i++) {
-		if (getMonsters().at(i)->getPosX() == mx && getMonsters().at(i)->getPosY() == my) {
+void Dungeon::actorRemoval() {
+	if (m_deadActorIndexes.empty())
+		return;
+
+	int index;
+	for (auto it = m_deadActorIndexes.crbegin(); it != m_deadActorIndexes.crend(); it++) {
+		if (*it != -1) {
+			index = *it;
+			monsterDeath(index);
+		}
+	}
+
+	m_deadActorIndexes.clear();
+}
+void Dungeon::insertActorForRemoval(int index) {
+	m_deadActorIndexes.insert(index);
+}
+int Dungeon::findMonster(int mx, int my) const {
+	for (int i = 0; i < (int)m_monsters.size(); i++) {
+		if (m_monsters.at(i)->getPosX() == mx && m_monsters.at(i)->getPosY() == my) {
+
+			//// If this is a monster segment, return its parent
+			//if (m_monsters.at(i)->isMonsterSegment())
+			//	return findSegmentedMonster(i);
+
 			return i;
 		}
 	}
 	return -1;
+}
+int Dungeon::findSegmentedMonster(int index) const {
+	int x, y;
+
+	x = m_monsters.at(index)->getSegmentX();
+	y = m_monsters.at(index)->getSegmentY();
+
+	return findMonster(x, y);
 }
 void Dungeon::fight(int x, int y) { // monster's coordinates
 	int i = findMonster(x, y);
@@ -1030,40 +574,71 @@ void Dungeon::fight(int x, int y) { // monster's coordinates
 	if (i == -1)
 		return;
 
-	player.at(0).attack(*this, *getMonsters().at(i));
+	// If monster was protected in some way, then the attack was blocked by the monster
+	if (!m_monsters.at(i)->canBeDamaged(*this)) {
+		player.at(0)->botchedAttack(*this, *m_monsters.at(i));
 
-	if (getMonsters().at(i)->getHP() <= 0) {
+		return;
+	}
+
+	if (m_monsters.at(i)->isMonsterSegment()) {
+		i = findSegmentedMonster(i);
+		if (i == -1)
+			return;
+	}
+
+	if (player.at(0)->getWeapon()->getName() != HANDS) {
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimation("ResizedAttack%04d.png", 4);
+		runSingleAnimation(frames, 30, x, y, 2);
+	}
+
+	player.at(0)->attack(*this, *m_monsters.at(i));
+
+	if (m_monsters.at(i)->getHP() <= 0) {
 		monsterDeath(i);
+		//m_monsters.at(i)->setDead(true);
 	}
 }
-void Dungeon::destroyMonster(int pos) {
-	// destroyMonster is used to eliminate monsters without having them drop anything
+void Dungeon::damageMonster(int index, int damage) {
 
-	int x = getMonsters().at(pos)->getPosX();
-	int y = getMonsters().at(pos)->getPosY();
+	if (m_monsters.at(index)->isMonsterSegment()) {
+		index = findSegmentedMonster(index);
+		if (index == -1)
+			return;
+	}
 
-	getDungeon()[y*getCols() + x].top = SPACE;
-	getDungeon()[y*getCols() + x].enemy = false;
+	m_monsters.at(index)->setHP(m_monsters.at(index)->getHP() - damage);
+	runMonsterDamage(m_monsters.at(index)->getSprite());
 
-	queueRemoveSprite(getMonsters().at(pos)->getSprite());
-	getMonsters().erase(getMonsters().begin() + pos);
+	if (m_monsters.at(index)->getHP() <= 0)
+		m_monsters.at(index)->setDead(true);
 }
-void Dungeon::monsterDeath(int pos) { // monster's coordinates
-	// call monster's death function
-	getMonsters().at(pos)->death(*getMonsters().at(pos), *this);
+void Dungeon::giveAffliction(int index, std::shared_ptr<Afflictions> affliction) {
+	if (m_monsters.at(index)->isMonsterSegment()) {
+		index = findSegmentedMonster(index);
+		if (index == -1)
+			return;
+	}
 
-	// remove them from the monster vector
-	getMonsters().erase(getMonsters().begin() + pos);
+	m_monsters.at(index)->addAffliction(affliction);
 }
-bool Dungeon::monsterHash(Dungeon &dungeon, int &x, int &y, bool &switched, char move) {
+void Dungeon::monsterDeath(int pos) {
+
+	// Call monster's death function
+	m_monsters.at(pos)->death(*this);
+
+	// Remove them from the monster vector
+	m_monsters.erase(m_monsters.begin() + pos);
+}
+bool Dungeon::monsterHash(int &x, int &y, bool &switched, char move, bool strict) {
 	// let starting x and y be the monster's initial position
 
-	int rows = dungeon.getRows();
-	int cols = dungeon.getCols();
+	int rows = getRows();
+	int cols = getCols();
 
-	bool enemy = dungeon.getDungeon()[y*cols + x].enemy;
-	bool wall = dungeon.getDungeon()[y*cols + x].wall;
-	bool hero = dungeon.getDungeon()[y*cols + x].hero;
+	bool enemy = m_maze[y*cols + x].enemy;
+	bool wall = m_maze[y*cols + x].wall;
+	bool hero = m_maze[y*cols + x].hero;
 
 	// if current tile is valid, return to set monster here
 	if (!(wall || enemy || hero)) {
@@ -1078,14 +653,14 @@ bool Dungeon::monsterHash(Dungeon &dungeon, int &x, int &y, bool &switched, char
 		// 3. otherwise keep looking in the same path
 
 	case 'l':
-		if (dungeon.getDungeon()[y*cols + x - 1].wall && !switched) {
-			if (dungeon.getDungeon()[(y - 1)*cols + x].wall && dungeon.getDungeon()[(y + 1)*cols + x].wall) {
+		if (!strict && m_maze[y*cols + x - 1].wall && !switched) {
+			if (m_maze[(y - 1)*cols + x].wall && m_maze[(y + 1)*cols + x].wall) {
 				return false;
 			}
-			else if (dungeon.getDungeon()[(y - 1)*cols + x].wall && !dungeon.getDungeon()[(y + 1)*cols + x].wall) {
+			else if (m_maze[(y - 1)*cols + x].wall && !m_maze[(y + 1)*cols + x].wall) {
 				move = 'd';
 			}
-			else if (dungeon.getDungeon()[(y + 1)*cols + x].wall && !dungeon.getDungeon()[(y - 1)*cols + x].wall) {
+			else if (m_maze[(y + 1)*cols + x].wall && !m_maze[(y - 1)*cols + x].wall) {
 				move = 'u';
 			}
 			else {
@@ -1093,19 +668,19 @@ bool Dungeon::monsterHash(Dungeon &dungeon, int &x, int &y, bool &switched, char
 			}
 			switched = true;
 		}
-		else if (dungeon.getDungeon()[y*cols + x - 1].wall && switched) {
+		else if (m_maze[y*cols + x - 1].wall && (switched || strict)) {
 			return false;
 		}
 		break;
 	case 'r':
-		if (dungeon.getDungeon()[y*cols + x + 1].wall && !switched) {
-			if (dungeon.getDungeon()[(y - 1)*cols + x].wall && dungeon.getDungeon()[(y + 1)*cols + x].wall) {
+		if (!strict && m_maze[y*cols + x + 1].wall && !switched) {
+			if (m_maze[(y - 1)*cols + x].wall && m_maze[(y + 1)*cols + x].wall) {
 				return false;
 			}
-			else if (dungeon.getDungeon()[(y - 1)*cols + x].wall && !dungeon.getDungeon()[(y + 1)*cols + x].wall) {
+			else if (m_maze[(y - 1)*cols + x].wall && !m_maze[(y + 1)*cols + x].wall) {
 				move = 'd';
 			}
-			else if (dungeon.getDungeon()[(y + 1)*cols + x].wall && !dungeon.getDungeon()[(y - 1)*cols + x].wall) {
+			else if (m_maze[(y + 1)*cols + x].wall && !m_maze[(y - 1)*cols + x].wall) {
 				move = 'u';
 			}
 			else {
@@ -1113,19 +688,19 @@ bool Dungeon::monsterHash(Dungeon &dungeon, int &x, int &y, bool &switched, char
 			}
 			switched = true;
 		}
-		else if (dungeon.getDungeon()[y*cols + x + 1].wall && switched) {
+		else if (m_maze[y*cols + x + 1].wall && (switched || strict)) {
 			return false;
 		}
 		break;
 	case 'u':
-		if (dungeon.getDungeon()[(y - 1)*cols + x].wall && !switched) {
-			if (dungeon.getDungeon()[y*cols + x - 1].wall && dungeon.getDungeon()[y*cols + x + 1].wall) {
+		if (!strict && m_maze[(y - 1)*cols + x].wall && !switched) {
+			if (m_maze[y*cols + x - 1].wall && m_maze[y*cols + x + 1].wall) {
 				return false;
 			}
-			else if (dungeon.getDungeon()[y*cols + x - 1].wall && !dungeon.getDungeon()[y*cols + x + 1].wall) {
+			else if (m_maze[y*cols + x - 1].wall && !m_maze[y*cols + x + 1].wall) {
 				move = 'r';
 			}
-			else if (dungeon.getDungeon()[y*cols + x + 1].wall && !dungeon.getDungeon()[y*cols + x - 1].wall) {
+			else if (m_maze[y*cols + x + 1].wall && !m_maze[y*cols + x - 1].wall) {
 				move = 'l';
 			}
 			else {
@@ -1133,19 +708,19 @@ bool Dungeon::monsterHash(Dungeon &dungeon, int &x, int &y, bool &switched, char
 			}
 			switched = true;
 		}
-		else if (dungeon.getDungeon()[(y - 1)*cols + x].wall && switched) {
+		else if (m_maze[(y - 1)*cols + x].wall && (switched || strict)) {
 			return false;
 		}
 		break;
 	case 'd':
-		if (dungeon.getDungeon()[(y + 1)*cols + x].wall && !switched) {
-			if (dungeon.getDungeon()[y*cols + x - 1].wall && dungeon.getDungeon()[y*cols + x + 1].wall) {
+		if (!strict && m_maze[(y + 1)*cols + x].wall && !switched) {
+			if (m_maze[y*cols + x - 1].wall && m_maze[y*cols + x + 1].wall) {
 				return false;
 			}
-			else if (dungeon.getDungeon()[y*cols + x - 1].wall && !dungeon.getDungeon()[y*cols + x + 1].wall) {
+			else if (m_maze[y*cols + x - 1].wall && !m_maze[y*cols + x + 1].wall) {
 				move = 'r';
 			}
-			else if (dungeon.getDungeon()[y*cols + x + 1].wall && !dungeon.getDungeon()[y*cols + x - 1].wall) {
+			else if (m_maze[y*cols + x + 1].wall && !m_maze[y*cols + x - 1].wall) {
 				move = 'l';
 			}
 			else {
@@ -1153,117 +728,328 @@ bool Dungeon::monsterHash(Dungeon &dungeon, int &x, int &y, bool &switched, char
 			}
 			switched = true;
 		}
-		else if (dungeon.getDungeon()[(y + 1)*cols + x].wall && switched) {
+		else if (m_maze[(y + 1)*cols + x].wall && (switched || strict)) {
 			return false;
 		}
 		break;
 	}
 
-	if (move == 'l') return monsterHash(dungeon, --x, y, switched, move);
-	if (move == 'r') return monsterHash(dungeon, ++x, y, switched, move);
-	if (move == 'u') return monsterHash(dungeon, x, --y, switched, move);
-	if (move == 'd') return monsterHash(dungeon, x, ++y, switched, move);
+	if (move == 'l') return monsterHash(--x, y, switched, move);
+	if (move == 'r') return monsterHash(++x, y, switched, move);
+	if (move == 'u') return monsterHash(x, --y, switched, move);
+	if (move == 'd') return monsterHash(x, ++y, switched, move);
 
 	return false;
 }
-void Dungeon::pushMonster(Dungeon &dungeon, int &mx, int &my, char move, int cx, int cy) {
-	int maxrows = dungeon.getRows();
-	int maxcols = dungeon.getCols();
+void Dungeon::pushMonster(int &mx, int &my, char move, int cx, int cy, bool strict) {
+	int rows = getRows();
+	int cols = getCols();
 
 	bool b = false;
 	int ox = mx;
 	int oy = my;
 
-	for (int i = 0; i < dungeon.getMonsters().size(); i++) {
-		if (dungeon.getMonsters().at(i)->getPosX() == mx && dungeon.getMonsters().at(i)->getPosY() == my) {
-			switch (move) {
-			case 'l':
-			case 'r':
-			case 'u':
-			case 'd': {
-				if (monsterHash(dungeon, mx, my, b, move)) {
-					dungeon[oy*maxcols + ox].top = SPACE;
-					dungeon[oy*maxcols + ox].enemy = false;
-					
-					dungeon[my*maxcols + mx].enemy = true;
-					dungeon.getMonsters()[i]->setPosX(mx);
-					dungeon.getMonsters()[i]->setPosY(my);
+	int pos = findMonster(mx, my);
+	if (pos == -1)
+		return;
 
+	// If this is a monster segment, don't bother moving it--the parent will move it
+	if (m_monsters.at(pos)->isMonsterSegment())
+		return;
 
-					queueMoveSprite(dungeon.getMonsters().at(i)->getSprite(), mx, my, 0.05f);
+	switch (move) {
+	case 'l':
+	case 'r':
+	case 'u':
+	case 'd': {
+		if (monsterHash(mx, my, b, move, strict)) {
+			m_monsters.at(pos)->moveTo(*this, mx, my, 0.05f);
 
-					if (dungeon.getMonsters().at(i)->getName() == SPINNER) {
-						std::shared_ptr<Spinner> spinner = std::dynamic_pointer_cast<Spinner>(dungeon.getMonsters().at(i));
-						spinner->setInitialFirePosition(mx, my, maxrows);
-						spinner.reset();
-					}
-					else if (dungeon.getMonsters().at(i)->getName() == ZAPPER) {
-						std::shared_ptr<Zapper> zapper = std::dynamic_pointer_cast<Zapper>(dungeon.getMonsters().at(i));
-						zapper->moveSprites(mx, my, maxrows);
-						zapper.reset();
-					}
-				}
-				else {
-					monsterDeath(i);
-				}
-				break;
-			}
-					  //	CUSTOM MOVEMENT CASE in X direction
-			case 'X': {
-				dungeon[my*maxcols + mx].top = SPACE;
-				dungeon[my*maxcols + mx].enemy = false;
-
-				dungeon[my*maxcols + cx].enemy = true;
-
-				dungeon.getMonsters()[i]->setPosX(cx);
-				queueMoveSprite(dungeon.getMonsters().at(i)->getSprite(), cx, my);
-				break;
-			}
-					  //	CUSTOM MOVEMENT CASE in Y direction
-			case 'Y': {
-				dungeon[my*maxcols + mx].top = SPACE;
-				dungeon[my*maxcols + mx].enemy = false;
-
-				dungeon[(cy)*maxcols + mx].enemy = true;
-
-				dungeon.getMonsters()[i]->setPosY(cy);
-				queueMoveSprite(dungeon.getMonsters().at(i)->getSprite(), mx, cy);
-				break;
-			}
-			}
-			return;
+			if (m_monsters.at(pos)->isMultiSegmented())
+				m_monsters.at(pos)->moveSegments(*this, ox, oy);
 		}
+		// Kill the monster
+		else {
+			m_monsters.at(pos)->setDead(true);
+			//insertActorForRemoval(pos);
+		}
+		break;
 	}
+			  //	CUSTOM MOVEMENT CASE in X direction
+	case 'X': {
+		m_maze[my*cols + mx].enemy = false;
+		m_maze[my*cols + cx].enemy = true;
+
+		getMonsters()[pos]->setPosX(cx);
+		queueMoveSprite(getMonsters().at(pos)->getSprite(), cx, my);
+		break;
+	}
+			  //	CUSTOM MOVEMENT CASE in Y direction
+	case 'Y': {
+		m_maze[my*cols + mx].enemy = false;
+		m_maze[(cy)*cols + mx].enemy = true;
+
+		getMonsters()[pos]->setPosY(cy);
+		queueMoveSprite(getMonsters().at(pos)->getSprite(), mx, cy);
+		break;
+	}
+	}
+
 }
-void Dungeon::pushPlayer(char move) {
+void Dungeon::pushPlayer(char move, bool strict) {
 	int cols = getCols();
-	int px = player.at(0).getPosX();
-	int py = player.at(0).getPosY();
+	int px = player.at(0)->getPosX();
+	int py = player.at(0)->getPosY();
 	bool b = false;
 	int ox = px;
 	int oy = py;
 
-	if (monsterHash(*this, px, py, b, move)) {
+	if (monsterHash(px, py, b, move, strict)) {
 		getDungeon()[oy*cols + ox].hero = false;
 		getDungeon()[py*cols + px].hero = true;
-		player.at(0).setPosX(px);
-		player.at(0).setPosY(py);
+		player.at(0)->setPosX(px);
+		player.at(0)->setPosY(py);
 
 		// queue player move
-		queueMoveSprite(player.at(0).getSprite(), player.at(0).getPosX(), player.at(0).getPosY());
+		queueMoveSprite(player.at(0)->getSprite(), player.at(0)->getPosX(), player.at(0)->getPosY());
 	}
 	else {
 		; // could kill player here later
 	}
 
 }
+void Dungeon::linearActorPush(int x, int y, int limit, char move, bool pulling, bool lethal) {
 
+	// x and y are the coordinates of the first actor to be pushed
+
+	int rows = getRows();
+	int cols = getCols();
+
+	std::stack<std::shared_ptr<Actors>> st;
+	int pos = findMonster(x, y);
+	if (pos != -1)
+		st.push(getMonsters()[pos]);
+	else {
+		// If the player is heavy, don't add them and stop
+		if (getPlayer()->isHeavy())
+			return;
+
+		st.push(getPlayerVector()[0]);
+	}
+
+	int n, m;
+
+	switch (move) {
+	case 'l': n = -1; m = 0; break;
+	case 'r': n = 1; m = 0; break;
+	case 'u': n = 0; m = -1; break;
+	case 'd': n = 0; m = 1; break;
+	case '1': n = -1; m = -1; break;
+	case '2': n = 1; m = -1; break;
+	case '3': n = -1; m = 1; break;
+	case '4': n = 1; m = 1; break;
+	}
+
+	bool wall, enemy, hero, trap;
+
+	// Find all actors we need to push
+	int k = limit;
+	int pushes = 0; // number of times actors other than the first one in the way should be pushed
+	while (k > 0 + pulling) {
+
+		switch (move) {
+		case 'l': x--; break;
+		case 'r': x++; break;
+		case 'u': y--; break;
+		case 'd': y++; break;
+		case '1': x--; y--; break;
+		case '2': x++; y--; break;
+		case '3': x--; y++; break;
+		case '4': x++; y++; break;
+		}
+
+		wall = m_maze[y*cols + x].wall;
+		enemy = m_maze[y*cols + x].enemy;
+		hero = m_maze[y*cols + x].hero;
+
+		if (x < 0 || x >= cols || y < 0 || y >= rows || wall)
+			break;
+
+		if (enemy) {
+			int index = findMonster(x, y);
+
+			if (index != -1)
+				st.push(getMonsters().at(index));
+		}
+
+		if (hero) {
+
+			// If the player is heavy, don't add them and stop
+			if (getPlayer()->isHeavy())
+				break;
+
+			st.push(getPlayerVector()[0]);
+		}
+
+		pushes++;
+		k--;
+	}
+
+	int ax, ay;
+	// Now push the actors
+	while (!st.empty()) {
+		std::shared_ptr<Actors> a = st.top();
+		st.pop();
+
+		ax = a->getPosX();
+		ay = a->getPosY();
+		int index = findMonster(ax, ay);
+		k = st.empty() ? limit : pushes; // if we're now on the last actor, then we try to push the full limit
+
+		while (k > 0) {
+
+			wall = m_maze[(ay + m)*cols + (ax + n)].wall;
+			enemy = m_maze[(ay + m)*cols + (ax + n)].enemy;
+			hero = m_maze[(ay + m)*cols + (ax + n)].hero;
+			trap = m_maze[(ay + m)*cols + (ax + n)].trap;
+
+			// Lethal flag indicates the actor should be killed if it was the last one against a wall
+			if (wall && lethal) {
+				a->setHP(0);
+				a->setDead(true);
+				deathFade(a->getSprite());
+				playSound("Bone_Crack1.mp3", getPlayer()->getPosX(), getPlayer()->getPosY(), ax, ay);
+
+				if (a->isPlayer())
+					m_maze[ay*cols + ax].hero = false;
+				else {
+					m_monsters[index]->setDestroyed(true);
+					m_maze[ay*cols + ax].enemy = false;
+				}
+
+				break;
+			}
+
+			if (enemy || wall || hero)
+				break;
+
+			// If this is a monster
+			if (index != -1) {
+				getMonsters()[index]->moveTo(*this, ax + n, ay + m, 0.05f);
+			}
+			// Else it's the player
+			else {
+				getPlayerVector()[0]->moveTo(*this, ax + n, ay + m, 0.08f);
+			}
+
+			if (trap) {
+				if (index != -1) {
+					singleMonsterTrapEncounter(index);
+
+					if (getMonsters().at(index)->isDead())
+						break;
+				}
+				else {
+					trapEncounter(ax + n, ay + m);
+
+					if (getPlayer()->isDead())
+						break;
+				}
+			}
+
+			ax += n;
+			ay += m;
+
+			k--;
+		}
+	}
+
+}
+char Dungeon::getDirectionRelativeTo(int sx, int sy, int tx, int ty, bool pulling) {
+
+	// Diagonals
+	if (abs(sx - tx) + abs(sy - ty) == 2 || abs(sx - tx) + abs(sy - ty) == 4) {
+		// Top-left
+		if (tx < sx && ty < sy) {
+			return '1';
+		}
+		// Top-right
+		else if (tx > sx && ty < sy) {
+			return '2';
+		}
+		// Bottom-left
+		else if (tx < sx && ty > sy) {
+			return '3';
+		}
+		// Bottom-right
+		else {
+			return '4';
+		}
+	}
+
+	// Same column
+	if (tx == sx) {
+		// Above
+		if (ty < sy) {
+			return 'u';
+		}
+		else {
+			return 'd';
+		}
+	}
+	// Same row
+	else if (ty == sy) {
+		// Left
+		if (tx < sx) {
+			return 'l';
+		}
+		else {
+			return 'r';
+		}
+	}
+	// Top-left
+	else if (tx < sx && ty < sy) {
+		if (abs(tx - sx) == 2) {
+			return 'r';
+		}
+		else {
+			return 'd';
+		}
+	}
+	// Top-right
+	else if (tx > sx && ty < sy) {
+		if (abs(tx - sx) == 2) {
+			return 'l';
+		}
+		else {
+			return 'd';
+		}
+	}
+	// Bottom-left
+	else if (tx < sx && ty > sy) {
+		if (abs(tx - sx) == 2) {
+			return 'r';
+		}
+		else {
+			return 'u';
+		}
+	}
+	// Bottom-right
+	else {
+		if (abs(tx - sx) == 2) {
+			return 'l';
+		}
+		else {
+			return 'u';
+		}
+	}
+}
 
 //		Item collection
-void Dungeon::itemHash(std::vector<_Tile> &dungeon, int &x, int &y) {
-	bool item = dungeon[y*getCols() + x].item;
-	bool wall = dungeon[y*getCols() + x].wall;
-	bool trap = dungeon[y*getCols() + x].trap;
+void Dungeon::itemHash(int &x, int &y) {
+	bool item = m_maze[y*getCols() + x].item;
+	bool wall = m_maze[y*getCols() + x].wall;
+	bool trap = m_maze[y*getCols() + x].trap;
 
 	// if current tile has no item and the position is valid, return to set item here
 	if (!(item || wall || trap)) {
@@ -1274,59 +1060,30 @@ void Dungeon::itemHash(std::vector<_Tile> &dungeon, int &x, int &y) {
 	int m = -1 + randInt(3);
 
 	// while hash draws out of bounds, find a new position
-	while (dungeon[(y + m)*getCols() + (x + n)].top == UNBREAKABLE_WALL) {
+	while (m_maze[(y + m)*getCols() + (x + n)].wall_type == UNB_WALL) {
 		n = -1 + randInt(3);
 		m = -1 + randInt(3);
 	}
 
 	// hash until we find a valid spot
-	itemHash(dungeon, x += n, y += m);
+	itemHash(x += n, y += m);
 }
-void Dungeon::foundItem(std::vector<_Tile> &dungeon, int x, int y) {
-	//char c = dungeon[y*maxcols + x].bottom;
-
-	//dungeonText.push_back("You've found ");
-	//switch (c) {
-	//	// WEAPONS
-	//case CUTLASS: dungeonText.push_back("a Rusty Cutlass.\n"); break;
-	//case BONEAXE: dungeonText.push_back("a Bone Axe.\n"); break;
-	//case BRONZE_DAGGER: dungeonText.push_back("a Bronze Dagger.\n"); break;
-	//case IRON_LANCE: dungeonText.push_back("an Iron Lance.\n"); break;
-	//	// ITEMS
-	//case HEART_POD: dungeonText.push_back("a Heart Pod.\n"); break;
-	//case LIFEPOT: dungeonText.push_back("a Life Potion.\n"); break;
-	//case ARMOR: dungeonText.push_back("some extra Armor.\n"); break;
-	//case STATPOT: dungeonText.push_back("a Stat Potion.\n"); break;
-	//case BOMB: dungeonText.push_back("a Bomb!\n"); break;
-	//case BROWN_CHEST: dungeonText.push_back("a Brown Chest!\n"); break;
-	//case SILVER_CHEST: dungeonText.push_back("a Silver Chest!\n"); break;
-	//case GOLDEN_CHEST: dungeonText.push_back("a Golden Chest!\n"); break;
-	//case SKELETON_KEY: dungeonText.push_back("a Mysterious Trinket.\n"); break;
-	//case INFINITY_BOX: dungeonText.push_back("an ornate box, emanating with power.\n"); break;
-	//	// OBJECTS
-	//case STAIRS: dungeonText.push_back("stairs!\n"); break;
-	//case LOCKED_STAIRS: dungeonText.push_back("stairs but it's blocked off...\n"); break;
-	//case BUTTON: dungeonText.push_back("a button!?\n"); break;
-	//default:
-	//	break;
-	//}
-}
-void Dungeon::collectItem(Dungeon &dungeon, int x, int y) {
+void Dungeon::collectItem(int x, int y) {
 	int maxrows = getRows();
 	int maxcols = getCols();
 
-	int current_inv_size = player.at(0).getWeapons().size() + player.at(0).getItems().size();
-	int current_wep_inv_size = player.at(0).getWeapons().size();
-	int current_item_inv_size = player.at(0).getItems().size();
-	int max_wep_inv_size = player.at(0).getMaxWeaponInvSize();
-	int max_item_inv_size = player.at(0).getMaxItemInvSize();
+	int current_item_inv_size = player.at(0)->getItems().size();
+	int max_item_inv_size = player.at(0)->getMaxItemInvSize();
+	int current_passives_size = player.at(0)->getPassives().size();
 	
-	char bottom = dungeon[y*maxcols + x].bottom;
-	char traptile = dungeon[y*maxcols + x].traptile;
-	std::string trap_name = dungeon[y*maxcols + x].trap_name;
-	bool exit = dungeon[y*maxcols + x].exit;
-	std::string item_name = dungeon[y*maxcols + x].item_name;
-	std::shared_ptr<Objects> object = dungeon[y*maxcols + x].object;
+	bool itemAdded = false;
+
+	char bottom = m_maze[y*maxcols + x].bottom;
+	char traptile = m_maze[y*maxcols + x].traptile;
+	std::string trap_name = m_maze[y*maxcols + x].trap_name;
+	bool exit = m_maze[y*maxcols + x].exit;
+	std::string item_name = m_maze[y*maxcols + x].item_name;
+	std::shared_ptr<Objects> object = m_maze[y*maxcols + x].object;
 	std::string image;
 
 	// if it's the stairs, then advance level and return
@@ -1338,18 +1095,18 @@ void Dungeon::collectItem(Dungeon &dungeon, int x, int y) {
 	// if stairs are locked, then play a sound effect
 	if (trap_name == LOCKED_STAIRCASE) {
 		// locked sound effect
-		cocos2d::experimental::AudioEngine::play2d("Locked.mp3", false, 1.0f);
+		playSound("Locked.mp3");
 	}
 
 	if (bottom == IDOL) {
-		player.at(0).setWin(true);
-		dungeon[y*maxcols + x].bottom = SPACE;
+		player.at(0)->setWin(true);
+		m_maze[y*maxcols + x].bottom = SPACE;
 		return;
 	}
 
 	// if object is null, then do nothing and return
 	if (object == nullptr) {
-		cocos2d::experimental::AudioEngine::play2d("Player_Movement.mp3", false, 1.0f);
+		playSound("Player_Movement.mp3");
 
 		return;
 	}
@@ -1357,146 +1114,799 @@ void Dungeon::collectItem(Dungeon &dungeon, int x, int y) {
 	// otherwise check if there's an item to interact with
 	if (object->isAutoUse()) {
 		std::shared_ptr<Drops> drop = std::dynamic_pointer_cast<Drops>(object);
-		drop->changeStats(*drop, player.at(0));
+		drop->useItem(*player.at(0));
 
-		cocos2d::experimental::AudioEngine::play2d(drop->getSoundName(), false, 1.0f);
+		playSound(drop->getSoundName());
 
 		drop.reset();
 
-		dungeon[y*maxcols + x].item_name = EMPTY;
-		dungeon[y*maxcols + x].object = nullptr;
-		dungeon[y*maxcols + x].item = false;
-		removeSprite(item_sprites, maxrows, x, y);
+		m_maze[y*maxcols + x].item_name = EMPTY;
+		m_maze[y*maxcols + x].object = nullptr;
+		m_maze[y*maxcols + x].item = false;
+		removeSprite(item_sprites, x, y);
 	}
 	else if (object->isItem()) {
-		if (current_item_inv_size < max_item_inv_size) {
-			std::shared_ptr<Drops> drop = std::dynamic_pointer_cast<Drops>(object);
-			player.at(0).addItem(drop);
 
-			cocos2d::experimental::AudioEngine::play2d(drop->getSoundName(), false, 1.0f);
+		// For Spellcaster
+		if (object->isSpell() && player.at(0)->getName() == SPELLCASTER) {
+			playSound(object->getSoundName());
 
-			drop.reset();
+			player.at(0)->equipActiveItem(*this, object);
+			m_maze[y*maxcols + x].object = nullptr;
+			m_maze[y*maxcols + x].item_name = EMPTY;
+			m_maze[y*maxcols + x].item = false;
+
+			removeSprite(item_sprites, x, y);
+
+			return;
 		}
+
+		// For Spelunker
+		if (object->getName() == ROCKS && player.at(0)->getName() == SPELUNKER) {
+			playSound(object->getSoundName());
+
+			player.at(0)->equipActiveItem(*this, object);
+			m_maze[y*maxcols + x].object = nullptr;
+			m_maze[y*maxcols + x].item_name = EMPTY;
+			m_maze[y*maxcols + x].item = false;
+
+			removeSprite(item_sprites, x, y);
+
+			return;
+		}
+
+		std::shared_ptr<Drops> drop = std::dynamic_pointer_cast<Drops>(object);
+		player.at(0)->addItem(drop, itemAdded);
+		drop.reset();	
+	}
+	else if (object->isPassive()) {
+		std::shared_ptr<Passive> passive = std::dynamic_pointer_cast<Passive>(object);
+		player.at(0)->equipPassive(*this, passive);
+		passive.reset();
+		removeSprite(item_sprites, x, y);
 	}
 	else if (object->isWeapon()) {
-		if (current_wep_inv_size < max_wep_inv_size) {
-			std::shared_ptr<Weapon> weapon = std::dynamic_pointer_cast<Weapon>(object);
-			player.at(0).addWeapon(weapon);
 
-			cocos2d::experimental::AudioEngine::play2d(weapon->getSoundName(), false, 1.0f);
+		std::shared_ptr<Weapon> weapon = std::dynamic_pointer_cast<Weapon>(object);
+		player.at(0)->storeWeapon(*this, weapon);
+		playSound(weapon->getSoundName());
 
-			weapon.reset();
-		}
+		weapon.reset();
 	}
 	else if (object->isChest()) {
 		std::shared_ptr<Chests> chest = std::dynamic_pointer_cast<Chests>(object);
-
-		removeSprite(item_sprites, maxrows, x, y);
-		image = chest->open(*chest, dungeon[y*maxcols + x]);
-		addSprite(item_sprites, maxrows, x, y, -1, image);
-
-		cocos2d::experimental::AudioEngine::play2d(chest->getSoundName(), false, 1.0f);
-
+		chest->open(*this);
 		chest.reset();
 	}
 	else if (object->isShield()) {
-		std::shared_ptr<Shield> shield = std::dynamic_pointer_cast<Shield>(object);
-		player.at(0).equipShield(*this, shield);
-		shield.reset();
+
+		if (player.at(0)->canUseShield()) {
+			std::shared_ptr<Shield> shield = std::dynamic_pointer_cast<Shield>(object);
+			player.at(0)->equipActiveItem(*this, shield);
+			shield.reset();
+		}
 	}
 	else if (object->isTrinket()) {
 		std::shared_ptr<Trinket> trinket = std::dynamic_pointer_cast<Trinket>(object);
-		player.at(0).equipTrinket(*this, trinket);
+		player.at(0)->equipTrinket(*this, trinket);
 		trinket.reset();
 	}
 	
 
 	// if an item was added, remove the sprite that was taken and reset tile item status
-	if (current_inv_size < player.at(0).getWeapons().size() + player.at(0).getItems().size()) {
-		dungeon[y*maxcols + x].bottom = SPACE;
-		dungeon[y*maxcols + x].object = nullptr;
-		dungeon[y*maxcols + x].item_name = "";
-		dungeon[y*maxcols + x].item = false;
-		removeSprite(item_sprites, maxrows, x, y);
+	if (itemAdded || current_passives_size < (int)player.at(0)->getPassives().size()) {
+
+		m_maze[y*maxcols + x].bottom = SPACE;
+		m_maze[y*maxcols + x].object.reset();
+		m_maze[y*maxcols + x].object = nullptr;
+		m_maze[y*maxcols + x].item_name = "";
+		m_maze[y*maxcols + x].item = false;
+		removeSprite(item_sprites, x, y);
 	}
 }
-void Dungeon::goldPickup(std::vector<_Tile> &dungeon, int x, int y) {
+void Dungeon::goldPickup(int x, int y) {
 	int rows = getRows();
 	int cols = getCols();
 
-	cocos2d::experimental::AudioEngine::play2d("Gold_Pickup2.mp3", false, 1.0f);
+	playSound("Gold_Pickup2.mp3");
 
-	player.at(0).setMoney(player.at(0).getMoney() + dungeon[y*cols + x].gold);
-	dungeon[y*cols + x].gold = 0;
-	removeSprite(money_sprites, rows, x, y);
-}
-
-//		Getters
-std::vector<Player>& Dungeon::getPlayerVector() {
-	return player;
-}
-Player Dungeon::getPlayer() const {
-	return player.at(0);
-}
-void Dungeon::setPlayer(Player p) {
-	player.at(0) = p;
-}
-int Dungeon::getLevel() const {
-	return m_level;
-}
-void Dungeon::setLevel(int level) {
-	m_level = level;
+	player.at(0)->setMoney(player.at(0)->getMoney() + m_maze[y*cols + x].gold);
+	m_maze[y*cols + x].gold = 0;
+	removeSprite(money_sprites, x, y);
 }
 
-std::vector<_Tile>& Dungeon::getDungeon() {
-	return m_maze;
-}
-int Dungeon::getRows() const {
-	return m_rows;
-}
-int Dungeon::getCols() const {
-	return m_cols;
-}
-std::vector<std::shared_ptr<NPC>>& Dungeon::getNPCs() {
-	return m_npcs;
-}
-std::vector<std::shared_ptr<Monster>>& Dungeon::getMonsters() {
-	return m_monsters;
-}
-std::vector<std::shared_ptr<Traps>>& Dungeon::getTraps() {
-	return m_traps;
-}
-std::vector<std::shared_ptr<Door>>& Dungeon::getDoors() {
-	return m_doors;
-}
-void Dungeon::callUse(std::vector<_Tile> &dungeon, int x, int y, int index) {
-	player.at(0).use(*this, dungeon[y*getCols() + x], index);
+//		Helper
+bool Dungeon::withinBounds(int x, int y) {
+	if (x < 0 || x > m_cols - 1 || y < 0 || y > m_rows - 1)
+		return false;
+
+	return true;
 }
 
-//		:::: SPRITE SETTING ::::
-void Dungeon::setPlayerSprite(cocos2d::Sprite* sprite) {
-	player_sprite = sprite;
+//		Shop prices
+void Dungeon::constructShopHUD(int x, int y) {
+	return;
 }
-void Dungeon::setMoneySprites(std::vector<cocos2d::Sprite*> sprites) {
-	money_sprites = sprites;
-}
-void Dungeon::setItemSprites(std::vector<cocos2d::Sprite*> sprites) {
-	item_sprites = sprites;
-}
-void Dungeon::setWallSprites(std::vector<cocos2d::Sprite*> sprites) {
-	wall_sprites = sprites;
-}
-void Dungeon::setDoorSprites(std::vector<cocos2d::Sprite*> sprites) {
-	door_sprites = sprites;
-}
-void Dungeon::setSpikeProjectileSprites(std::multimap<cocos2d::Vec2, cocos2d::Sprite*> sprites) {
-	spike_sprites = sprites;
-}
-void Dungeon::setScene(cocos2d::Scene* scene) {
-	m_scene = scene;
+void Dungeon::deconstructShopHUD() {
+	return;
 }
 
-cocos2d::Sprite* Dungeon::findSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y) {
+//		*** Fill level ***
+void Dungeon::initializeTiles() {
+	int rows = m_rows;
+	int cols = m_cols;
+
+	_Tile *tile;
+	int i, j;
+
+	//	Initialize entire dungeon to blank space
+	for (i = 0; i < rows; i++) {
+		for (j = 0; j < cols; j++) {
+			tile = new _Tile;
+			tile->upper = tile->top = tile->bottom = tile->projectile = tile->traptile = SPACE;
+			tile->npc = tile->hero = tile->wall = tile->item = tile->trap = tile->enemy = tile->exit = false;
+			tile->gold = 0;
+			tile->marked = tile->noSpawn = false;
+			tile->item_name = tile->shop_action = "";
+			tile->object = nullptr;
+
+			m_maze.push_back(*tile);
+			delete tile;
+		}
+	}
+
+	//	Initialize top and bottom of dungeon to be unbreakable walls
+	for (i = 0; i < rows; i++) {
+		for (j = 0; j < cols; j++) {
+			m_maze[i*cols + j].wall_type = UNB_WALL;
+
+			m_maze[i*cols + j].wall = true;
+			m_maze[i*cols + j].boundary = true;
+		}
+		i += (rows - 2);
+	}
+
+	for (i = 0; i < rows - 1; i++) {
+		//	Initialize edges of dungeon to be walls
+		m_maze[i*cols].wall_type = m_maze[i*cols + cols - 1].wall_type = UNB_WALL;
+		m_maze[i*cols].wall = true;
+		m_maze[i*cols + cols - 1].wall = true;
+		m_maze[i*cols].boundary = true;
+		m_maze[i*cols + cols - 1].boundary = true;
+	}
+}
+void Dungeon::fillLevel(std::vector<std::string> finalvec, std::shared_ptr<Player> p, int start, int end) {
+	int rows = getRows();
+	int cols = getCols();
+
+	int count = 0;
+	std::shared_ptr<Monster> monster(nullptr);
+
+	for (int i = start; i < rows - 1; i++) {
+		for (int j = 1; j < cols + end; j++) {
+
+			if (finalvec.at(count) == RANDOM_WALL) {
+				// 50% chance to spawn wall
+				if (randInt(2) == 0) {
+					getDungeon()[i*cols + j].wall = true;
+					getDungeon()[i*cols + j].wall_type = REG_WALL;
+				}
+			}
+			else if (finalvec.at(count) == REG_WALL) {
+				getDungeon()[i*cols + j].wall_type = REG_WALL;
+				getDungeon()[i*cols + j].wall = true;
+			}
+			else if (finalvec.at(count) == UNB_WALL) {
+				getDungeon()[i*cols + j].wall_type = UNB_WALL;
+				getDungeon()[i*cols + j].wall = true;
+				getDungeon()[i*cols + j].boundary = true;
+			}
+			else if (finalvec.at(count) == DOOR_HORIZONTAL) {
+				getDungeon()[i*cols + j].wall_type = DOOR_HORIZONTAL;
+				getDungeon()[i*cols + j].wall = true;
+
+				std::shared_ptr<Door> door = std::make_shared<Door>(j, i);
+				getDoors().emplace_back(door);
+			}
+			else if (finalvec.at(count) == DOOR_VERTICAL) {
+				getDungeon()[i*cols + j].wall_type = DOOR_VERTICAL;
+				getDungeon()[i*cols + j].wall = true;
+
+				std::shared_ptr<Door> door = std::make_shared<Door>(j, i);
+				getDoors().emplace_back(door);
+			}
+			else if (finalvec.at(count) == SPAWN_DISALLOWED) {
+				getDungeon()[i*cols + j].noSpawn = true;
+			}
+			else if (finalvec.at(count) == STAIRCASE) {
+				std::shared_ptr<Traps> stairs = std::make_shared<Stairs>(j, i);
+				getDungeon()[i*cols + j].trap_name = STAIRCASE;
+				getDungeon()[i*cols + j].trap = true;
+				getDungeon()[i*cols + j].exit = true;
+				getTraps().emplace_back(stairs);
+			}
+			else if (finalvec.at(count) == LOCKED_STAIRCASE) {
+				std::shared_ptr<Traps> stairs = std::make_shared<Stairs>(j, i);
+				getDungeon()[i*cols + j].trap_name = LOCKED_STAIRCASE;
+				getDungeon()[i*cols + j].trap = true;
+
+				getTraps().emplace_back(stairs);
+			}
+			else if (finalvec.at(count) == DEVILS_WATER) {
+				std::shared_ptr<Traps> devils_water = std::make_shared<Traps>(j, i, DEVILS_WATER, "Water_Tile1_48x48.png", 0);
+				getTraps().emplace_back(devils_water);
+				devils_water.reset();
+
+				getDungeon()[i*cols + j].trap_name = finalvec.at(count);
+				getDungeon()[i*cols + j].trap = true;
+			}
+			else if (finalvec.at(count) == FOUNTAIN) {
+				getDungeon()[i*cols + j].wall_type = FOUNTAIN;
+				getDungeon()[i*cols + j].wall = true;
+			}
+
+			else if (finalvec.at(count) == PLAYER) {
+
+				getDungeon()[i*cols + j].hero = true;
+				player.push_back(p);
+				player.at(0)->setPosX(j);
+				player.at(0)->setPosY(i);
+
+				if (m_level != 1) {
+					//player.at(0)->equipTrinket(*this, std::make_shared<VulcanRune>());
+					//player.at(0)->addItem(std::make_shared<Bomb>());
+					//player.at(0)->equipShield(*this, std::make_shared<WoodShield>());
+
+					count++;
+					continue;
+				}
+
+				player.at(0)->setFacingDirection(p->facingDirection());
+
+				//player.at(0)->setMoney(200);
+				/*player.at(0)->addItem(std::make_shared<FireExplosionSpell>());
+				player.at(0)->addItem(std::make_shared<FireExplosionSpell>());
+				player.at(0)->addItem(std::make_shared<FireExplosionSpell>());*/
+				//player.at(0)->addItem(std::make_shared<Matches>());
+				//player.at(0)->addItem(std::make_shared<FireBlastSpell>());
+				//player.at(0)->addItem(std::make_shared<ShockwaveSpell>());
+				//player.at(0)->addItem(std::make_shared<PoisonCloud>());
+				//player.at(0)->addItem(std::make_shared<FireCascadeSpell>());
+				//player.at(0)->addItem(std::make_shared<Teleport>());
+				//player.at(0)->addItem(std::make_shared<DizzyElixir>());
+				//player.at(0)->addItem(std::make_shared<FireBlastSpell>());
+				//player.at(0)->addItem(std::make_shared<WindSpell>());
+				//player.at(0)->addItem(std::make_shared<FireBlastSpell>());
+				//player.at(0)->addWeapon(std::make_shared<ArcaneStaff>());
+				//player.at(0)->addWeapon(std::make_shared<VulcanHammer>());
+				//player.at(0)->addWeapon(std::make_shared<IronLongSword>());
+				//player.at(0)->equipShield(*this, std::make_shared<WoodShield>());
+				//player.at(0)->equipShield(*this, std::make_shared<ReflectShield>());
+				//player.at(0)->equipTrinket(*this, std::make_shared<BrightStar>());
+				//player.at(0)->equipTrinket(*this, std::make_shared<CursedStrength>());
+				//player.at(0)->equipPassive(*this, std::make_shared<ResonantSpells>());
+				//player.at(0)->equipPassive(*this, std::make_shared<MonsterIllumination>());
+			}
+			else if (finalvec.at(count) == GOBLIN) {
+				getDungeon()[i*cols + j].enemy = true;
+
+				monster = std::make_shared<Goblin>(j, i, 12);
+				getMonsters().emplace_back(monster);
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+			}
+			else if (finalvec.at(count) == SEEKER) {
+				getDungeon()[i*cols + j].enemy = true;
+
+				monster = std::make_shared<Seeker>(j, i, 10);
+				getMonsters().emplace_back(monster);
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+			}
+			else if (finalvec.at(count) == DEAD_SEEKER) {
+				getDungeon()[i*cols + j].enemy = true;
+
+				monster = std::make_shared<DeadSeeker>(j, i);
+				getMonsters().emplace_back(monster);
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+			}
+			else if (finalvec.at(count) == ITEM_THIEF) {
+				getDungeon()[i*cols + j].enemy = true;
+
+				monster = std::make_shared<ItemThief>(j, i);
+				getMonsters().emplace_back(monster);
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+			}
+			else if (finalvec.at(count) == ARCHER) {
+				getDungeon()[i*cols + j].enemy = true;
+
+				monster = std::make_shared<Archer>(j, i);
+				getMonsters().emplace_back(monster);
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+			}
+			else if (finalvec.at(count) == WANDERER) {
+				getDungeon()[i*cols + j].enemy = true;
+
+				monster = std::make_shared<Wanderer>(j, i);
+				getMonsters().emplace_back(monster);
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+			}
+			else if (finalvec.at(count) == ZAPPER) {
+				getDungeon()[i*cols + j].enemy = true;
+
+				monster = std::make_shared<Zapper>(j, i, rows);
+				getMonsters().emplace_back(monster);
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+			}
+			else if (finalvec.at(count) == SPINNER) {
+				getDungeon()[i*cols + j].enemy = true;
+
+				monster = std::make_shared<Spinner>(j, i, rows);
+				getMonsters().emplace_back(monster);
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+			}
+			else if (finalvec.at(count) == GOO_SACK) {
+				getDungeon()[i*cols + j].enemy = true;
+
+				monster = std::make_shared<GooSack>(j, i);
+				getMonsters().emplace_back(monster);
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+			}
+			else if (finalvec.at(count) == BOMBEE) {
+				getDungeon()[i*cols + j].enemy = true;
+
+				monster = std::make_shared<Bombee>(j, i);
+				getMonsters().emplace_back(monster);
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+			}
+			else if (finalvec.at(count) == ROUNDABOUT) {
+				getDungeon()[i*cols + j].enemy = true;
+
+				monster = std::make_shared<Roundabout>(j, i);
+				getMonsters().emplace_back(monster);
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+			}
+			else if (finalvec.at(count) == FIRE_ROUNDABOUT) {
+				getDungeon()[i*cols + j].enemy = true;
+
+				monster = std::make_shared<FireRoundabout>(j, i);
+				getMonsters().emplace_back(monster);
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+			}
+			else if (finalvec.at(count) == BROUNDABOUT) {
+				getDungeon()[i*cols + j].enemy = true;
+
+				monster = std::make_shared<Broundabout>(j, i);
+				getMonsters().emplace_back(monster);
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+			}
+			else if (finalvec.at(count) == MOUNTED_KNIGHT) {
+				getDungeon()[i*cols + j].enemy = true;
+
+				monster = std::make_shared<MountedKnight>(j, i);
+				getMonsters().emplace_back(monster);
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+			}
+			else if (finalvec.at(count) == RANDOM_MONSTER) {
+
+				// the type of enemy
+				switch (randInt(12)) {
+				case 0: monster = std::make_shared<Goblin>(j, i, 10); break;
+				case 1:	monster = std::make_shared<Wanderer>(j, i);	break;
+				case 2:	monster = std::make_shared<ShootingSpider>(*this, j, i); break;
+				case 3:	monster = std::make_shared<DeadSeeker>(j, i); break;
+				case 4:	monster = std::make_shared<Spider>(*this, j, i); break;
+				case 5:	monster = std::make_shared<Roundabout>(j, i);	break;
+				case 6:	monster = std::make_shared<Seeker>(j, i, 10);	break;
+				case 7:	monster = std::make_shared<GooSack>(j, i);	break;
+				case 8:	monster = std::make_shared<Broundabout>(j, i);	break;
+				case 9:	monster = std::make_shared<GustySpikedInvertedPuff>(j, i);	break;
+				case 10: monster = std::make_shared<GustyPuff>(j, i);	break;
+				case 11: monster = std::make_shared<PouncingSpider>(j, i);	break;
+				case 12: monster = std::make_shared<ProvocableWanderer>(j, i);	break;
+				}
+
+				getMonsters().emplace_back(monster);
+
+				getDungeon()[i*cols + j].monster_name = monster->getName();
+				getDungeon()[i*cols + j].enemy = true;
+			}
+
+			else if (finalvec.at(count) == PIT) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Pit>(j, i);
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == FIREBAR) {
+				getDungeon()[i*cols + j].trap = true;
+				getDungeon()[i*cols + j].wall = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Firebar>(j, i, rows);
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == DOUBLE_FIREBAR) {
+				getDungeon()[i*cols + j].trap = true;
+				getDungeon()[i*cols + j].wall = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<DoubleFirebar>(j, i, rows);
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == SPIKES) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Spikes>(j, i);
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == AUTOSPIKE_DEACTIVE) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<SpikeTrap>(j, i, 4);
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == TRIGGERSPIKE_DEACTIVE) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<TriggerSpike>(j, i);
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == PUDDLE) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Puddle>(j, i);
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == SPRING) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Spring>(j, i, false);
+
+				// Begin check for if any spring traps are pointing toward each other
+				std::shared_ptr<Spring> thisSpring = std::dynamic_pointer_cast<Spring>(trap);
+				thisSpring->oppositeSprings(*this);
+
+
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == LEFT_SPRING) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Spring>(j, i, false, 'l');
+
+				// Begin check for if any spring traps are pointing toward each other
+				std::shared_ptr<Spring> thisSpring = std::dynamic_pointer_cast<Spring>(trap);
+				thisSpring->oppositeSprings(*this);
+
+
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == RIGHT_SPRING) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Spring>(j, i, false, 'r');
+
+				// Begin check for if any spring traps are pointing toward each other
+				std::shared_ptr<Spring> thisSpring = std::dynamic_pointer_cast<Spring>(trap);
+				thisSpring->oppositeSprings(*this);
+
+
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == UP_SPRING) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Spring>(j, i, false, 'u');
+
+				// Begin check for if any spring traps are pointing toward each other
+				std::shared_ptr<Spring> thisSpring = std::dynamic_pointer_cast<Spring>(trap);
+				thisSpring->oppositeSprings(*this);
+
+
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == DOWN_SPRING) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Spring>(j, i, false, 'd');
+
+				// Begin check for if any spring traps are pointing toward each other
+				std::shared_ptr<Spring> thisSpring = std::dynamic_pointer_cast<Spring>(trap);
+				thisSpring->oppositeSprings(*this);
+
+
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == TL_SPRING) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Spring>(j, i, false, '2');
+
+				// Begin check for if any spring traps are pointing toward each other
+				std::shared_ptr<Spring> thisSpring = std::dynamic_pointer_cast<Spring>(trap);
+				thisSpring->oppositeSprings(*this);
+
+
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == TR_SPRING) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Spring>(j, i, false, '1');
+
+				// Begin check for if any spring traps are pointing toward each other
+				std::shared_ptr<Spring> thisSpring = std::dynamic_pointer_cast<Spring>(trap);
+				thisSpring->oppositeSprings(*this);
+
+
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == BL_SPRING) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Spring>(j, i, false, '3');
+
+				// Begin check for if any spring traps are pointing toward each other
+				std::shared_ptr<Spring> thisSpring = std::dynamic_pointer_cast<Spring>(trap);
+				thisSpring->oppositeSprings(*this);
+
+
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == BR_SPRING) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Spring>(j, i, false, '4');
+
+				// Begin check for if any spring traps are pointing toward each other
+				std::shared_ptr<Spring> thisSpring = std::dynamic_pointer_cast<Spring>(trap);
+				thisSpring->oppositeSprings(*this);
+
+
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == LEFT_TURRET) {
+				getDungeon()[i*cols + j].trap = true;
+				getDungeon()[i*cols + j].wall = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Turret>(j, i, 'l');
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == RIGHT_TURRET) {
+				getDungeon()[i*cols + j].trap = true;
+				getDungeon()[i*cols + j].wall = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Turret>(j, i, 'r');
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == UP_TURRET) {
+				getDungeon()[i*cols + j].trap = true;
+				getDungeon()[i*cols + j].wall = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Turret>(j, i, 'u');
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == DOWN_TURRET) {
+				getDungeon()[i*cols + j].trap = true;
+				getDungeon()[i*cols + j].wall = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Turret>(j, i, 'd');
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == TURRET) {
+				getDungeon()[i*cols + j].trap = true;
+				getDungeon()[i*cols + j].wall = true;
+
+				char move;
+				switch (1 + randInt(4)) {
+				case 1: move = 'l'; break;	// L
+				case 2: move = 'r'; break;	// R
+				case 3: move = 'u'; break;	// U
+				case 4: move = 'd'; break;	// D
+				}
+
+				std::shared_ptr<Traps> trap = std::make_shared<Turret>(j, i, move);
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == MOVING_BLOCK) {
+				getDungeon()[i*cols + j].trap = true;
+				getDungeon()[i*cols + j].wall = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<MovingBlock>(j, i, (randInt(2) == 0 ? 'h' : 'v'));
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == MOVING_BLOCK_H) {
+				getDungeon()[i*cols + j].trap = true;
+				getDungeon()[i*cols + j].wall = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<MovingBlock>(j, i, 'h');
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == MOVING_BLOCK_V) {
+				getDungeon()[i*cols + j].trap = true;
+				getDungeon()[i*cols + j].wall = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<MovingBlock>(j, i, 'v');
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == CRUMBLE_FLOOR) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<CrumbleFloor>(j, i);
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == CRUMBLE_LAVA) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<CrumbleLava>(j, i);
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+			else if (finalvec.at(count) == LAVA) {
+				getDungeon()[i*cols + j].trap = true;
+
+				std::shared_ptr<Traps> trap = std::make_shared<Lava>(j, i);
+				getTraps().emplace_back(trap);
+				getDungeon()[i*cols + j].trap_name = trap->getName();
+			}
+
+			else if (finalvec.at(count) == GOLD) {
+				getDungeon()[i*cols + j].gold = 4 + randInt(9);
+			}
+			else if (finalvec.at(count) == HEART_POD) {
+				std::shared_ptr<Objects> objects = std::make_shared<HeartPod>();
+				getDungeon()[i*cols + j].object = objects;
+				getDungeon()[i*cols + j].item = true;
+			}
+			else if (finalvec.at(count) == LIFEPOT) {
+				std::shared_ptr<Objects> objects = std::make_shared<LifePotion>();
+				getDungeon()[i*cols + j].object = objects;
+				getDungeon()[i*cols + j].item = true;
+			}
+			else if (finalvec.at(count) == BIG_LIFEPOT) {
+				std::shared_ptr<Objects> objects = std::make_shared<BigLifePotion>();
+				getDungeon()[i*cols + j].object = objects;
+				getDungeon()[i*cols + j].item = true;
+			}
+			else if (finalvec.at(count) == ARMOR) {
+				std::shared_ptr<Objects> objects = std::make_shared<ArmorDrop>();
+				getDungeon()[i*cols + j].object = objects;
+				getDungeon()[i*cols + j].item = true;
+			}
+			else if (finalvec.at(count) == STATPOT) {
+				std::shared_ptr<Objects> objects = std::make_shared<StatPotion>();
+				getDungeon()[i*cols + j].object = objects;
+				getDungeon()[i*cols + j].item = true;
+			}
+			else if (finalvec.at(count) == BOMB) {
+				std::shared_ptr<Objects> objects = std::make_shared<Bomb>();
+				getDungeon()[i*cols + j].object = objects;
+				getDungeon()[i*cols + j].item = true;
+			}
+			else if (finalvec.at(count) == BROWN_CHEST) {
+				std::shared_ptr<Objects> objects = std::make_shared<BrownChest>(j, i);
+				getDungeon()[i*cols + j].object = objects;
+				getDungeon()[i*cols + j].item = true;
+				getDungeon()[i*cols + j].wall = true;
+			}
+			else if (finalvec.at(count) == SILVER_CHEST) {
+				std::shared_ptr<Objects> objects = std::make_shared<SilverChest>(j, i);
+				getDungeon()[i*cols + j].object = objects;
+				getDungeon()[i*cols + j].item = true;
+				getDungeon()[i*cols + j].wall = true;
+			}
+			else if (finalvec.at(count) == GOLDEN_CHEST) {
+				std::shared_ptr<Objects> objects = std::make_shared<GoldenChest>(j, i);
+				getDungeon()[i*cols + j].object = objects;
+				getDungeon()[i*cols + j].item = true;
+				getDungeon()[i*cols + j].wall = true;
+			}
+			else if (finalvec.at(count) == RANDOM_CHEST) {
+				std::shared_ptr<Objects> objects(nullptr);
+				switch (randInt(7)) {
+				case 0: objects = std::make_shared<BrownChest>(j, i); break;
+				case 1: objects = std::make_shared<SilverChest>(j, i); break;
+				case 2: objects = std::make_shared<GoldenChest>(j, i); break;
+				case 3: objects = std::make_shared<LifeChest>(j, i); break;
+				case 4: objects = std::make_shared<ExplodingChest>(j, i); break;
+				case 5: objects = std::make_shared<HauntedChest>(j, i); break;
+				case 6: objects = std::make_shared<TeleportingChest>(j, i); break;
+				}
+				getDungeon()[i*cols + j].object = objects;
+				getDungeon()[i*cols + j].item = true;
+				getDungeon()[i*cols + j].wall = true;
+			}
+			else if (finalvec.at(count) == RANDOM_ITEM) {
+				std::shared_ptr<Objects> objects(nullptr);
+				switch (randInt(4)) {
+				case 0: objects = std::make_shared<LifePotion>(); break;
+				case 1: objects = std::make_shared<StatPotion>(); break;
+				case 2: objects = std::make_shared<Bomb>(); break;
+				case 3: objects = std::make_shared<ShieldRepair>(); break;
+				}
+				getDungeon()[i*cols + j].object = objects;
+				getDungeon()[i*cols + j].item = true;
+			}
+			else if (finalvec.at(count) == RANDOM_WEAPON) {
+				std::shared_ptr<Objects> objects(nullptr);
+				switch (randInt(11)) {
+				case 0: objects = std::make_shared<RustyCutlass>(); break;
+				case 1: objects = std::make_shared<RadiantPike>(); break;
+				case 2: objects = std::make_shared<Katana>(); break;
+				case 3: objects = std::make_shared<GreaterNunchuks>(); break;
+				case 4: objects = std::make_shared<BoStaff>(); break;
+				case 5: objects = std::make_shared<Boomerang>(); break;
+				case 6: objects = std::make_shared<CarbonFiberShortSword>(); break;
+				case 7: objects = std::make_shared<RadiantShortSword>(); break;
+				case 8: objects = std::make_shared<EnchantedShortSword>(); break;
+				case 9: objects = std::make_shared<EnchantedPike>(); break;
+				case 10: objects = std::make_shared<Mattock>(); break;
+				}
+				getDungeon()[i*cols + j].object = objects;
+				getDungeon()[i*cols + j].item = true;
+			}
+			else if (finalvec.at(count) == RANDOM_SHIELD) {
+				std::shared_ptr<Objects> objects(nullptr);
+				int n = 1 + randInt(100);
+				if (n >= 1 && n < 50) objects = std::make_shared<WoodShield>();
+				else if (n >= 50 && n < 70) objects = std::make_shared<IronShield>();
+				else if (n >= 70 && n < 90) objects = std::make_shared<ReflectShield>();
+				else if (n >= 90 && n <= 100) objects = std::make_shared<ThornedShield>();
+
+				getDungeon()[i*cols + j].object = objects;
+				getDungeon()[i*cols + j].item = true;
+			}
+			else if (finalvec.at(count) == RANDOM_TRINKET) {
+				std::shared_ptr<Objects> objects(nullptr);
+				int n = 1 + randInt(100);
+				if (n >= 1 && n < 25) objects = std::make_shared<DarkStar>();
+				else if (n >= 25 && n < 50) objects = std::make_shared<BrightStar>();
+				else if (n >= 50 && n < 75) objects = std::make_shared<GoldPot>();
+				else if (n >= 75 && n <= 100) objects = std::make_shared<CursedStrength>();
+
+				getDungeon()[i*cols + j].object = objects;
+				getDungeon()[i*cols + j].item = true;
+			}
+
+			count++;
+		}
+	}
+
+}
+
+
+
+/** ******* ****** ****** **********
+*
+*		SPRITE SETTING/MOVING
+*/
+
+// Set sprites to position
+int Dungeon::findSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y) {
+
+	// the position of the actual sprite on the screen
 	int x_sprite = x * SPACING_FACTOR - X_OFFSET;
 	int y_sprite = (getRows() - y)*SPACING_FACTOR - Y_OFFSET;
 
@@ -1504,47 +1914,42 @@ cocos2d::Sprite* Dungeon::findSprite(std::vector<cocos2d::Sprite*> &sprites, int
 	Vec2 point;
 	int px, py;
 
-	for (int i = 0; i < sprites.size(); i++) {
+	for (unsigned int i = 0; i < sprites.size(); i++) {
 		point = sprites[i]->getPosition();
 		px = point.x;
 		py = point.y;
-		if (x_sprite == px && y_sprite == py) {
-			return sprites[i];
-		}
+
+		if (x_sprite == px && y_sprite == py)
+			return i;
 	}
-	return nullptr;
+
+	return -1;
 }
 void Dungeon::setSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y, char move) {
-	int x_sprite = x * SPACING_FACTOR - X_OFFSET;
-	int y_sprite = (getRows() - y)*SPACING_FACTOR - Y_OFFSET;
 
-	// used for storing the current sprite's x and y coordinates
-	Vec2 point;
-	int px, py;
+	int pos = findSprite(sprites, x, y);
+
+	if (pos == -1)
+		return;
 
 	// Key:
 	// 1 u 2
 	// l _ r
 	// 3 d 4
 
-	for (int i = 0; i < sprites.size(); i++) {
-		point = sprites[i]->getPosition();
-		px = point.x;
-		py = point.y;
-		if (x_sprite == px && y_sprite == py) {
-			switch (move) {
-			case 'l': sprites.at(i)->setPosition((x - 1)*SPACING_FACTOR - X_OFFSET, py); break;
-			case 'r': sprites.at(i)->setPosition((x + 1)*SPACING_FACTOR - X_OFFSET, py); break;
-			case 'u': sprites.at(i)->setPosition(px, (getRows() - (y - 1))*SPACING_FACTOR - Y_OFFSET); break;
-			case 'd': sprites.at(i)->setPosition(px, (getRows() - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;
-			case '1': sprites.at(i)->setPosition((x - 1)*SPACING_FACTOR - X_OFFSET, (getRows() - (y - 1))*SPACING_FACTOR - Y_OFFSET); break;
-			case '2': sprites.at(i)->setPosition((x + 1)*SPACING_FACTOR - X_OFFSET, (getRows() - (y - 1))*SPACING_FACTOR - Y_OFFSET); break;
-			case '3': sprites.at(i)->setPosition((x - 1)*SPACING_FACTOR - X_OFFSET, (getRows() - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;
-			case '4': sprites.at(i)->setPosition((x + 1)*SPACING_FACTOR - X_OFFSET, (getRows() - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;
-			}
-			return;
-		}
+	int n = 0, m = 0;
+	switch (move) {
+	case 'l': n = -1; m = 0; break;
+	case 'r': n = 1; m = 0; break;
+	case 'u': n = 0; m = -1; break;
+	case 'd': n = 0; m = 1; break;
+	case '1': n = -1; m = -1; break;
+	case '2': n = 1; m = -1; break;
+	case '3': n = -1; m = 1; break;
+	case '4': n = 1; m = 1; break;
 	}
+
+	teleportSprite(sprites.at(pos), x + n, y + m);
 }
 void Dungeon::teleportSprite(cocos2d::Sprite* sprite, int x, int y) {
 	sprite->setPosition(x * SPACING_FACTOR - X_OFFSET, (getRows() - y)*SPACING_FACTOR - Y_OFFSET);
@@ -1645,6 +2050,10 @@ void Dungeon::queueMoveSprite(cocos2d::Sprite* sprite, int cx, int cy, float tim
 	auto move = cocos2d::MoveTo::create(time, cocos2d::Vec2(cx * SPACING_FACTOR - X_OFFSET, (getRows() - cy)*SPACING_FACTOR - Y_OFFSET));
 	insertActionIntoSpawn(sprite, move, front);
 }
+void Dungeon::queueMoveSprite(cocos2d::Sprite* sprite, float cx, float cy, float time, bool front) {
+	auto move = cocos2d::MoveTo::create(time, cocos2d::Vec2(cx * SPACING_FACTOR - X_OFFSET, (getRows() - cy)*SPACING_FACTOR - Y_OFFSET));
+	insertActionIntoSpawn(sprite, move, front);
+}
 void Dungeon::moveSprite(cocos2d::Sprite* sprite, char move, float time) {
 	switch (move) {
 	case 'l': {
@@ -1729,13 +2138,12 @@ void Dungeon::moveSprite(cocos2d::Sprite* sprite, char move, float time) {
 	}
 	}
 }
-void Dungeon::moveSprite(std::vector<cocos2d::Sprite*> &sprites, int maxrows, int x, int y, char move) {
-	int x_sprite = x * SPACING_FACTOR - X_OFFSET;
-	int y_sprite = (maxrows - y)*SPACING_FACTOR - Y_OFFSET;
+void Dungeon::moveSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y, char move) {
+	
+	int i = findSprite(sprites, x, y);
 
-	// used for storing the current sprite's x and y coordinates
-	Vec2 point;
-	int px, py;
+	if (i == -1)
+		return;
 
 	// Key:
 	// 1 u 2
@@ -1744,361 +2152,96 @@ void Dungeon::moveSprite(std::vector<cocos2d::Sprite*> &sprites, int maxrows, in
 	// Capital character (L R U D) means moves twice in that direction
 	// < > ^ V means moves thrice in that direction
 
-	for (int i = 0; i < sprites.size(); i++) {
-		point = sprites[i]->getPosition();
-		px = point.x;
-		py = point.y;
-		if (x_sprite == px && y_sprite == py) {
-			switch (move) {
-			case 'l': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-SPACING_FACTOR, 0));
-				sprites.at(i)->runAction(move);
-				break;
-			}
-			case 'L': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-2 * SPACING_FACTOR, 0));
-				sprites.at(i)->runAction(move);
-				break;
-			}
-			case '<': {
-				auto move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-3 * SPACING_FACTOR, 0));
-				sprites.at(i)->runAction(move);
-				break;
-			}
-			case 'r': {
-				auto move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(SPACING_FACTOR, 0));
-				sprites.at(i)->runAction(move);
-				break;
-			}
-			case 'R': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(2 * SPACING_FACTOR, 0));
-				move->setTarget(sprites.at(i));
-				sprites.at(i)->runAction(move);
-				break;
-			}
-			case '>': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(3 * SPACING_FACTOR, 0));
-				sprites.at(i)->runAction(move);
-				break;
-			}
-			case 'u': {
-				auto move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, SPACING_FACTOR));
-				sprites.at(i)->runAction(move);
-				break;
-			}
-			case 'U': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, 2 * SPACING_FACTOR));
-				sprites.at(i)->runAction(move);
-				break;
-			}
-			case '^': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, 3 * SPACING_FACTOR));
-				sprites.at(i)->runAction(move);
-				break;
-			}
-			case 'd': {
-				auto move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, -SPACING_FACTOR));
-				sprites.at(i)->runAction(move);
-				break;
-			}
-			case 'D': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, -2 * SPACING_FACTOR));
-				sprites.at(i)->runAction(move);
-				break;
-			}
-			case 'V': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, -3 * SPACING_FACTOR));
-				sprites.at(i)->runAction(move);
-				break;
-			}
-			case '1': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-SPACING_FACTOR, SPACING_FACTOR));
-				sprites.at(i)->runAction(move); break;
-			}
-			case '2': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(SPACING_FACTOR, SPACING_FACTOR));
-				sprites.at(i)->runAction(move); break;
-			}
-			case '3': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-SPACING_FACTOR, -SPACING_FACTOR));
-				sprites.at(i)->runAction(move); break;
-			}
-			case '4': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(SPACING_FACTOR, -SPACING_FACTOR));
-				sprites.at(i)->runAction(move); break;
-			}
-			}
-			return;
-		}
-	}
-}
-void Dungeon::moveSprite(std::vector<cocos2d::Sprite*> &sprites, int maxrows, int x, int y, int cx, int cy) {
-	// the position of the actual sprite on the screen
-	int x_sprite = x * SPACING_FACTOR - X_OFFSET;
-	int y_sprite = (maxrows - y)*SPACING_FACTOR - Y_OFFSET;
-
-	// used for storing the current sprite's x and y coordinates
-	Vec2 point;
-	int px, py;
-
-	for (int i = 0; i < sprites.size(); i++) {
-		point = sprites[i]->getPosition();
-		px = point.x;
-		py = point.y;
-		if (x_sprite == px && y_sprite == py) {
-			cocos2d::Action* move = cocos2d::MoveTo::create(.1, cocos2d::Vec2(cx * SPACING_FACTOR - X_OFFSET, (maxrows - cy)*SPACING_FACTOR - Y_OFFSET));
-			sprites.at(i)->runAction(move);
-
-			return;
-		}
-	}
-}
-void Dungeon::moveSprite(std::multimap<cocos2d::Vec2, cocos2d::Sprite*> &sprites, int maxrows, int x, int y, char move) {
-	// Vec2 contains the coordinates of the sprite we want to move
-
-	// target sprite's position on the display
-	int x_sprite = x * SPACING_FACTOR - X_OFFSET;
-	int y_sprite = (maxrows - y)*SPACING_FACTOR - Y_OFFSET;
-
-	// used for storing the current sprite's x and y coordinates
-	Vec2 point;
-	int px, py;
-
-	// Key:
-	// 1 u 2
-	// l _ r
-	// 3 d 4
-	// Capital character (L R U D) means moves twice in that direction
-
-	auto it = sprites.find(Vec2(x, y));
-	if (it == sprites.end()) {
-		int i = 0;
-		return;
-	}
-
 	switch (move) {
 	case 'l': {
-		cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-SPACING_FACTOR, 0));
-		it->second->runAction(move);
-		sprites.insert(std::make_pair(Vec2(x - 1, y), it->second));
+		cocos2d::Action* move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(-SPACING_FACTOR, 0));
+		sprites.at(i)->runAction(move);
 		break;
 	}
 	case 'L': {
-		cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-2 * SPACING_FACTOR, 0));
-		it->second->runAction(move);
-		sprites.insert(std::make_pair(Vec2(x + 1, y), it->second));
+		cocos2d::Action* move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(-2 * SPACING_FACTOR, 0));
+		sprites.at(i)->runAction(move);
+		break;
+	}
+	case '<': {
+		auto move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(-3 * SPACING_FACTOR, 0));
+		sprites.at(i)->runAction(move);
 		break;
 	}
 	case 'r': {
-		cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(SPACING_FACTOR, 0));
-		it->second->runAction(move);
+		auto move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(SPACING_FACTOR, 0));
+		sprites.at(i)->runAction(move);
 		break;
 	}
 	case 'R': {
-		cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(2 * SPACING_FACTOR, 0));
-		it->second->runAction(move);
+		cocos2d::Action* move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(2 * SPACING_FACTOR, 0));
+		move->setTarget(sprites.at(i));
+		sprites.at(i)->runAction(move);
+		break;
+	}
+	case '>': {
+		cocos2d::Action* move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(3 * SPACING_FACTOR, 0));
+		sprites.at(i)->runAction(move);
 		break;
 	}
 	case 'u': {
-		cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, SPACING_FACTOR));
-		it->second->runAction(move);
+		auto move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(0, SPACING_FACTOR));
+		sprites.at(i)->runAction(move);
 		break;
 	}
 	case 'U': {
-		cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, 2 * SPACING_FACTOR));
-		it->second->runAction(move);
+		cocos2d::Action* move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(0, 2 * SPACING_FACTOR));
+		sprites.at(i)->runAction(move);
+		break;
+	}
+	case '^': {
+		cocos2d::Action* move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(0, 3 * SPACING_FACTOR));
+		sprites.at(i)->runAction(move);
 		break;
 	}
 	case 'd': {
-		cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, -SPACING_FACTOR));
-		it->second->runAction(move);
-		sprites.insert(std::make_pair(Vec2(x, y + 1), it->second));
+		auto move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(0, -SPACING_FACTOR));
+		sprites.at(i)->runAction(move);
 		break;
 	}
 	case 'D': {
-		cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, -2 * SPACING_FACTOR));
-		it->second->runAction(move);
-		sprites.insert(std::make_pair(Vec2(x, y + 2), it->second));
+		cocos2d::Action* move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(0, -2 * SPACING_FACTOR));
+		sprites.at(i)->runAction(move);
 		break;
 	}
 	case 'V': {
-		cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, -3 * SPACING_FACTOR));
-		it->second->runAction(move);
-		sprites.insert(std::make_pair(Vec2(x, y + 3), it->second));
+		cocos2d::Action* move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(0, -3 * SPACING_FACTOR));
+		sprites.at(i)->runAction(move);
 		break;
 	}
 	case '1': {
-		cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-SPACING_FACTOR, SPACING_FACTOR));
-		it->second->runAction(move); break;
+		cocos2d::Action* move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(-SPACING_FACTOR, SPACING_FACTOR));
+		sprites.at(i)->runAction(move); break;
 	}
 	case '2': {
-		cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(SPACING_FACTOR, SPACING_FACTOR));
-		it->second->runAction(move); break;
+		cocos2d::Action* move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(SPACING_FACTOR, SPACING_FACTOR));
+		sprites.at(i)->runAction(move); break;
 	}
 	case '3': {
-		cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-SPACING_FACTOR, -SPACING_FACTOR));
-		it->second->runAction(move); break;
+		cocos2d::Action* move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(-SPACING_FACTOR, -SPACING_FACTOR));
+		sprites.at(i)->runAction(move); break;
 	}
 	case '4': {
-		cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(SPACING_FACTOR, -SPACING_FACTOR));
-		it->second->runAction(move); break;
+		cocos2d::Action* move = cocos2d::MoveBy::create(.1f, cocos2d::Vec2(SPACING_FACTOR, -SPACING_FACTOR));
+		sprites.at(i)->runAction(move); break;
 	}
 	}
-	sprites.erase(it);
-
-	/*
-	for (auto &it = sprites.equal_range(Vec2(X, Y)).first; it != sprites.equal_range(Vec2(X, Y)).second; ++it) {
-		point = it->second->getPosition();
-		px = point.x;
-		py = point.y;
-		if (x_sprite == px && y_sprite == py) {
-			switch (move) {
-			case 'l': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-SPACING_FACTOR, 0));
-				it->second->runAction(move);
-				break;
-			}
-			case 'L': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-2 * SPACING_FACTOR, 0));
-				it->second->runAction(move);
-				break;
-			}
-			case 'r': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(SPACING_FACTOR, 0));
-				it->second->runAction(move);
-				break;
-			}
-			case 'R': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(2 * SPACING_FACTOR, 0));
-				it->second->runAction(move);
-				break;
-			}
-			case 'u': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, SPACING_FACTOR));
-				it->second->runAction(move);
-				break;
-			}
-			case 'U': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, 2 * SPACING_FACTOR));
-				it->second->runAction(move);
-				break;
-			}
-			case 'd': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, -SPACING_FACTOR));
-				it->second->runAction(move);
-				break;
-			}
-			case 'D': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, -2 * SPACING_FACTOR));
-				it->second->runAction(move);
-				break;
-			}
-			case '1': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-SPACING_FACTOR, SPACING_FACTOR));
-				it->second->runAction(move); break;
-			}
-			case '2': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(SPACING_FACTOR, SPACING_FACTOR));
-				it->second->runAction(move); break;
-			}
-			case '3': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-SPACING_FACTOR, -SPACING_FACTOR));
-				it->second->runAction(move); break;
-			}
-			case '4': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(SPACING_FACTOR, -SPACING_FACTOR));
-				it->second->runAction(move); break;
-			}
-			}
-			return;
-		}
-	}
-	*/
+			
 }
-void Dungeon::moveAssociatedSprite(std::multimap<cocos2d::Vec2, cocos2d::Sprite*> &sprites, int maxrows, int X, int Y, int x, int y, char move) {
-	// Vec2 contains the coordinates of the sprite that the sprite we want to move is associated with
-	// X and Y are the "parent" sprite's coordinates
-	// x and y are the coordinates of the sprite we want to move
+void Dungeon::moveSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y, int cx, int cy) {
 
-	int x_sprite = x * SPACING_FACTOR - X_OFFSET;
-	int y_sprite = (maxrows - y)*SPACING_FACTOR - Y_OFFSET;
+	int pos = findSprite(sprites, x, y);
 
-	// used for storing the current sprite's x and y coordinates
-	Vec2 point;
-	int px, py;
+	if (pos == -1)
+		return;
 
-	// Key:
-	// 1 u 2
-	// l _ r
-	// 3 d 4
-	// Capital character (L R U D) means moves twice in that direction
-
-	for (auto &it = sprites.equal_range(Vec2(X, Y)).first; it != sprites.equal_range(Vec2(X, Y)).second; ++it) {
-		point = it->second->getPosition();
-		px = point.x;
-		py = point.y;
-		if (x_sprite == px && y_sprite == py) {
-			switch (move) {
-			case 'l': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-SPACING_FACTOR, 0));
-				it->second->runAction(move);
-				break;
-			}
-			case 'L': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-2 * SPACING_FACTOR, 0));
-				it->second->runAction(move);
-				break;
-			}
-			case 'r': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(SPACING_FACTOR, 0));
-				it->second->runAction(move);
-				break;
-			}
-			case 'R': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(2 * SPACING_FACTOR, 0));
-				it->second->runAction(move);
-				break;
-			}
-			case 'u': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, SPACING_FACTOR));
-				it->second->runAction(move);
-				break;
-			}
-			case 'U': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, 2 * SPACING_FACTOR));
-				it->second->runAction(move);
-				break;
-			}
-			case 'd': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, -SPACING_FACTOR));
-				it->second->runAction(move);
-				break;
-			}
-			case 'D': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(0, -2 * SPACING_FACTOR));
-				it->second->runAction(move);
-				break;
-			}
-			case '1': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-SPACING_FACTOR, SPACING_FACTOR));
-				it->second->runAction(move); break;
-			}
-			case '2': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(SPACING_FACTOR, SPACING_FACTOR));
-				it->second->runAction(move); break;
-			}
-			case '3': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(-SPACING_FACTOR, -SPACING_FACTOR));
-				it->second->runAction(move); break;
-			}
-			case '4': {
-				cocos2d::Action* move = cocos2d::MoveBy::create(.1, cocos2d::Vec2(SPACING_FACTOR, -SPACING_FACTOR));
-				it->second->runAction(move); break;
-			}
-			}
-			return;
-		}
-	}
+	cocos2d::Action* move = cocos2d::MoveTo::create(.1f, cocos2d::Vec2(cx * SPACING_FACTOR - X_OFFSET, (getRows() - cy)*SPACING_FACTOR - Y_OFFSET));
+	sprites.at(pos)->runAction(move);
 }
 
 // Create new sprites
@@ -2106,38 +2249,44 @@ cocos2d::Sprite* Dungeon::createSprite(int x, int y, int z, std::string image) {
 	cocos2d::Sprite* sprite = cocos2d::Sprite::createWithSpriteFrameName(image);
 	m_scene->addChild(sprite, z);
 	sprite->setPosition(x*SPACING_FACTOR - X_OFFSET, (getRows() - y)*SPACING_FACTOR - Y_OFFSET);
+	sprite->setScale(GLOBAL_SPRITE_SCALE);
 	
+	return sprite;
+}
+cocos2d::Sprite* Dungeon::createSprite(float x, float y, int z, std::string image) {
+	cocos2d::Sprite* sprite = cocos2d::Sprite::createWithSpriteFrameName(image);
+	m_scene->addChild(sprite, z);
+	sprite->setPosition(x*SPACING_FACTOR - X_OFFSET, (getRows() - y)*SPACING_FACTOR - Y_OFFSET);
+	sprite->setScale(GLOBAL_SPRITE_SCALE);
+
 	return sprite;
 }
 cocos2d::Sprite* Dungeon::createSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y, int z, std::string image) {
 	cocos2d::Sprite* sprite = cocos2d::Sprite::createWithSpriteFrameName(image);
 	m_scene->addChild(sprite, z);
 	sprite->setPosition(x*SPACING_FACTOR - X_OFFSET, (getRows() - y)*SPACING_FACTOR - Y_OFFSET);
+	sprite->setScale(GLOBAL_SPRITE_SCALE);
 	sprites.push_back(sprite);
 
 	return sprite;
 }
-void Dungeon::addSprite(std::vector<cocos2d::Sprite*> &sprites, int maxrows, int x, int y, int z, std::string image) {
+void Dungeon::addSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y, int z, std::string image) {
 	cocos2d::Sprite* sprite = cocos2d::Sprite::createWithSpriteFrameName(image);
 	m_scene->addChild(sprite, z);
-	sprite->setPosition(x*SPACING_FACTOR - X_OFFSET, (maxrows - y)*SPACING_FACTOR - Y_OFFSET);
+	sprite->setPosition(x*SPACING_FACTOR - X_OFFSET, (getRows() - y)*SPACING_FACTOR - Y_OFFSET);
+	sprite->setScale(GLOBAL_SPRITE_SCALE);
+
 	sprites.push_back(sprite);
 }
-void Dungeon::addSprite(std::multimap<cocos2d::Vec2, cocos2d::Sprite*> &sprites, int maxrows, int x, int y, int z, std::string image) {
-	cocos2d::Sprite* sprite = cocos2d::Sprite::createWithSpriteFrameName(image);
-	m_scene->addChild(sprite, z);
-	sprite->setPosition(x*SPACING_FACTOR - X_OFFSET, (maxrows - y)*SPACING_FACTOR - Y_OFFSET);
-	sprites.insert(std::pair<cocos2d::Vec2, cocos2d::Sprite*>(Vec2(x, y), sprite));
-}
-void Dungeon::addGoldSprite(std::vector<_Tile> &dungeon, int x, int y) {
+void Dungeon::addGoldSprite(int x, int y) {
 	int rows = getRows();
 	int cols = getCols();
 
-	int gold = dungeon[y*cols + x].gold;
+	int gold = m_maze[y*cols + x].gold;
 
 	// if there's gold here already, remove the sprite before we add a new one
 	if (gold != 0) {
-		removeSprite(money_sprites, rows, x, y);
+		removeSprite(money_sprites, x, y);
 	}
 
 	std::string image;
@@ -2151,6 +2300,8 @@ void Dungeon::addGoldSprite(std::vector<_Tile> &dungeon, int x, int y) {
 	cocos2d::Sprite* money = cocos2d::Sprite::createWithSpriteFrameName(image);
 	m_scene->addChild(money, -3);
 	money->setPosition(x*SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
+	money->setScale(GLOBAL_SPRITE_SCALE);
+
 	money_sprites.push_back(money);
 }
 
@@ -2162,55 +2313,16 @@ void Dungeon::queueRemoveSprite(cocos2d::Sprite* sprite) {
 void Dungeon::removeSprite(cocos2d::Sprite* sprite) {
 	auto remove = cocos2d::RemoveSelf::create();
 	sprite->runAction(remove);
-	//if (sprite != nullptr)
-		//sprite->removeFromParent();
 }
-void Dungeon::removeSprite(std::vector<cocos2d::Sprite*> &sprites, int maxrows, int x, int y) {
-	int x_sprite = x * SPACING_FACTOR - X_OFFSET;
-	int y_sprite = (maxrows - y)*SPACING_FACTOR - Y_OFFSET;
+void Dungeon::removeSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y) {
 
-	// used for storing the current sprite's x and y coordinates
-	Vec2 point;
-	int px, py;
+	int pos = findSprite(sprites, x, y);
 
-	for (int i = 0; i < sprites.size(); i++) {
-		point = sprites.at(i)->getPosition();
-		px = point.x;
-		py = point.y;
-		if (x_sprite == px && y_sprite == py) {
-			sprites.at(i)->removeFromParent();
-			sprites.erase(sprites.begin() + i);
-			return;
-		}
-	}
-}
-void Dungeon::removeSprite(std::multimap<cocos2d::Vec2, cocos2d::Sprite*> &sprites, int maxrows, int x, int y) {
-	auto it = sprites.find(Vec2(x, y));
-	it->second->removeFromParent();
-	sprites.erase(it);
-}
-void Dungeon::removeAssociatedSprite(std::multimap<cocos2d::Vec2, cocos2d::Sprite*> &sprites, int maxrows, int X, int Y, int x, int y) {
-	// Vec2 contains the coordinates of the sprite that the sprite we want to delete is associated with
-	// X and Y are the "parent" sprite's coordinates
-	// x and y are the coordinates of the sprite we want to delete
+	if (pos == -1)
+		return;
 
-	int x_sprite = x * SPACING_FACTOR - X_OFFSET;
-	int y_sprite = (maxrows - y)*SPACING_FACTOR - Y_OFFSET;
-
-	// used for storing the current sprite's x and y coordinates
-	Vec2 point;
-	int px, py;
-
-	for (auto &it = sprites.equal_range(Vec2(X, Y)).first; it != sprites.equal_range(Vec2(X, Y)).second; ++it) {
-		point = it->second->getPosition();
-		px = point.x;
-		py = point.y;
-		if (x_sprite == px && y_sprite == py) {
-			it->second->removeFromParent();
-			sprites.erase(it);
-			return;
-		}
-	}
+	sprites.at(pos)->removeFromParent();
+	sprites.erase(sprites.begin() + pos);
 }
 
 // update sprite coloring (lighting)
@@ -2218,85 +2330,83 @@ void Dungeon::updateLighting() {
 	int rows = getRows();
 	int cols = getCols();
 
-	//Vec2 pos = player_sprite->getPosition();
-	//int x = pos.x;
-	//int y = pos.y;
 	int cutoff = 2400;
 
-	int px = player.at(0).getPosX();
-	int py = player.at(0).getPosY();
-	int p_cutoff = player.at(0).getVision();
+	int px = player.at(0)->getPosX();
+	int py = player.at(0)->getPosY();
+	int p_cutoff = player.at(0)->getVision();
 
-	cocos2d::Sprite* sprite;
 	int sx, sy, dist, color;
 
-	//sx = (spritePoint.x + X_OFFSET) / SPACING_FACTOR;
-	//sy = MAXROWS3 - ((spritePoint.y + Y_OFFSET) / SPACING_FACTOR);
 
-
-	// npc sprites
-	for (int i = 0; i < getNPCs().size(); i++) {
-		sx = getNPCs().at(i)->getPosX();
-		sy = getNPCs().at(i)->getPosY();
+	// Extra sprites for decoration
+	for (unsigned int i = 0; i < misc_sprites.size(); i++) {
+		sx = (misc_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+		sy = rows - ((misc_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
 
 		dist = abs(sx - px) + abs(sy - py);
 		float formula = (p_cutoff - dist) / (float)p_cutoff;
 
 		if (dist > p_cutoff) {
-			getNPCs().at(i)->getSprite()->setColor(cocos2d::Color3B(20, 20, 20));
+			misc_sprites.at(i)->setColor(cocos2d::Color3B(0, 0, 0));
 		}
 		else {
 			color = (255 * formula);
-			getNPCs().at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
+			misc_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+		}
+	}
+
+	// npc sprites
+	for (unsigned int i = 0; i < m_npcs.size(); i++) {
+		sx = m_npcs.at(i)->getPosX();
+		sy = m_npcs.at(i)->getPosY();
+
+		dist = abs(sx - px) + abs(sy - py);
+		float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+		if (dist > p_cutoff) {
+			m_npcs.at(i)->getSprite()->setColor(cocos2d::Color3B(20, 20, 20));
+		}
+		else {
+			color = (255 * formula);
+			m_npcs.at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
 		}
 	}
 
 	// monster sprites
 	int mx, my;
-	for (int i = 0; i < getMonsters().size(); i++) {
-		mx = getMonsters().at(i)->getPosX();
-		my = getMonsters().at(i)->getPosY();
+	for (unsigned int i = 0; i < m_monsters.size(); i++) {
+		mx = m_monsters.at(i)->getPosX();
+		my = m_monsters.at(i)->getPosY();
 		dist = abs(mx - px) + abs(my - py);
 
 		float formula = (p_cutoff - dist) / (float)p_cutoff;
+		color = 0;
 
-		// if trap is lava or other light-emitting source, emit light from their position
-		if (getMonsters().at(i)->emitsLight()) {
-			lightEmitters.push_back(std::make_pair(getMonsters().at(i)->getPosX(), getMonsters().at(i)->getPosY()));
-
-			color = std::max(140, (int)(255 * formula));
-			getMonsters().at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
-
-			// if monster uses extra sprites, update their lighting too
-			if (getMonsters().at(i)->hasExtraSprites()) {
-				if (getMonsters().at(i)->getName() != ZAPPER)
-					getMonsters().at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));
-			}
-
+		// If monster is a source of light
+		if (m_monsters.at(i)->emitsLight()) {
+			m_monsters.at(i)->addLightEmitters(*this, lightEmitters);
 			continue;
 		}
-		if (dist > p_cutoff) {
-			getMonsters().at(i)->getSprite()->setColor(cocos2d::Color3B(0, 0, 0));
 
-			// if monster uses extra sprites, update their lighting too
-			if (getMonsters().at(i)->hasExtraSprites()) {
-				getMonsters().at(i)->setSpriteColor(cocos2d::Color3B(0, 0, 0));
-			}
+		if (player.at(0)->hasMonsterIllumination()) {
+			lightEmitters.push_back(std::make_pair(mx, my));
+			continue;
 		}
-		else {
+
+		if (dist <= p_cutoff)
 			color = (255 * formula);
-			getMonsters().at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
 
-			// if monster uses extra sprites, update their lighting too
-			if (getMonsters().at(i)->hasExtraSprites()) {
-				getMonsters().at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));
-			}
-		}
+		m_monsters.at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
+
+		// if monster uses extra sprites, update their lighting too
+		if (m_monsters.at(i)->hasExtraSprites())
+			m_monsters.at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));
 
 	}
 
 	// trap sprites
-	for (int i = 0; i < getTraps().size(); i++) {
+	for (unsigned int i = 0; i < getTraps().size(); i++) {
 		//sx = (getTraps().at(i)->getSprite()->getPosition().x + X_OFFSET) / SPACING_FACTOR;
 		//sy = rows - ((getTraps().at(i)->getSprite()->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
 		sx = getTraps().at(i)->getPosX();
@@ -2305,48 +2415,39 @@ void Dungeon::updateLighting() {
 		dist = abs(sx - px) + abs(sy - py);
 		float formula = (p_cutoff - dist) / (float)p_cutoff;
 
+		// if player has trap illumination
+		if (player.at(0)->hasTrapIllumination() && m_traps.at(i)->canBeIlluminated())
+			lightEmitters.push_back(std::make_pair(sx, sy));
+
 		// if trap is lava or other light-emitting source, emit light from their position
 		if (getTraps().at(i)->emitsLight()) {
 			lightEmitters.push_back(std::make_pair(getTraps().at(i)->getPosX(), getTraps().at(i)->getPosY()));
-
-			getTraps().at(i)->getSprite()->setColor(cocos2d::Color3B(200, 200, 200));
-
-			// if monster uses extra sprites, update their lighting too
-			if (getTraps().at(i)->hasExtraSprites()) {
-				getTraps().at(i)->setSpriteColor(cocos2d::Color3B(200, 200, 200));
-			}
 			continue;
 		}
 
-		if (getTraps().at(i)->getItem() == LAVA) {
+		if (getTraps().at(i)->getName() == LAVA) {
 			int cutoff = p_cutoff + 6;
 			formula = (cutoff - dist) / (float)(cutoff);
-			if (dist >= cutoff) {
-				getTraps().at(i)->getSprite()->setColor(cocos2d::Color3B(19, 19, 19)); // color value calculated by taking (1/cutoff) * 255
-			}
-			else {
-				color = (255 * formula);
-				getTraps().at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
-			}
+			color = (255 * formula);
+
+			if (dist >= cutoff)
+				color = 19; // color value calculated by taking (1/cutoff) * 255
+
+			getTraps().at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
 		}
 		else {
-			if (dist > p_cutoff) {
-				getTraps().at(i)->getSprite()->setColor(cocos2d::Color3B(0, 0, 0));
-
-				// if trap uses extra sprites, update their lighting too
-				if (getTraps().at(i)->hasExtraSprites()) {
-					getTraps().at(i)->setSpriteColor(cocos2d::Color3B(40, 40, 40));
-				}
-			}
-			else {
+			color = 0;
+			if (dist <= p_cutoff)
 				color = (255 * formula);
+
+			if (m_traps.at(i)->getSprite() != nullptr)
 				getTraps().at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
 
-				// if trap uses extra sprites, update their lighting too
-				if (getTraps().at(i)->hasExtraSprites()) {
-					getTraps().at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));
-				}
+			// if trap uses extra sprites, update their lighting too
+			if (getTraps().at(i)->hasExtraSprites()) {
+				getTraps().at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));
 			}
+
 		}
 	}
 
@@ -2371,28 +2472,8 @@ void Dungeon::updateLighting() {
 		}
 	}
 
-	/*
-	// floor sprites
-	for (int i = 0; i < floor_sprites.size(); i++) {
-		sx = (floor_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
-		sy = rows - ((floor_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
-
-		dist = abs(sx - px) + abs(sy - py);
-		float formula = (p_cutoff - dist) / (float)p_cutoff;
-
-		if (dist > p_cutoff) {
-			floor_sprites.at(i)->setColor(cocos2d::Color3B(0, 0, 0));
-		}
-		else {
-
-			color = (255 * formula);
-			floor_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
-		}
-	}
-	*/
-
 	// wall sprites
-	for (int i = 0; i < wall_sprites.size(); i++) {
+	for (unsigned int i = 0; i < wall_sprites.size(); i++) {
 		//sx = wall_sprites.at(i)->getPosition().x;
 		//sy = wall_sprites.at(i)->getPosition().y;
 		sx = (wall_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
@@ -2411,7 +2492,7 @@ void Dungeon::updateLighting() {
 	}
 
 	// door sprites
-	for (int i = 0; i < door_sprites.size(); i++) {
+	for (unsigned int i = 0; i < door_sprites.size(); i++) {
 		//sx = wall_sprites.at(i)->getPosition().x;
 		//sy = wall_sprites.at(i)->getPosition().y;
 		sx = (door_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
@@ -2430,25 +2511,27 @@ void Dungeon::updateLighting() {
 	}
 
 	// item sprites
-	for (int i = 0; i < item_sprites.size(); i++) {
+	for (unsigned int i = 0; i < item_sprites.size(); i++) {
 		sx = (item_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
 		sy = rows - ((item_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
 
 		dist = abs(sx - px) + abs(sy - py);
 		float formula = (p_cutoff - dist) / (float)p_cutoff;
 
+		if (player.at(0)->hasItemIllumination())
+			lightEmitters.push_back(std::make_pair(sx, sy));
+
 		if (dist > p_cutoff) {
 			item_sprites.at(i)->setColor(cocos2d::Color3B(0, 0, 0));
 		}
 		else {
-
 			color = (255 * formula);
 			item_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
 		}
 	}
 
 	// money sprites
-	for (int i = 0; i < money_sprites.size(); i++) {
+	for (unsigned int i = 0; i < money_sprites.size(); i++) {
 		sx = (money_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
 		sy = rows - ((money_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
 
@@ -2466,43 +2549,38 @@ void Dungeon::updateLighting() {
 
 
 	// if there other sprites that emit light, update lighting again
-	if (!lightEmitters.empty()) {
-		for (int i = 0; i < lightEmitters.size(); i++) {
-			updateSecondaryLighting(lightEmitters[i].first, lightEmitters[i].second);
-		}
-		lightEmitters.clear();
-	}
+	//if (!lightEmitters.empty())
+		updateSecondaryLighting();
 
 }
 void Dungeon::updateSecondaryLighting(int x, int y) {
 	int rows = getRows();
 	int cols = getCols();
 
-	int px = player.at(0).getPosX();
-	int py = player.at(0).getPosY();
-	int vision = player.at(0).getVision();
+	int px = player.at(0)->getPosX();
+	int py = player.at(0)->getPosY();
+	int vision = player.at(0)->getVision();
 
 	int sx, sy, dist, color;
 	int lightCutoff = 2;
 
 
 	// monster sprites
-	int mx, my;
-	for (int i = 0; i < getMonsters().size(); i++) {
-		sx = getMonsters().at(i)->getPosX();
-		sy = getMonsters().at(i)->getPosY();
+	for (unsigned int i = 0; i < m_monsters.size(); i++) {
+		sx = m_monsters.at(i)->getPosX();
+		sy = m_monsters.at(i)->getPosY();
 
 		dist = abs(sx - x) + abs(sy - y);
 		float formula = (lightCutoff - dist) / (float)lightCutoff;
 
 		if (dist < lightCutoff && !(abs(px - sx) < vision && abs(py - sy) < vision)) {
 			color = (40);
-			getMonsters().at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
+			m_monsters.at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
 		}
 	}
 
 	// trap sprites
-	for (int i = 0; i < getTraps().size(); i++) {
+	for (unsigned int i = 0; i < getTraps().size(); i++) {
 		sx = getTraps().at(i)->getPosX();
 		sy = getTraps().at(i)->getPosY();
 
@@ -2534,7 +2612,7 @@ void Dungeon::updateSecondaryLighting(int x, int y) {
 	}
 	
 	// wall sprites
-	for (int i = 0; i < wall_sprites.size(); i++) {
+	for (unsigned int i = 0; i < wall_sprites.size(); i++) {
 		//sx = wall_sprites.at(i)->getPosition().x;
 		//sy = wall_sprites.at(i)->getPosition().y;
 		sx = (wall_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
@@ -2550,7 +2628,7 @@ void Dungeon::updateSecondaryLighting(int x, int y) {
 	}
 
 	// door sprites
-	for (int i = 0; i < door_sprites.size(); i++) {
+	for (unsigned int i = 0; i < door_sprites.size(); i++) {
 		//sx = wall_sprites.at(i)->getPosition().x;
 		//sy = wall_sprites.at(i)->getPosition().y;
 		sx = (door_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
@@ -2566,7 +2644,7 @@ void Dungeon::updateSecondaryLighting(int x, int y) {
 	}
 
 	// item sprites
-	for (int i = 0; i < item_sprites.size(); i++) {
+	for (unsigned int i = 0; i < item_sprites.size(); i++) {
 		sx = (item_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
 		sy = rows - ((item_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
 
@@ -2580,7 +2658,7 @@ void Dungeon::updateSecondaryLighting(int x, int y) {
 	}
 
 	// money sprites
-	for (int i = 0; i < money_sprites.size(); i++) {
+	for (unsigned int i = 0; i < money_sprites.size(); i++) {
 		sx = (money_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
 		sy = rows - ((money_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
 
@@ -2594,10 +2672,381 @@ void Dungeon::updateSecondaryLighting(int x, int y) {
 	}
 
 }
+void Dungeon::updateSecondaryLighting() {
 
-// run sprite actions
+	// Illuminates spaces around select traps
+
+	int rows = getRows();
+	int cols = getCols();
+
+	int cutoff = 2400;
+
+	int px, py;
+	int p_cutoff = 2;
+
+	int sx, sy, dist, color;
+	cocos2d::Color3B c3b;
+
+	for (unsigned int n = 0; n < lightEmitters.size(); n++) {
+
+		px = lightEmitters.at(n).first;
+		py = lightEmitters.at(n).second;
+
+		// Extra sprites for decoration
+		for (unsigned int i = 0; i < misc_sprites.size(); i++) {
+			sx = (misc_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+			sy = rows - ((misc_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = misc_sprites.at(i)->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				misc_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}
+
+		// npc sprites
+		for (unsigned int i = 0; i < m_npcs.size(); i++) {
+			sx = m_npcs.at(i)->getPosX();
+			sy = m_npcs.at(i)->getPosY();
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = m_npcs.at(i)->getSprite()->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				m_npcs.at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}
+
+		// monster sprites
+		int mx, my;
+		for (unsigned int i = 0; i < m_monsters.size(); i++) {
+			mx = m_monsters.at(i)->getPosX();
+			my = m_monsters.at(i)->getPosY();
+			dist = abs(mx - px) + abs(my - py);
+
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = m_monsters.at(i)->getSprite()->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				m_monsters.at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
+
+				// if monster uses extra sprites, update their lighting too
+				if (m_monsters.at(i)->hasExtraSprites()) {
+					m_monsters.at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));
+				}
+			}
+
+		}
+
+		// trap sprites
+		for (unsigned int i = 0; i < getTraps().size(); i++) {
+
+			if (m_traps.at(i)->getSprite() == nullptr)
+				continue;
+
+			sx = getTraps().at(i)->getPosX();
+			sy = getTraps().at(i)->getPosY();
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = getTraps().at(i)->getSprite()->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				
+				getTraps().at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
+
+				// if trap uses extra sprites, update their lighting too
+				if (getTraps().at(i)->hasExtraSprites()) {
+					getTraps().at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));
+				}
+			}
+			
+		}
+
+		// floor sprites
+		for (int i = px - std::max(12, p_cutoff); i < px + std::max(12, p_cutoff) + 1; i++) {
+			for (int j = py - std::max(12, p_cutoff); j < py + std::max(12, p_cutoff) + 1; j++) {
+				if (j > -1 && j < rows && i > -1 && i < cols) { // boundary check
+					sx = i;
+					sy = j;
+
+					dist = abs(sx - px) + abs(sy - py);
+					float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+					if (dist <= p_cutoff) {
+						c3b = getDungeon()[j*cols + i].floor->getDisplayedColor();
+						color = std::max((int)c3b.r, (int)(255 * formula));
+						getDungeon()[j*cols + i].floor->setColor(cocos2d::Color3B(color, color, color));
+					}
+
+				}
+			}
+		}
+
+		// wall sprites
+		for (unsigned int i = 0; i < wall_sprites.size(); i++) {
+			sx = (wall_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+			sy = rows - ((wall_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = wall_sprites.at(i)->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				wall_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}
+
+		// door sprites
+		for (unsigned int i = 0; i < door_sprites.size(); i++) {
+			sx = (door_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+			sy = rows - ((door_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = door_sprites.at(i)->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				door_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}
+
+		// item sprites
+		for (unsigned int i = 0; i < item_sprites.size(); i++) {
+			sx = (item_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+			sy = rows - ((item_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = item_sprites.at(i)->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				item_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}
+
+		// money sprites
+		for (unsigned int i = 0; i < money_sprites.size(); i++) {
+			sx = (money_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+			sy = rows - ((money_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = money_sprites.at(i)->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				money_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}
+	}
+
+	// Check other light sources
+	for (unsigned int pos = 0; pos < m_lightSources.size(); pos++) {
+		px = m_lightSources.at(pos).first.first;
+		py = m_lightSources.at(pos).first.second;
+		p_cutoff = (int)m_lightSources.at(pos).second;
+
+		// Extra sprites for decoration
+		for (unsigned int i = 0; i < misc_sprites.size(); i++) {
+			sx = (misc_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+			sy = rows - ((misc_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = misc_sprites.at(i)->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				misc_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}
+
+		// npc sprites
+		for (unsigned int i = 0; i < m_npcs.size(); i++) {
+			sx = m_npcs.at(i)->getPosX();
+			sy = m_npcs.at(i)->getPosY();
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = m_npcs.at(i)->getSprite()->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				m_npcs.at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}
+
+		// monster sprites
+		int mx, my;
+		for (unsigned int i = 0; i < m_monsters.size(); i++) {
+			mx = m_monsters.at(i)->getPosX();
+			my = m_monsters.at(i)->getPosY();
+			dist = abs(mx - px) + abs(my - py);
+
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = m_monsters.at(i)->getSprite()->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				m_monsters.at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
+
+				// if monster uses extra sprites, update their lighting too
+				if (m_monsters.at(i)->hasExtraSprites()) {
+					m_monsters.at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));
+				}
+			}
+
+		}
+
+		// trap sprites
+		for (unsigned int i = 0; i < getTraps().size(); i++) {
+
+			if (m_traps.at(i)->getSprite() == nullptr)
+				continue;
+
+			sx = getTraps().at(i)->getPosX();
+			sy = getTraps().at(i)->getPosY();
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = getTraps().at(i)->getSprite()->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+
+				getTraps().at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
+
+				// if trap uses extra sprites, update their lighting too
+				if (getTraps().at(i)->hasExtraSprites()) {
+					getTraps().at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));
+				}
+			}
+
+		}
+
+		// floor sprites
+		for (int i = px - std::max(12, p_cutoff); i < px + std::max(12, p_cutoff) + 1; i++) {
+			for (int j = py - std::max(12, p_cutoff); j < py + std::max(12, p_cutoff) + 1; j++) {
+				if (j > -1 && j < rows && i > -1 && i < cols) { // boundary check
+					sx = i;
+					sy = j;
+
+					dist = abs(sx - px) + abs(sy - py);
+					float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+					if (dist <= p_cutoff) {
+						c3b = getDungeon()[j*cols + i].floor->getDisplayedColor();
+						color = std::max((int)c3b.r, (int)(255 * formula));
+						getDungeon()[j*cols + i].floor->setColor(cocos2d::Color3B(color, color, color));
+					}
+
+				}
+			}
+		}
+
+		// wall sprites
+		for (unsigned int i = 0; i < wall_sprites.size(); i++) {
+			sx = (wall_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+			sy = rows - ((wall_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = wall_sprites.at(i)->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				wall_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}
+
+		// door sprites
+		for (unsigned int i = 0; i < door_sprites.size(); i++) {
+			sx = (door_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+			sy = rows - ((door_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = door_sprites.at(i)->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				door_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}
+
+		// item sprites
+		for (unsigned int i = 0; i < item_sprites.size(); i++) {
+			sx = (item_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+			sy = rows - ((item_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = item_sprites.at(i)->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				item_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}
+
+		// money sprites
+		for (unsigned int i = 0; i < money_sprites.size(); i++) {
+			sx = (money_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+			sy = rows - ((money_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+			if (dist <= p_cutoff) {
+				c3b = money_sprites.at(i)->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				money_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}
+	}
+
+	lightEmitters.clear();
+}
+
+int Dungeon::findLightSource(int x, int y) {
+	for (int i = 0; i < (int)m_lightSources.size(); i++) {
+		if (m_lightSources.at(i).first.first == x && m_lightSources.at(i).first.second == y) {
+			return i;
+		}
+	}
+
+	return -1;
+}
+void Dungeon::addLightSource(int x, int y, double strength) {
+	std::pair<int, int> coords = std::make_pair(x, y);
+	std::pair<std::pair<int, int>, double> lightSource = std::make_pair(coords, strength);
+
+	m_lightSources.push_back(lightSource);
+}
+void Dungeon::removeLightSource(int x, int y) {
+	int pos = findLightSource(x, y);
+
+	if (pos == -1)
+		return;
+
+	m_lightSources.erase(m_lightSources.begin() + pos);
+}
+
+
+// Run sprite actions
 int Dungeon::spriteFound(cocos2d::Sprite* sprite) {
-	for (int i = 0; i < m_seq.size(); i++) {
+	for (int i = 0; i < (int)m_seq.size(); i++) {
 		if (m_seq[i].first == sprite)
 			return i;
 	}
@@ -2636,35 +3085,92 @@ void Dungeon::insertActionIntoSpawn(cocos2d::Sprite* sprite, cocos2d::FiniteTime
 	}
 }
 void Dungeon::runSpawn() {
-	//if (!m_spawn.empty()) {
-	//	for (auto &it : m_spawn) {
-	//		// create a sequence for the given sprite
-	//		cocos2d::Sequence* seq = cocos2d::Sequence::create(it.second);
-
-	//		// run the sequence on the sprite
-	//		it.first->runAction(seq);
-	//	}
-	//	m_spawn.clear();
-	//}
-
 
 	if (!m_seq.empty()) {
 		for (auto &it : m_seq) {
-			auto spriteObject = it.first->getTextureAtlas();
-			int address = (int)&spriteObject;
-			if (address != 0xDDDDDDDD) {
+
+			if (it.first && it.first->getParent()) {
 				// create a sequence for the given sprite
 				cocos2d::Sequence* seq = cocos2d::Sequence::create(it.second);
 
-				it.first->runAction(seq);
+				auto singleAction = it.first->runAction(seq);
+				singleAction->setTag(1);
 			}
 		}
 		m_seq.clear();
 	}
 }
 
-/// unused
-bool Dungeon::wallCollision(std::vector<_Tile> &dungeon, int maxcols, char direction, int p_move, int m_move) {
+cocos2d::Vector<cocos2d::SpriteFrame*> Dungeon::getAnimation(const char* format, int count) {
+	auto spritecache = cocos2d::SpriteFrameCache::getInstance();
+	cocos2d::Vector<cocos2d::SpriteFrame*> animFrames;
+	char str[100];
+	for (int i = 1; i <= count; i++) {
+		sprintf(str, format, i);
+		animFrames.pushBack(spritecache->getSpriteFrameByName(str));
+	}
+	return animFrames;
+}
+cocos2d::Vector<cocos2d::SpriteFrame*> Dungeon::getAnimation(std::string format, int count) {
+	auto spritecache = cocos2d::SpriteFrameCache::getInstance();
+	cocos2d::Vector<cocos2d::SpriteFrame*> animFrames;
+	char str[100];
+	for (int i = 1; i <= count; i++) {
+		sprintf(str, format.c_str(), i);
+		animFrames.pushBack(spritecache->getSpriteFrameByName(str));
+	}
+	return animFrames;
+}
+cocos2d::Sprite* Dungeon::runAnimationForever(cocos2d::Vector<cocos2d::SpriteFrame*> frames, int frameInterval, int x, int y, int z) {
+	auto sprite = cocos2d::Sprite::createWithSpriteFrame(frames.front());
+	m_scene->addChild(sprite, z);
+	queueMoveSprite(sprite, x, y, 0);
+
+	auto animation = cocos2d::Animation::createWithSpriteFrames(frames, 1.0f / frameInterval);
+	sprite->runAction(cocos2d::RepeatForever::create(cocos2d::Animate::create(animation)));
+
+	return sprite;
+}
+void Dungeon::runSingleAnimation(cocos2d::Vector<cocos2d::SpriteFrame*> frames, int frameInterval, int x, int y, int z) {
+	auto sprite = cocos2d::Sprite::createWithSpriteFrame(frames.front());
+	m_scene->addChild(sprite, z);
+	queueMoveSprite(sprite, x, y, 0);
+
+	auto animation = cocos2d::Animation::createWithSpriteFrames(frames, 1.0f / frameInterval);
+	auto remove = cocos2d::RemoveSelf::create();
+	auto sequence = cocos2d::Sequence::createWithTwoActions(cocos2d::Animate::create(animation), remove);
+	auto action = sprite->runAction(sequence);
+	action->setTag(5);
+}
+void Dungeon::runAnimationForever(cocos2d::Vector<cocos2d::SpriteFrame*> frames, int x, int y) {
+	auto sprite = cocos2d::Sprite::createWithSpriteFrame(frames.front());
+	m_scene->addChild(sprite, 2);
+	queueMoveSprite(sprite, x, y, 0);
+
+	auto animation = cocos2d::Animation::createWithSpriteFrames(frames, 1.0f / 24);
+	auto remove = cocos2d::RemoveSelf::create();
+	auto sequence = cocos2d::Sequence::createWithTwoActions(cocos2d::Animate::create(animation), remove);
+	sprite->runAction(cocos2d::RepeatForever::create(sequence));
+}
+void Dungeon::runAnimationWithCallback(cocos2d::Vector<cocos2d::SpriteFrame*> frames, int frameInterval, int x, int y, int z,
+	std::function<void(Dungeon&, std::vector<cocos2d::Sprite*>&, int, int, int, std::string)> cb, std::string image) {
+
+	auto sprite = cocos2d::Sprite::createWithSpriteFrame(frames.front());
+	m_scene->addChild(sprite, z);
+	queueMoveSprite(sprite, x, y, 0);
+
+	auto animation = cocos2d::Animation::createWithSpriteFrames(frames, 1.0f / frameInterval);
+	auto remove = cocos2d::RemoveSelf::create();
+	auto sequence = cocos2d::Sequence::createWithTwoActions(cocos2d::Animate::create(animation), remove);
+	auto action = sprite->runAction(sequence);
+	action->setTag(5);
+	
+	// Adds the last sprite so that its lighting can be updated
+	cb(*this, misc_sprites, x, y, 0, image);
+}
+
+// Deprecated
+bool Dungeon::wallCollision(char direction, int p_move, int m_move) {
 	// if they're one space apart, return false
 	if (p_move - m_move == 1)
 		return false;
@@ -2676,14 +3182,15 @@ bool Dungeon::wallCollision(std::vector<_Tile> &dungeon, int maxcols, char direc
 	// Since player and monster are on the same row/column, set otherdir to the complement of p_move/m_move
 	int otherdir;
 
+	int cols = getCols();
+
 	if (direction == 'x') {
-		otherdir = player.at(0).getPosY();
+		otherdir = player.at(0)->getPosY();
 	}
 	else {
-		otherdir = player.at(0).getPosX();
+		otherdir = player.at(0)->getPosX();
 	}
 
-	char top;
 	bool wall;
 
 	// if player is below or to the right of the enemy, let monster check moving in the direction opposite (otherdir)
@@ -2692,7 +3199,7 @@ bool Dungeon::wallCollision(std::vector<_Tile> &dungeon, int maxcols, char direc
 		while (p_move - m_move != 0) {
 			if (direction == 'x') {
 
-				wall = dungeon[otherdir*maxcols + p_move].wall;
+				wall = m_maze[otherdir*cols + p_move].wall;
 				if (wall)
 					return true;
 				else
@@ -2700,7 +3207,7 @@ bool Dungeon::wallCollision(std::vector<_Tile> &dungeon, int maxcols, char direc
 			}
 			else if (direction == 'y') {
 
-				wall = dungeon[(p_move)*maxcols + otherdir].wall;
+				wall = m_maze[(p_move)*cols + otherdir].wall;
 				if (wall)
 					return true;
 				else
@@ -2713,7 +3220,7 @@ bool Dungeon::wallCollision(std::vector<_Tile> &dungeon, int maxcols, char direc
 		while (m_move - p_move != 0) {
 			if (direction == 'x') {
 
-				wall = dungeon[otherdir*maxcols + m_move].wall;
+				wall = m_maze[otherdir*cols + m_move].wall;
 				if (wall)
 					return true;
 				else
@@ -2721,7 +3228,7 @@ bool Dungeon::wallCollision(std::vector<_Tile> &dungeon, int maxcols, char direc
 			}
 			else if (direction == 'y') {
 
-				wall = dungeon[(m_move)*maxcols + otherdir].wall;
+				wall = m_maze[(m_move)*cols + otherdir].wall;
 				if (wall)
 					return true;
 				else
@@ -2731,314 +3238,1537 @@ bool Dungeon::wallCollision(std::vector<_Tile> &dungeon, int maxcols, char direc
 	}
 	return false;
 }
-void Dungeon::enemyOverlap(std::vector<_Tile> &dungeon, int maxrows, int maxcols, int x, int y) {
-	// if there wasn't any overlap, mark the tile as no enemy
-	if (!dungeon[y*maxcols + x].enemy_overlap) {
-		dungeon[y*maxcols + x].enemy = false;
-		if (dungeon[y*maxcols + x].upper == SMASHER)
-			dungeon[y*maxcols + x].upper = SPACE;
-		else
-			dungeon[y*maxcols + x].top = SPACE;
-		return;
-	}
-
-	// if there was more than one overlap, just decrease the overlap count
-	if (dungeon[y*maxcols + x].enemy_overlap && dungeon[y*maxcols + x].enemy_overlap_count > 1) {
-		dungeon[y*maxcols + x].enemy_overlap_count--;
-	}
-	// if there is only one overlap, remove overlap and reduce count, but do not
-	// reset the tile to empty space
-	else if (dungeon[y*maxcols + x].enemy_overlap && dungeon[y*maxcols + x].enemy_overlap_count == 1) {
-		dungeon[y*maxcols + x].enemy_overlap = false;
-		dungeon[y*maxcols + x].enemy_overlap_count--;
-	}
-}
-void Dungeon::unmarkTiles() {
-	for (int i = 0; i < 18; i++) {
-		for (int j = 0; j < 70; j++) {
-			m_maze[i*MAXCOLS + j].marked = false;
-		}
-	}
-}
 void Dungeon::showText() {
-	for (unsigned i = 0; i < dungeonText.size(); i++) {
-		cout << dungeonText.at(i);
-	}
 	dungeonText.clear();
 }
 
-// Level generation
-/*
-std::vector<char> Dungeon::topChunks(std::vector<std::vector<std::vector<char>>> &c, int maxcols) {
-	std::vector<std::vector<char>> one =
-								{ {'#', '#', '#', '#'},
-								  {'#', '#', '#', '#'},
-								  {' ', ' ', ' ', ' '},
-								  {'#', '#', '#', '#'} };
 
-	std::vector<std::vector<char>> two =
-								 { {'#', '#', '#', '#'},
-								 {'#', ' ', ' ', '#'},
-								 {' ', ' ', ' ', ' '},
-								 {' ', ' ', ' ', ' '} };
+// ===========================================
+//		   :::: TUTORIAL LEVEL ::::
+// ===========================================
+TutorialFloor::TutorialFloor(std::shared_ptr<Player> p) : Dungeon(-1, 26, 41) {
+	int rows = getRows();
+	int cols = getCols();
 
-	std::vector<std::vector<char>> three =
-						{ {' ', '#', '#', ' '},
-						  {' ', '#', '#', ' '},
-						  {' ', '#', '#', ' '},
-						  {' ', ' ', ' ', ' '} };
+	// Get the level layout
+	std::vector<char> v = generate();
 
-	std::vector<std::vector<char>> four = { {'#', ' ', ' ', ' '},
-								  {' ', ' ', ' ', ' '},
-								  {' ', '#', '#', ' '},
-								  {'#', ' ', ' ', '#'} };
+	// Begin mapping
+	for (int i = 0; i < rows; i++) {
+		for (int j = 0; j < cols; j++) {
+			switch (v.at(i*cols + j)) {
+			case c_PLAYER: {
+				m_maze[i*cols + j].hero = true;
+				player.push_back(p);
+				player.at(0)->setPosX(j);
+				player.at(0)->setPosY(i);
+				//player.at(0)->equipTrinket(*this, std::make_shared<VulcanRune>());
+				//player.at(0)->equipShield(*this, std::make_shared<WoodShield>());
+				player.at(0)->setVision(15);
 
-	std::vector<std::vector<char>> five = { {' ', ' ', ' ', ' '},
-								  {' ', ' ', '#', ' '},
-								  {' ', ' ', ' ', ' '},
-								  {' ', ' ', ' ', '#'} };
+				break;
+			}
+			case '#': {
+				m_maze[i*cols + j].wall_type = UNB_WALL;
+				m_maze[i*cols + j].wall = true;
+				m_maze[i*cols + j].boundary = true;
+				break;
+			}
+			case DOOR_V: {
+				m_maze[i*cols + j].wall_type = DOOR_VERTICAL;
+				m_maze[i*cols + j].wall = true;
 
-	std::vector<std::vector<char>> six = {  {' ', ' ', ' ', ' '},
-								  {' ', ' ', ' ', ' '},
-								  {' ', ' ', ' ', ' '},
-								  {' ', ' ', ' ', ' '} };
+				Door door;
+				door.setPosX(j);
+				door.setPosY(i);
+				m_doors.emplace_back(new Door(door));
+				break;
+			}
+			case STAIRS: {
+				std::shared_ptr<Traps> stairs = std::make_shared<Stairs>(j, i);
+				getTraps().emplace_back(stairs);
 
-	std::vector<std::vector<char>> seven = { {' ', ' ', '#', ' '},
-								   {'#', ' ', ' ', ' '},
-								   {' ', ' ', '#', ' '},
-								   {'#', ' ', '#', ' '} };
+				m_maze[i*cols + j].exit = true;
+				m_maze[i*cols + j].trap_name = STAIRCASE;
+				m_maze[i*cols + j].trap = true;
+				break;
+			}
+					// Water tile
+			case 'w': { 
+				std::shared_ptr<Traps> devils_water = std::make_shared<Traps>(j, i, DEVILS_WATER, "Water_Tile1_48x48.png", 0);
+				getTraps().emplace_back(devils_water);
+				devils_water.reset();
 
-	std::vector<std::vector<char>> eight = { {'#', '#', '#', '#'},
-								   {' ', ' ', ' ', '#'},
-								   {'#', ' ', ' ', ' '},
-								   {'#', '#', '#', '#'} };
+				m_maze[i*cols + j].trap_name = DEVILS_WATER;
+				m_maze[i*cols + j].trap = true;
+				break;
+			}
+					  // Dirt tile
+			case 'D': {
+				break;
+			}
+					// Breakable object
+			case 'B': { 
+				m_maze[i*cols + j].enemy = true;
 
-	std::vector<std::vector<char>> nine = { {' ', ' ', ' ', ' '},
-								  {' ', '#', '#', ' '},
-								  {' ', '#', '#', ' '},
-								  {' ', ' ', ' ', ' '} };
+				std::shared_ptr<Monster> object(nullptr);
+				switch (randInt(3)) {
+				case 0:
+					object = std::make_shared<WeakCrate>(j, i);
+					break;
+				case 1:
+					object = std::make_shared<WeakBarrel>(j, i);
+					break;
+				case 2:
+					object = std::make_shared<LargePot>(j, i);
+					break;
+				}
 
-	std::vector<std::vector<char>> ten = {  {'#', ' ', ' ', '#'},
-								  {'#', ' ', ' ', '#'},
-								  {'#', ' ', ' ', '#'},
-								  {'#', ' ', ' ', '#'} };
+				m_monsters.push_back(object);
 
-	std::vector<std::vector<char>> eleven = { {'#', '#', '#', '#'},
-								    {' ', ' ', ' ', ' '},
-								    {' ', ' ', ' ', ' '},
-								    {'#', '#', '#', '#'} };
+				break;
+			}
+					// Arrow Sign
+			case 'A': { 
+				m_maze[i*cols + j].enemy = true;
 
-	c.push_back(one);
-	c.push_back(two);
-	c.push_back(three);
-	c.push_back(four);
-	c.push_back(five);
-	c.push_back(six);
-	c.push_back(six);
-	c.push_back(seven);
-	c.push_back(eight);
-	c.push_back(nine);
-	c.push_back(ten);
-	c.push_back(eleven);
+				std::shared_ptr<Monster> object = std::make_shared<ArrowSign>(j, i);
+				m_monsters.push_back(object);
+
+				break;
+			}
+					// Regular Sign
+			case 'R': { 
+				m_maze[i*cols + j].enemy = true;
+
+				std::shared_ptr<Monster> object = std::make_shared<Sign>(j, i);
+				m_monsters.push_back(object);
+
+				break;
+			}
+					// Outside Man 1
+			case 'M': {
+				m_maze[i*cols + j].wall = true;
+
+				std::shared_ptr<NPC> npc = std::make_shared<OutsideMan1>(j, i);
+				m_npcs.push_back(npc);
+				m_maze[i*cols + j].npc = true;
+
+				break;
+			}
+					  // Outside Man 2
+			case 'Q': {
+				m_maze[i*cols + j].wall = true;
+
+				std::shared_ptr<NPC> npc = std::make_shared<OutsideMan2>(j, i);
+				m_npcs.push_back(npc);
+				m_maze[i*cols + j].npc = true;
+
+				break;
+			}
+					  // Outside Woman 1
+			case 'F': {
+				m_maze[i*cols + j].wall = true;
+
+				std::shared_ptr<NPC> npc = std::make_shared<Memorizer>(this, j, i);
+				m_npcs.push_back(npc);
+				m_maze[i*cols + j].npc = true;
+
+				break;
+			}
+			}
+			
+		}
+	}
+}
+
+std::vector<char> TutorialFloor::generate() {
+	char dv = DOOR_V;
+	char s = STAIRS;
+	char r = 'r'; // Rock
+	char k = 'k'; // 
+	char d = 'd'; //
+	// 'w' : Water
+	// 'B' : Breakable object
+	// 'D' : Dirt
+	// 'A' : Arrow Sign
+	// 'R' : Regular Sign
+	// 'M' : Outside Man 1
+	// 'Q' : Outside Man 2
+	// 'F' : Outside Woman 1
 	
-	c = mixChunks(c, maxcols);
 
-	return combineChunks(c);
+	std::vector<char> level = {
+		//       0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31   32   33   34   35   36   37   38   39   40
+		/*0*/   '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*1*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*2*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*3*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*4*/	'#', '#', '#', '#', 'w', 'w', 'w', 'w', 'D', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', ' ', ' ', '#', ' ', ' ', ' ', ' ', ' ', 'B', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*5*/	'#', '#', '#', '#', 'w', 'w', 'w', 'w', 'D', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', 'Q', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*6*/	'#', '#', '#', 'w', 'w', 'w', 'w', 'w', 'w', 'D', ' ', ' ', ' ', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*7*/	'#', '#', '#', 'w', 'w', 'w', 'w', 'w', 'w', 'D', ' ', ' ', ' ', ' ', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', '#', '#', '#', '#', '#', '#',
+		/*8*/	'#', '#', '#', 'D', 'w', 'w', 'w', 'D', 'D', ' ', ' ', '#', ' ', ' ', ' ', ' ', ' ', '#', '#', ' ', ' ', ' ', ' ', '#', 'B', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', '#', '#', '#', '#', '#', '#',
+		/*9*/	'#', '#', '#', ' ', 'D', 'D', 'D', ' ', ' ', ' ', ' ', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', 'B', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',  s , '#', '#', '#', '#', '#',
+		/*10*/	'#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', 'M', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#',
+		/*11*/	'#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'R', '#', 'B', 'B', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', '#', '#', '#', '#', '#', '#',
+		/*12*/	'#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'F', '#', '#', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#',
+		/*13*/	'#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', ' ', ' ', ' ', ' ', ' ', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#',
+		/*14*/	'#', '#', '#', '#', '#', '#', '#', ' ', ' ', '#', '#', '#', '#', '#', ' ', ' ', '#', ' ', '#', '#', ' ', ' ', ' ', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#',
+		/*15*/	'#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', ' ', ' ', '#', 'B', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', ' ', ' ', ' ', 'B', '#', '#', '#', '#', '#',
+		/*16*/	'#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'A', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', '#', 'B', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', '#', '#', '#', '#',
+		/*17*/	'#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', ' ', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', '#', ' ', 'B', 'B', '#', '#', '#', '#',
+		/*18*/	'#', '#', '#', '#', ' ', '@', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', ' ', '#', 'B', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', '#', '#', '#', '#', '#',
+		/*19*/	'#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', ' ', ' ', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', '#', '#', '#', '#', '#', '#', '#',
+		/*20*/	'#', '#', '#', '#', '#', ' ', ' ', ' ', '#', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*21*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*22*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*23*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*24*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*25*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#'
+	};
+
+	return level;
 }
-std::vector<char> Dungeon::middleChunks(std::vector<std::vector<std::vector<char>>> &c, int maxcols) {
-	std::vector<std::vector<char>> one = { {'#', '#', '#', '#'},
-								 {'#', ' ', ' ', ' '},
-								 {' ', ' ', ' ', '#'},
-								 {'#', ' ', ' ', '#'} };
-
-	std::vector<std::vector<char>> two = { {'#', ' ', ' ', '#'},
-								 {' ', ' ', ' ', '#'},
-								 {'#', ' ', ' ', ' '},
-								 {'#', '#', '#', '#'} };
-
-	std::vector<std::vector<char>> three = { {'#', ' ', '#', '#'},
-								   {' ', ' ', ' ', '#'},
-								   {' ', ' ', ' ', '#'},
-								   {'#', ' ', '#', '#'} };
-
-	std::vector<std::vector<char>> four = { {'#', ' ', ' ', ' '},
-								  {' ', ' ', ' ', ' '},
-								  {' ', ' ', '#', ' '},
-								  {' ', ' ', ' ', '#'} };
-
-	std::vector<std::vector<char>> five = { {'#', ' ', ' ', '#'},
-								  {' ', ' ', ' ', ' '},
-								  {' ', ' ', ' ', ' '},
-								  {'#', ' ', ' ', '#'} };
-
-	std::vector<std::vector<char>> six = { {' ', ' ', ' ', ' '},
-							     {' ', ' ', ' ', ' '},
-							     {' ', ' ', ' ', ' '},
-								 {' ', ' ', ' ', ' '} };
-
-	std::vector<std::vector<char>> seven = { {' ', ' ', '#', '#'},
-								   {' ', ' ', ' ', '#'},
-								   {'#', '#', ' ', ' '},
-								   {'#', '#', ' ', ' '} };
-
-	std::vector<std::vector<char>> eight = { {'#', ' ', '#', '#'},
-								  {'#', ' ', '#', '#'},
-								  {' ', ' ', ' ', ' '},
-								  {'#', ' ', '#', '#'} };
-
-	std::vector<std::vector<char>> nine = { {' ', ' ', ' ', ' '},
-								  {' ', '#', '#', ' '},
-								  {' ', '#', '#', ' '},
-								  {' ', ' ', ' ', ' '} };
-
-	std::vector<std::vector<char>> ten =  { {' ', ' ', '#', ' '},
-								  {'#', ' ', '#', ' '},
-								  {'#', ' ', '#', ' '},
-								  {'#', ' ', ' ', ' '} };
 
 
-	c.push_back(one);
-	c.push_back(two);
-	c.push_back(three);
-	c.push_back(four);
-	c.push_back(five);
-	c.push_back(six);
-	c.push_back(six);
-	//c.push_back(six);
-	c.push_back(seven);
-	c.push_back(eight);
-	c.push_back(nine);
-	c.push_back(ten);
-	//c.push_back();
+// ===========================================
+//			  :::: WORLD HUB ::::
+// ===========================================
+WorldHub::WorldHub(std::shared_ptr<Player> p) : Dungeon(0, 52, 41) {
+	int rows = getRows();
+	int cols = getCols();
 
-	c = mixChunks(c, maxcols);
+	// Get the level layout
+	std::vector<char> v = generate();
 
-	return combineChunks(c);
-}
-std::vector<char> Dungeon::bottomChunks(std::vector<std::vector<std::vector<char>>> &c, int maxcols) {
-	std::vector<std::vector<char>> one = { {' ', ' ', ' ', ' '},
-								 {' ', '#', '#', ' '},
-								 {' ', '#', ' ', ' '},
-								 {'#', '#', ' ', '#'} };
+	// Begin mapping
+	for (int i = 0; i < rows; i++) {
+		for (int j = 0; j < cols; j++) {
+			switch (v.at(i*cols + j)) {
+			case c_PLAYER: {
+				m_maze[i*cols + j].hero = true;
+				player.push_back(p);
+				player.at(0)->setPosX(j);
+				player.at(0)->setPosY(i);
+				//player.at(0)->setMoney(1000);
+				//player.at(0)->equipTrinket(*this, std::make_shared<VulcanRune>());
+				//player.at(0)->equipShield(*this, std::make_shared<WoodShield>());
+				break;
+			}
+			case '#': {
+				m_maze[i*cols + j].wall_type = UNB_WALL;
+				m_maze[i*cols + j].wall = true;
+				m_maze[i*cols + j].boundary = true;
+				break;
+			}
+			case DOOR_V: {
+				m_maze[i*cols + j].wall_type = DOOR_VERTICAL;
+				m_maze[i*cols + j].wall = true;
 
-	std::vector<std::vector<char>> two = { {' ', ' ', ' ', ' '},
-								 {'#', ' ', ' ', '#'},
-								 {'#', ' ', ' ', '#'},
-								 {'#', '#', '#', '#'} };
+				Door door;
+				door.setPosX(j);
+				door.setPosY(i);
+				m_doors.emplace_back(new Door(door));
+				break;
+			}
+			case STAIRS: {
+				std::shared_ptr<Traps> stairs = std::make_shared<Stairs>(j, i);
+				getTraps().emplace_back(stairs);
 
-	std::vector<std::vector<char>> three = { {'#', ' ', ' ', ' '},
-								   {'#', ' ', ' ', ' '},
-								   {'#', ' ', ' ', ' '},
-								   {'#', '#', '#', '#'} };
+				m_maze[i*cols + j].exit = true;
+				m_maze[i*cols + j].trap_name = STAIRCASE;
+				m_maze[i*cols + j].trap = true;
+				break;
+			}
+						 // Water tile
+			case 'w': {
+				std::shared_ptr<Traps> devils_water = std::make_shared<Traps>(j, i, DEVILS_WATER, "Water_Tile1_48x48.png", 0);
+				getTraps().emplace_back(devils_water);
+				devils_water.reset();
 
-	std::vector<std::vector<char>> four = { {'#', ' ', ' ', ' '},
-								  {' ', ' ', ' ', ' '},
-								  {' ', ' ', '#', ' '},
-								  {' ', ' ', ' ', '#'} };
+				m_maze[i*cols + j].trap_name = DEVILS_WATER;
+				m_maze[i*cols + j].trap = true;
+				break;
+			}
+					  // Dirt tile
+			case 'D': {
+				break;
+			}
+					  // Breakable object
+			case 'B': {
+				m_maze[i*cols + j].enemy = true;
 
-	std::vector<std::vector<char>> five = { {'#', ' ', ' ', '#'},
-								  {'#', ' ', ' ', '#'},
-								  {'#', ' ', '#', ' '},
-								  {'#', ' ', ' ', '#'} };
+				std::shared_ptr<Monster> object(nullptr);
+				switch (randInt(3)) {
+				case 0:
+					object = std::make_shared<WeakCrate>(j, i);
+					break;
+				case 1:
+					object = std::make_shared<WeakBarrel>(j, i);
+					break;
+				case 2:
+					object = std::make_shared<LargePot>(j, i);
+					break;
+				}
 
-	std::vector<std::vector<char>> six = {  {' ', ' ', ' ', ' '},
-								  {' ', ' ', ' ', ' '},
-								  {' ', ' ', ' ', ' '},
-								  {' ', ' ', ' ', ' '} };
+				m_monsters.push_back(object);
 
-	std::vector<std::vector<char>> seven = { {' ', ' ', ' ', ' '},
-								   {' ', ' ', ' ', ' '},
-								   {'#', ' ', ' ', ' '},
-								   {'#', '#', ' ', ' '} };
+				break;
+			}
+					  // Arrow Sign
+			case 'A': {
+				m_maze[i*cols + j].enemy = true;
 
-	std::vector<std::vector<char>> eight = { {' ', ' ', '#', '#'},
-								   {' ', ' ', '#', '#'},
-								   {' ', '#', '#', '#'},
-								   {' ', '#', '#', '#'} };
+				std::shared_ptr<Monster> object = std::make_shared<ArrowSign>(j, i);
+				m_monsters.push_back(object);
 
-	std::vector<std::vector<char>> nine = { {' ', ' ', ' ', ' '},
-								  {' ', '#', '#', ' '},
-								  {' ', '#', '#', ' '},
-								  {' ', ' ', ' ', ' '} };
+				break;
+			}
+					  // Regular Sign
+			case 'R': {
+				m_maze[i*cols + j].enemy = true;
 
-	std::vector<std::vector<char>> ten = { {' ', ' ', '#', ' '},
-								  {'#', ' ', '#', ' '},
-								  {'#', ' ', '#', ' '},
-								  {'#', ' ', ' ', ' '} };
+				std::shared_ptr<Monster> object = std::make_shared<Sign>(j, i);
+				m_monsters.push_back(object);
 
-	std::vector<std::vector<char>> eleven = { {' ', ' ', ' ', '#'},
-								    {' ', ' ', ' ', '#'},
-								    {' ', '#', ' ', '#'},
-								    {' ', '#', '#', '#'} };
+				break;
+			}
+					  // Exit to Main Menu
+			case 'E': {
+				m_maze[i*cols + j].menu = true;
 
-	std::vector<std::vector<char>> specialroom2 = { {'#', '#', '#', '#'},
-										  {'#', 'W', 'W', '#'},
-										  {'#', 'W', 'W', '#'},
-										  {'#', '#', '#', '#'} };
+				break;
+			}
+			}
 
-	c.push_back(one);
-	c.push_back(two);
-	c.push_back(three);
-	c.push_back(four);
-	c.push_back(five);
-	c.push_back(six);
-	c.push_back(six);
-	c.push_back(seven);
-	c.push_back(eight);
-	c.push_back(nine);
-	c.push_back(ten);
-	c.push_back(eleven);
-	//c.push_back(specialroom1);
-
-	c = mixChunks(c, maxcols);
-
-	return combineChunks(c);
-}
-std::vector<std::vector<std::vector<char>>> Dungeon::mixChunks(std::vector<std::vector<std::vector<char>>> c, int maxcols) {
-	std::vector<std::vector<std::vector<char>>> v;
-	std::vector<std::vector<char>> specialroom1 = { {'#', '#', '#', '#'},
-										  {'#', 'G', ' ', '#'},
-										  {'#', c_SILVER_CHEST, c_SILVER_CHEST, '#'},
-										  {'#', '#', '#', '#'} };
-	std::vector<std::vector<char>> specialroom2 = { {'#', '#', '#', '#'},
-										  {'#', 'W', 'W', '#'},
-										  {'#', 'W', 'W', '#'},
-										  {'#', '#', '#', '#'} };
-	int s;
-
-	for (int i = 0; i < (maxcols-2) / 4; i++)
-		v.push_back(c[randInt(c.size())]);
-
-	if (layer == specialChunkLayer1) {
-		s = randInt((maxcols - 2) / 4 - 1);
-		v.erase(v.begin() + s);
-		v.emplace(v.begin() + s, specialroom1);
+		}
 	}
-	if (layer == specialChunkLayer2) {
-		s = randInt((maxcols - 2) / 4 - 1);
-		v.erase(v.begin() + s);
-		v.emplace(v.begin() + s, specialroom2);
+}
+
+void WorldHub::specialActions() {
+	int rows = getRows();
+	int cols = getCols();
+
+	int x = getPlayer()->getPosX();
+	int y = getPlayer()->getPosY();
+
+	// If player stepped on the exit to menu tile, then exit to main menu
+	if (getDungeon()[y*cols + x].menu) {
+		auto scene = dynamic_cast<LevelScene*>(m_scene);
+		scene->returnToMainMenu();
+		m_return = true;
+	}
+}
+
+std::vector<char> WorldHub::generate() {
+	char dv = DOOR_V;
+	char S = STAIRS;
+	// 'w' : Water
+	// 'B' : Breakable object
+	// 'D' : Dirt
+	// 'A' : Arrow Sign
+	// 'R' : Regular Sign
+	// 'E' : Exit to Main Menu
+
+
+	std::vector<char> level = {
+		//       0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31   32   33   34   35   36   37   38   39   40
+		/*0*/   '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*1*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*2*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*3*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*4*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*5*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*6*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*7*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*8*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*9*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', '#', '#', '#', '#', '#', '#', ' ', '#',  S , '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*10*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*11*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*12*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*13*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', '#', '#', '#', '#', '#', '#', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*14*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*15*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*16*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*17*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*18*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*19*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*20*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*21*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*22*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*23*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*24*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*25*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*26*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*27*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', 'B', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*28*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*29*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*30*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', 'R', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*31*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*32*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*33*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*34*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*35*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*36*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*37*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*38*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*39*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*40*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*41*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*42*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', '@', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*43*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*44*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*45*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', ' ', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*46*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', 'E', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*47*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*48*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*49*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*50*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+		/*51*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#'
+		//       0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31   32   33   34   35   36   37   38   39   40
+	};
+
+	return level;
+}
+
+
+
+// ===========================================
+//				:::: SHOP ::::
+// ===========================================
+Shop::Shop(std::shared_ptr<Player> p, int level) : Dungeon(level, MAXROWS_SHOP1, MAXCOLS_SHOP1) {
+
+	int rows = getRows();
+	int cols = getCols();
+
+	_Tile *tile;
+
+	// initialize tiles
+	for (int i = 0; i < rows; i++) {
+		for (int j = 0; j < cols; j++) {
+			tile = new _Tile;
+			tile->upper = tile->top = tile->bottom = tile->projectile = tile->traptile = SPACE;
+			tile->npc = tile->hero = tile->wall = tile->item = tile->trap = tile->enemy = tile->exit = false;
+			tile->price = tile->gold = 0;
+			tile->marked = false;
+			tile->object = nullptr;
+			tile->item_name = tile->shop_action = "";
+
+			m_maze.push_back(*tile);
+			delete tile;
+		}
 	}
 
-	return v;
+	// Price adjustment multiplier
+	switch (level) {
+	case 2: m_priceMultiplier = 1.0f * (p->hasCheapShops()? 0.5f : 1.0f); break;
+	case 4: m_priceMultiplier = 2.2f * (p->hasCheapShops() ? 0.5f : 1.0f); break;
+	case 6: m_priceMultiplier = 3.6f * (p->hasCheapShops() ? 0.5f : 1.0f); break;
+	default: m_priceMultiplier = 1.0f * (p->hasCheapShops() ? 0.5f : 1.0f);
+	}
+	
+
+	// get the shop layout
+	std::vector<char> v = generate();
+
+	// begin mapping shop
+	for (int i = 0; i < rows; i++) {
+		for (int j = 0; j < cols; j++) {
+			switch (v.at(i*cols + j)) {
+			case c_PLAYER: {
+				m_maze[i*cols + j].hero = true;
+				
+				player.push_back(p);
+				player.at(0)->setPosX(j);
+				player.at(0)->setPosY(i);
+				//player.at(0)->setMoney(1000);
+				//player.at(0)->storeWeapon(*this, std::make_shared<BoneAxe>(0, 0));
+				//player.at(0)->equipTrinket(*this, std::make_shared<VulcanRune>());
+				//player.at(0)->equipShield(*this, std::make_shared<WoodShield>());
+				break;
+			}
+			case '#': {
+				m_maze[i*cols + j].wall_type = UNB_WALL;
+				m_maze[i*cols + j].wall = true;
+				m_maze[i*cols + j].boundary = true;
+				break;
+			}
+			case DOOR_V: {
+				m_maze[i*cols + j].wall_type = DOOR_VERTICAL;
+				m_maze[i*cols + j].wall = true;
+				
+				Door door;
+				door.setPosX(j);
+				door.setPosY(i);
+				m_doors.emplace_back(new Door(door));
+				break;
+			}
+			case STAIRS: {
+				std::shared_ptr<Traps> stairs = std::make_shared<Stairs>(j, i);
+				getTraps().emplace_back(stairs);
+
+				m_maze[i*cols + j].exit = true;
+				m_maze[i*cols + j].trap_name = STAIRCASE;
+				m_maze[i*cols + j].trap = true;
+				break;
+			}
+				// purchase spot
+			case 'p': {
+				m_maze[i*cols + j].shop_action = PURCHASE;
+				break;
+			}
+				// item price
+			case '$': {
+
+				break;
+			}
+				// shop counter
+			case 'c': {
+				m_maze[i*cols + j].shop_action = "countertop";
+				m_maze[i*cols + j].wall = true;
+				m_maze[i*cols + j].boundary = true;
+				break;
+			}
+				// shopkeeper
+			case 'k': {
+				//m_maze[i*cols + j].shop_action = "shopkeeper";
+				m_maze[i*cols + j].wall = true;
+
+				std::shared_ptr<NPC> shopkeeper = std::make_shared<Shopkeeper>(j, i + 1);
+				m_npcs.push_back(shopkeeper);
+				//m_maze[i*cols + j].npc = true;
+				m_maze[(i + 1)*cols + j].npc = true; // make the position below the shopkeep's current position the interactable tile, as the player cannot go beyond the countertop
+
+				break;
+			}
+				// breakable object
+			case 'd': {
+				m_maze[i*cols + j].enemy = true;
+
+				std::shared_ptr<Monster> object(nullptr);
+				switch (randInt(3)) {
+				case 0:
+					object = std::make_shared<WeakCrate>(j, i);
+					break;
+				case 1:
+					object = std::make_shared<WeakBarrel>(j, i);
+					break;
+				case 2:
+					object = std::make_shared<LargePot>(j, i);
+					break;
+				}
+				
+				m_monsters.push_back(object);
+
+				break;
+			}
+				// secret thing
+			case 'b': {
+				m_maze[i*cols + j].shop_action = "secret";
+				break;
+			}
+					  // 1, 2, 3 : hp, shield repair, utility
+			case '1': {
+				switch (randInt(5)) {
+				case 0: m_maze[i*cols + j].object = std::make_shared<LifePotion>(); m_maze[i*cols + j].price = 30 * m_priceMultiplier; break;
+				case 1: m_maze[i*cols + j].object = std::make_shared<BigLifePotion>(); m_maze[i*cols + j].price = 45 * m_priceMultiplier; break;
+				case 2: m_maze[i*cols + j].object = std::make_shared<SoulPotion>(); m_maze[i*cols + j].price = 37 * m_priceMultiplier; break;
+				case 3: m_maze[i*cols + j].object = std::make_shared<HalfLifePotion>(); m_maze[i*cols + j].price = 42 * m_priceMultiplier; break;
+				case 4: m_maze[i*cols + j].object = std::make_shared<SteadyLifePotion>(); m_maze[i*cols + j].price = 36 * m_priceMultiplier; break;
+				}
+				m_maze[i*cols + j].shop_action = "shop_item";
+				m_maze[i*cols + j].boundary = true;
+				m_maze[i*cols + j].wall = true;
+				m_maze[i*cols + j].item = true;
+				break;
+			}
+			case '2': {
+				switch (randInt(6)) {
+				case 0: m_maze[i*cols + j].object = std::make_shared<SmokeBomb>(); m_maze[i*cols + j].price = 20 * m_priceMultiplier; break;
+				case 1: m_maze[i*cols + j].object = std::make_shared<Bomb>();  m_maze[i*cols + j].price = 25 * m_priceMultiplier; break;
+				case 2: m_maze[i*cols + j].object = std::make_shared<StatPotion>(); m_maze[i*cols + j].price = 23 * m_priceMultiplier; break;
+				case 3: m_maze[i*cols + j].object = std::make_shared<Matches>(); m_maze[i*cols + j].price = 16 * m_priceMultiplier; break;
+				case 4: m_maze[i*cols + j].object = std::make_shared<BearTrap>(); m_maze[i*cols + j].price = 20 * m_priceMultiplier; break;
+				case 5: m_maze[i*cols + j].object = std::make_shared<Firecrackers>(); m_maze[i*cols + j].price = 20 * m_priceMultiplier; break;
+				}
+				m_maze[i*cols + j].boundary = true;
+				m_maze[i*cols + j].wall = true;
+				m_maze[i*cols + j].item = true;
+				m_maze[i*cols + j].shop_action = "shop_item";
+				break;
+			}
+			case '3': {
+				switch (randInt(7)) {
+				case 0: m_maze[i*cols + j].object = std::make_shared<LifePotion>(); m_maze[i*cols + j].item_name = LIFEPOT; m_maze[i*cols + j].price = 30 * m_priceMultiplier; break;
+				case 1: m_maze[i*cols + j].object = std::make_shared<BinaryLifePotion>(); m_maze[i*cols + j].price = 45 * m_priceMultiplier; break;
+				case 2: m_maze[i*cols + j].object = std::make_shared<RottenApple>(); m_maze[i*cols + j].price = 25 * m_priceMultiplier; break;
+				case 3: m_maze[i*cols + j].object = std::make_shared<Bomb>(); m_maze[i*cols + j].item_name = BOMB; m_maze[i*cols + j].price = 21 * m_priceMultiplier; break;
+				case 4: m_maze[i*cols + j].object = std::make_shared<PoisonCloud>(); m_maze[i*cols + j].price = 24 * m_priceMultiplier; break;
+				case 5: m_maze[i*cols + j].object = std::make_shared<RottenMeat>(); m_maze[i*cols + j].price = 20 * m_priceMultiplier; break;
+				case 6: m_maze[i*cols + j].object = std::make_shared<ArmorDrop>(); m_maze[i*cols + j].price = 55 * m_priceMultiplier; break;
+				}
+				m_maze[i*cols + j].boundary = true;
+				m_maze[i*cols + j].wall = true;
+				m_maze[i*cols + j].item = true;
+				m_maze[i*cols + j].shop_action = "shop_item";
+				break;
+			}
+					  // 4, 5 : random items
+			case '4': {
+				switch (randInt(9)) {
+				case 0: m_maze[i*cols + j].object = std::make_shared<BoStaff>(); m_maze[i*cols + j].price = (80 + randInt(6)) * m_priceMultiplier; break;
+				case 1: m_maze[i*cols + j].object = std::make_shared<Pike>(); m_maze[i*cols + j].price = (80 + randInt(5)) * m_priceMultiplier; break;
+				case 2: m_maze[i*cols + j].object = std::make_shared<Boomerang>(); m_maze[i*cols + j].price = (55 + randInt(5)) * m_priceMultiplier; break;
+				case 3: m_maze[i*cols + j].object = std::make_shared<Katana>(); m_maze[i*cols + j].price = (85 + randInt(4)) * m_priceMultiplier; break;
+				case 4: m_maze[i*cols + j].object = std::make_shared<Estoc>(); m_maze[i*cols + j].price = (120 + randInt(11)) * m_priceMultiplier; break;
+				case 5: m_maze[i*cols + j].object = std::make_shared<Hammer>(); m_maze[i*cols + j].price = 58 * m_priceMultiplier; break;
+				case 6: m_maze[i*cols + j].object = std::make_shared<Nunchuks>(); m_maze[i*cols + j].price = 65 * m_priceMultiplier; break;
+				case 7: m_maze[i*cols + j].object = std::make_shared<Zweihander>(); m_maze[i*cols + j].price = (70 + randInt(8)) * m_priceMultiplier; break;
+				case 8: m_maze[i*cols + j].object = std::make_shared<Jian>(); m_maze[i*cols + j].price = (70 + randInt(8)) * m_priceMultiplier; break;
+				}
+				m_maze[i*cols + j].boundary = true;
+				m_maze[i*cols + j].wall = true;
+				m_maze[i*cols + j].item = true;
+				m_maze[i*cols + j].item_name = m_maze[i*cols + j].object->getName();
+				m_maze[i*cols + j].shop_action = "shop_item";
+				break;
+			}
+			case '5': {
+				switch (randInt(11)) {
+				case 0: m_maze[i*cols + j].object = std::make_shared<BigLifePotion>(); m_maze[i*cols + j].price = (30) * m_priceMultiplier; break;
+				case 1: m_maze[i*cols + j].object = std::make_shared<FireBlastSpell>(); m_maze[i*cols + j].price = (39 + randInt(3)) * m_priceMultiplier; break;
+				case 2: m_maze[i*cols + j].object = std::make_shared<FireExplosionSpell>(); m_maze[i*cols + j].price = (40 + randInt(3)) * m_priceMultiplier; break;
+				case 3: m_maze[i*cols + j].object = std::make_shared<FireCascadeSpell>(); m_maze[i*cols + j].price = (45 + randInt(9)) * m_priceMultiplier; break;
+				case 4: m_maze[i*cols + j].object = std::make_shared<Claw>(); m_maze[i*cols + j].price = (85 + randInt(20)) * m_priceMultiplier; break;
+				case 5: m_maze[i*cols + j].object = std::make_shared<FreezeSpell>(); m_maze[i*cols + j].price = (38 + randInt(5)) * m_priceMultiplier; break;
+				case 6: m_maze[i*cols + j].object = std::make_shared<HailStormSpell>(); m_maze[i*cols + j].price = (48 + randInt(5)) * m_priceMultiplier; break;
+				case 7: m_maze[i*cols + j].object = std::make_shared<EtherealSpell>(); m_maze[i*cols + j].price = (50 + randInt(6)) * m_priceMultiplier; break;
+				case 8: m_maze[i*cols + j].object = std::make_shared<RockSummonSpell>(); m_maze[i*cols + j].price = (43 + randInt(8)) * m_priceMultiplier; break;
+				case 9: m_maze[i*cols + j].object = std::make_shared<ShockwaveSpell>(); m_maze[i*cols + j].price = (51 + randInt(7)) * m_priceMultiplier; break;
+				case 10: m_maze[i*cols + j].object = std::make_shared<WindBlastSpell>(); m_maze[i*cols + j].price = (32 + randInt(8)) * m_priceMultiplier; break;
+				}
+				m_maze[i*cols + j].boundary = true;
+				m_maze[i*cols + j].wall = true;
+				m_maze[i*cols + j].item = true;
+				m_maze[i*cols + j].item_name = m_maze[i*cols + j].object->getName();
+				m_maze[i*cols + j].shop_action = "shop_item";
+				break;
+			}
+					  // 6 : random chest
+			case '6': {
+				int n = 1 + randInt(100) + p->getLuck();
+				
+				// 50% chance
+				if (n <= 50) { m_maze[i*cols + j].object = std::make_shared<BrownChest>(j, i); m_maze[i*cols + j].price = 25 * m_priceMultiplier; }
+				// 10% chance
+				else if (n > 50 && n <= 60) { m_maze[i*cols + j].object = std::make_shared<LifeChest>(j, i); m_maze[i*cols + j].price = 50 * m_priceMultiplier; }
+				// 25% chance
+				else if (n > 60 && n <= 95) { m_maze[i*cols + j].object = std::make_shared<SilverChest>(j, i); m_maze[i*cols + j].price = 55 * m_priceMultiplier; }
+				// 5% chance
+				else if (n > 95) { m_maze[i*cols + j].object = std::make_shared<GoldenChest>(j, i); m_maze[i*cols + j].price = 120 * m_priceMultiplier; }
+
+				m_maze[i*cols + j].boundary = true;
+				m_maze[i*cols + j].wall = true;
+				m_maze[i*cols + j].item = true;
+				m_maze[i*cols + j].shop_action = "shop_item";
+				break;
+			}
+			}
+		}
+	}
 }
-*/
-std::vector<char> Dungeon::combineChunks(std::vector<std::vector<std::vector<char>>> c) {
-	std::vector<char> v;
-	for (int i = 0; i < 4; i++) {			// iterate thru rows of 2d vector
-		for (int j = 0; j < c.size(); j++) {	// iterate thru vector of 2d vectors
-			for (int k = 0; k < 4; k++) {			// iterate thru columns of 2d vector
-				v.push_back(c.at(j)[i][k]);
+Shop& Shop::operator=(Shop const &dungeon) {
+	m_maze = dungeon.m_maze;
+	player = dungeon.player;
+	m_level = dungeon.m_level;
+
+	m_npcs = dungeon.m_npcs;
+	m_monsters = dungeon.m_monsters;
+	//m_shopMonsters = dungeon.m_shopMonsters;
+	//m_shopActives = dungeon.m_shopActives;
+	m_doors = dungeon.m_doors;
+	m_traps = dungeon.m_traps;
+
+	return *this;
+}
+
+void Shop::specialActions() {
+
+	// Adds another light source in the shop
+
+	int rows = getRows();
+	int cols = getCols();
+
+	int cutoff = 2400;
+
+	int px = 13;
+	int py = 5;
+	int p_cutoff = 9;
+
+	int sx, sy, dist, color;
+	cocos2d::Color3B c3b;
+
+	// Extra sprites for decoration
+	for (unsigned int i = 0; i < misc_sprites.size(); i++) {
+		sx = (misc_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+		sy = rows - ((misc_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+		dist = abs(sx - px) + abs(sy - py);
+		float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+		if (dist <= p_cutoff) {
+			c3b = misc_sprites.at(i)->getDisplayedColor();
+			color = std::max((int)c3b.r, (int)(255 * formula));
+			misc_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+		}
+	}
+
+	// npc sprites
+	for (unsigned int i = 0; i < m_npcs.size(); i++) {
+		sx = m_npcs.at(i)->getPosX();
+		sy = m_npcs.at(i)->getPosY();
+
+		dist = abs(sx - px) + abs(sy - py);
+		float formula = (p_cutoff - dist) / (float)p_cutoff;	
+
+		if (dist <= p_cutoff) {
+			c3b = m_npcs.at(i)->getSprite()->getDisplayedColor();
+			color = std::max((int)c3b.r, (int)(255 * formula));
+			m_npcs.at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
+		}
+	}
+
+	// monster sprites
+	int mx, my;
+	for (unsigned int i = 0; i < m_monsters.size(); i++) {
+		mx = m_monsters.at(i)->getPosX();
+		my = m_monsters.at(i)->getPosY();
+		dist = abs(mx - px) + abs(my - py);
+
+		float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+		// if trap is lava or other light-emitting source, emit light from their position
+		if (m_monsters.at(i)->emitsLight()) {
+			lightEmitters.push_back(std::make_pair(m_monsters.at(i)->getPosX(), m_monsters.at(i)->getPosY()));
+
+			color = std::max(140, (int)(255 * formula));
+			m_monsters.at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
+
+			// if monster uses extra sprites, update their lighting too
+			if (m_monsters.at(i)->hasExtraSprites()) {
+				if (m_monsters.at(i)->getName() != ZAPPER)
+					m_monsters.at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));
+			}
+
+			continue;
+		}
+
+		if (dist <= p_cutoff) {
+			c3b = m_monsters.at(i)->getSprite()->getDisplayedColor();
+			color = std::max((int)c3b.r, (int)(255 * formula));
+			m_monsters.at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
+
+			// if monster uses extra sprites, update their lighting too
+			if (m_monsters.at(i)->hasExtraSprites()) {
+				m_monsters.at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));
+			}
+		}
+
+	}
+
+	// trap sprites
+	for (unsigned int i = 0; i < getTraps().size(); i++) {
+		sx = getTraps().at(i)->getPosX();
+		sy = getTraps().at(i)->getPosY();
+
+		dist = abs(sx - px) + abs(sy - py);
+		float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+		// if trap is lava or other light-emitting source, emit light from their position
+		if (getTraps().at(i)->emitsLight()) {
+			lightEmitters.push_back(std::make_pair(getTraps().at(i)->getPosX(), getTraps().at(i)->getPosY()));
+
+			getTraps().at(i)->getSprite()->setColor(cocos2d::Color3B(200, 200, 200));
+
+			// if monster uses extra sprites, update their lighting too
+			if (getTraps().at(i)->hasExtraSprites()) {
+				getTraps().at(i)->setSpriteColor(cocos2d::Color3B(200, 200, 200));
+			}
+			continue;
+		}
+
+		if (getTraps().at(i)->getName() == LAVA) {
+			int cutoff = p_cutoff + 6;
+			formula = (cutoff - dist) / (float)(cutoff);
+			if (dist >= cutoff) {
+				getTraps().at(i)->getSprite()->setColor(cocos2d::Color3B(19, 19, 19)); // color value calculated by taking (1/cutoff) * 255
+			}
+			else {
+				color = (255 * formula);
+				getTraps().at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}
+		else {
+			if (dist <= p_cutoff) {
+				c3b = getTraps().at(i)->getSprite()->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				getTraps().at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
+
+				// if trap uses extra sprites, update their lighting too
+				if (getTraps().at(i)->hasExtraSprites()) {
+					getTraps().at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));
+				}
 			}
 		}
 	}
 
-	return v;
+	// floor sprites
+	for (int i = px - std::max(10, p_cutoff); i < px + std::max(10, p_cutoff) + 1; i++) {
+		for (int j = py - std::max(10, p_cutoff); j < py + std::max(10, p_cutoff) + 1; j++) {
+			if (j > -1 && j < rows && i > -1 && i < cols) { // boundary check
+				sx = i;
+				sy = j;
+
+				dist = abs(sx - px) + abs(sy - py);
+				float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+				if (dist <= p_cutoff) {
+					c3b = getDungeon()[j*cols + i].floor->getDisplayedColor();
+					color = std::max((int)c3b.r, (int)(255 * formula));
+					getDungeon()[j*cols + i].floor->setColor(cocos2d::Color3B(color, color, color));
+				}
+				
+			}
+		}
+	}
+
+	// wall sprites
+	for (unsigned int i = 0; i < wall_sprites.size(); i++) {
+		sx = (wall_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+		sy = rows - ((wall_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+		dist = abs(sx - px) + abs(sy - py);
+		float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+		if (dist <= p_cutoff) {
+			c3b = wall_sprites.at(i)->getDisplayedColor();
+			color = std::max((int)c3b.r, (int)(255 * formula));
+			wall_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+		}
+	}
+
+	// door sprites
+	for (unsigned int i = 0; i < door_sprites.size(); i++) {
+		sx = (door_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+		sy = rows - ((door_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+		dist = abs(sx - px) + abs(sy - py);
+		float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+		if (dist <= p_cutoff) {
+			c3b = door_sprites.at(i)->getDisplayedColor();
+			color = std::max((int)c3b.r, (int)(255 * formula));
+			door_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+		}
+	}
+
+	// item sprites
+	for (unsigned int i = 0; i < item_sprites.size(); i++) {
+		sx = (item_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+		sy = rows - ((item_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+		dist = abs(sx - px) + abs(sy - py);
+		float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+		if (dist <= p_cutoff) {
+			c3b = item_sprites.at(i)->getDisplayedColor();
+			color = std::max((int)c3b.r, (int)(255 * formula));
+			item_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+		}
+	}
+
+	// money sprites
+	for (unsigned int i = 0; i < money_sprites.size(); i++) {
+		sx = (money_sprites.at(i)->getPosition().x + X_OFFSET) / SPACING_FACTOR;
+		sy = rows - ((money_sprites.at(i)->getPosition().y + Y_OFFSET) / SPACING_FACTOR);
+
+		dist = abs(sx - px) + abs(sy - py);
+		float formula = (p_cutoff - dist) / (float)p_cutoff;
+
+		if (dist <= p_cutoff) {
+			c3b = money_sprites.at(i)->getDisplayedColor();
+			color = std::max((int)c3b.r, (int)(255 * formula));
+			money_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+		}
+	}
+
+}
+
+void Shop::constructShopHUD(int x, int y) {
+	auto scene = dynamic_cast<ShopScene*>(m_scene);
+
+	// if there's a price already floating, remove before showing the new one
+	if (scene->getPriceLabel() != nullptr)
+		scene->deconstructShopHUD();
+
+	scene->showShopHUD(*this, x, y);
+}
+void Shop::deconstructShopHUD() {
+	auto scene = dynamic_cast<ShopScene*>(m_scene);
+	scene->deconstructShopHUD();
+}
+
+void Shop::purchaseItem(int x, int y) {
+	int cols = getCols();
+	int rows = getRows();
+	std::string item = getDungeon()[(y - 1)*cols + x].item_name;
+	std::shared_ptr<Objects> object = getDungeon()[(y - 1)*cols + x].object;
+	int playerGold = player.at(0)->getMoney();
+	int price = getDungeon()[(y - 1)*cols + x].price;
+
+	int items = player.at(0)->getItems().size();
+	int maxItems = player.at(0)->getMaxItemInvSize();
+
+	// if player has enough money, let them buy it
+	if (playerGold >= price && (!object->isItem() || (object->isItem() && items < maxItems))) {
+		// purchase sound
+		playSound("Purchase_Item1.mp3");
+
+		player.at(0)->setMoney(playerGold - price);
+		getDungeon()[y*cols + x].shop_action = ""; // removes purchase ability
+		collectItem(x, y - 1);
+
+		// remove HUD after purchasing
+		auto scene = dynamic_cast<ShopScene*>(m_scene);
+		scene->deconstructShopHUD();
+	}
+	// else play insufficient funds sound
+	else {
+		playSound("Insufficient_Funds.mp3");
+	}
+}
+void Shop::collectItem(int x, int y) {
+
+	// !!!! If coming from purchase item, y is equal to py-1 where py is the player's y position !!!!
+
+	// :::: If collectItem is called directly, then there is no y shift ::::
+
+	int maxrows = getRows();
+	int maxcols = getCols();
+
+	int current_item_inv_size = player.at(0)->getItems().size();
+	int max_item_inv_size = player.at(0)->getMaxItemInvSize();
+	int current_passives_size = player.at(0)->getPassives().size();
+	std::string image;
+
+	bool itemAdded = false;
+
+	char bottom = m_maze[y*maxcols + x].bottom;
+	char traptile = m_maze[y*maxcols + x].traptile;
+	bool exit = m_maze[y*maxcols + x].exit;
+	
+	std::string item_name = m_maze[y*maxcols + x].item_name;
+	std::string shop_action = m_maze[y*maxcols + x].shop_action;
+	std::shared_ptr<Objects> object = (shop_action == CHEST_PURCHASED ? m_maze[(y - 1)*maxcols + x].object : m_maze[y*maxcols + x].object);
+
+	// if it's the stairs, then advance level and return
+	if (exit) {
+		setLevel(getLevel() + 1);
+		return;
+	}
+
+	// if object is null, then do nothing and return
+	if (object == nullptr) {
+		playSound("Player_Movement.mp3");
+
+		return;
+	}
+
+	if (object->isAutoUse()) {
+		std::shared_ptr<Drops> drop = std::dynamic_pointer_cast<Drops>(object);
+		drop->useItem(*player.at(0));
+
+		playSound(drop->getSoundName());
+
+		drop.reset();
+
+		m_maze[y*maxcols + x].item_name = EMPTY;
+		m_maze[y*maxcols + x].object = nullptr;
+		m_maze[y*maxcols + x].item = false;
+
+		if (shop_action == CHEST_PURCHASED)
+			removeSprite(item_sprites, x, y - 1);
+		else
+			removeSprite(item_sprites, x, y);
+	}
+	else if (object->isItem()) {
+
+		// For Spellcaster
+		if (object->isSpell() && player.at(0)->getName() == SPELLCASTER) {
+			player.at(0)->equipActiveItem(*this, object, true);
+
+			m_maze[y*maxcols + x].item_name = EMPTY;
+			m_maze[y*maxcols + x].item = false;
+
+			if (shop_action == CHEST_PURCHASED) {
+				m_maze[(y - 1)*maxcols + x].object.reset();
+				m_maze[(y - 1)*maxcols + x].object = nullptr;
+				removeSprite(item_sprites, x, y - 1);
+			}
+			else {
+				m_maze[y*maxcols + x].object.reset();
+				m_maze[y*maxcols + x].object = nullptr;
+				removeSprite(item_sprites, x, y);
+			}
+
+			return;
+		}
+	
+		// For Spelunker
+		if (object->getName() == ROCKS && player.at(0)->getName() == SPELUNKER) {
+			playSound(object->getSoundName());
+
+			player.at(0)->equipActiveItem(*this, object);
+			m_maze[y*maxcols + x].object = nullptr;
+			m_maze[y*maxcols + x].item_name = EMPTY;
+			m_maze[y*maxcols + x].item = false;
+
+			removeSprite(item_sprites, x, y);
+
+			return;
+		}
+
+		std::shared_ptr<Drops> drop = std::dynamic_pointer_cast<Drops>(object);
+		player.at(0)->addItem(drop, itemAdded);
+		drop.reset();
+
+		if (itemAdded && shop_action == CHEST_PURCHASED)
+			removeSprite(item_sprites, x, y - 1);
+		
+		if (!itemAdded) {
+			playSound("Player_Movement.mp3");
+			return;
+		}
+	}
+	else if (object->isPassive()) {
+
+		if (shop_action == CHEST_PURCHASED)
+			removeSprite(item_sprites, x, y - 1);
+		else
+			removeSprite(item_sprites, x, y);
+
+		std::shared_ptr<Passive> passive = std::dynamic_pointer_cast<Passive>(object);
+		player.at(0)->equipPassive(*this, passive);
+		passive.reset();
+	}
+	else if (object->isWeapon()) {
+
+		if (shop_action == CHEST_PURCHASED)
+			removeSprite(item_sprites, x, y - 1);
+		else
+			removeSprite(item_sprites, x, y);
+
+		std::shared_ptr<Weapon> weapon = std::dynamic_pointer_cast<Weapon>(object);
+		player.at(0)->storeWeapon(*this, weapon, true);
+		playSound(weapon->getSoundName());
+		
+		weapon.reset();
+	}
+	else if (object->isChest()) {
+
+		std::shared_ptr<Chests> chest = std::dynamic_pointer_cast<Chests>(object);
+		chest->open(*this);
+		m_maze[(y + 1)*maxcols + x].shop_action = CHEST_PURCHASED;
+
+		chest.reset();	
+	}
+	else if (object->isShield()) {
+
+		if (player.at(0)->canUseShield()) {
+
+			if (shop_action == CHEST_PURCHASED)
+				removeSprite(item_sprites, x, y - 1);
+			else
+				removeSprite(item_sprites, x, y);
+
+			std::shared_ptr<Shield> shield = std::dynamic_pointer_cast<Shield>(object);
+			player.at(0)->equipActiveItem(*this, shield, true);
+			shield.reset();
+		}
+	}
+	else if (object->isTrinket()) {
+
+		if (shop_action == CHEST_PURCHASED)
+			removeSprite(item_sprites, x, y - 1);
+		else
+			removeSprite(item_sprites, x, y);
+
+		std::shared_ptr<Trinket> trinket = std::dynamic_pointer_cast<Trinket>(object);
+		player.at(0)->equipTrinket(*this, trinket, true);
+		trinket.reset();
+	}
+	
+	// if an item was added, remove the sprite that was taken and reset tile item status
+	if (itemAdded || current_passives_size < (int)player.at(0)->getPassives().size()) {
+
+		if (shop_action == CHEST_PURCHASED) {
+			m_maze[(y - 1)*maxcols + x].object.reset();
+			m_maze[(y - 1)*maxcols + x].object = nullptr;
+		}
+		else {
+			m_maze[y*maxcols + x].object.reset();
+			m_maze[y*maxcols + x].object = nullptr;
+		}
+
+		m_maze[y*maxcols + x].bottom = SPACE;
+		m_maze[y*maxcols + x].item_name = EMPTY;
+		m_maze[y*maxcols + x].item = false;
+		removeSprite(item_sprites, x, y);
+	}
+}
+
+std::vector<char> Shop::generate() {
+	char dv = DOOR_V;
+	char s = STAIRS;
+	char c = 'c'; // shop countertop, where items will sit
+	char k = 'k'; // shopkeeper
+	char d = 'd'; // random breakable object
+	// 1, 2, 3 : hp, shield repair, bombs
+	// 4, 5 : random items
+	// 6 : random chest
+	// 'p' : stand here to purchase
+	// '$' : insert price here
+
+	std::vector<char> shop = {
+	//    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17   18   19   20   21   22   23   24   25   26
+/*0*/   '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+/*1*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
+/*2*/	'#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#',
+/*3*/	'#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', ' ', ' ', ' ', '#', '#',
+/*4*/	'#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',  dv, ' ', ' ', 'b', ' ', '#', '#',
+/*5*/	'#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', ' ', ' ', ' ', '#', '#',
+/*6*/	'#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#',
+/*7*/	'#', '#', '#', '#', '#', '#', '#', ' ', '$', '$', '$', ' ',  k , '$', ' ', '$', ' ', '$', ' ', ' ', '#', '#', '#', '#', '#', '#', '#',
+/*8*/	'#', '#', '#', '#', '#', '#', '#',  c , '1', '2', '3',  c ,  c , '4',  c , '5',  c , '6',  c ,  c , '#', '#', '#', '#', '#', '#', '#',
+/*9*/	'#',  d ,  d , ' ', ' ',  d , '#', ' ', 'p', 'p', 'p', ' ', ' ', 'p', ' ', 'p', ' ', 'p', ' ', ' ', '#', ' ', ' ', ' ', ' ',  d , '#',
+/*10*/	'#', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', ' ', ' ', ' ', '#',
+/*11*/	'#', '@', ' ', ' ', ' ', ' ',  dv, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',  dv, ' ', ' ',   s, ' ', ' ', '#',
+/*12*/	'#', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', ' ', ' ',  d , '#',
+/*13*/	'#',  d , ' ', ' ',  d ,  d , '#',  d ,  d , ' ', ' ',  d , ' ', ' ',  d , ' ', ' ', ' ',  d ,  d , '#', ' ', ' ', ' ',  d ,  d , '#',
+/*14*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#'
+		};
+
+	return shop;
 }
 
 
-std::vector<std::string> Dungeon::topChunks(std::vector<std::vector<std::vector<std::string>>> &c) {
-	
+// ==============================================
+//				:::: 1ST FLOOR ::::
+// ==============================================
+FirstFloor::FirstFloor(std::shared_ptr<Player> p) : Dungeon(1, MAXROWS, MAXCOLS) {
+	int rows = getRows();
+	int cols = getCols();
+
+
+	// BEGIN LEVEL GENERATION
+	std::vector<std::string> finalvec = generateLevel();
+	fillLevel(finalvec, p);
+	/// END LEVEL GENERATION
+
+
+	bool wall, enemy, _trap, _item, hero, noSpawn;
+	int n, x, y;
+
+
+	// BEGIN NPC GENERATION
+	std::shared_ptr<NPC> npc(nullptr);
+	int spawnChance = 25 + (p->hasCharismaNPC() ? 25 : 0);
+
+	for (int i = 0; i < 2; i++) {
+
+		int roll = 1 + randInt(100);
+		if (roll < spawnChance) {
+
+			x = 1 + randInt(cols - 2);
+			y = 1 + randInt(rows - 2);
+
+			noSpawn = m_maze[y*cols + x].noSpawn;
+			wall = m_maze[y*cols + x].wall;
+			enemy = m_maze[y*cols + x].enemy;
+			hero = m_maze[y*cols + x].hero;
+			_item = m_maze[y*cols + x].item;
+			_trap = m_maze[y*cols + x].trap;
+
+			while (noSpawn || wall || enemy || hero || _item || _trap) {
+				x = 1 + randInt(cols - 2);
+				y = 1 + randInt(rows - 2);
+
+				noSpawn = m_maze[y*cols + x].noSpawn;
+				wall = m_maze[y*cols + x].wall;
+				enemy = m_maze[y*cols + x].enemy;
+				hero = m_maze[y*cols + x].hero;
+				_item = m_maze[y*cols + x].item;
+				_trap = m_maze[y*cols + x].trap;
+			}
+
+			// Type of NPC
+			switch (i) {
+			case 0:
+				npc = std::make_shared<CreatureLover>(x, y); break;
+			case 1:
+				npc = std::make_shared<Memorizer>(this, x, y); break;
+			}
+
+			m_npcs.emplace_back(npc);
+			m_maze[y*cols + x].npc = true;
+			m_maze[y*cols + x].wall = true; // so they can't be moved
+
+			spawnChance /= 2; // Halve the spawn chance every time an npc is spawned
+			npc.reset();
+		}	
+	}
+	/// END NPC GENERATION
+
+
+	// BEGIN MONSTER GENERATION
+	std::shared_ptr<Monster> monster(nullptr);
+
+	for (int i = 0; i < 17; i++) {
+
+		// number of each enemy to spawn
+		switch (i) {
+		case 0: n = 1 + randInt(3); break;	// Goblin
+		case 1: n = 8 + randInt(5); break;  // Wanderer
+		case 2: n = 5 + randInt(4); break;	// Rat
+		case 3: n = 5 + randInt(4); break;	// Zapper
+		case 4: n = 4 + randInt(4); break;	// Broundabout
+		case 5: n = 1; break;				// Bombee
+		case 6: n = 6 + randInt(5); break;	// Roundabout
+		case 7: n = 4 + randInt(3); break;	// Sleeping Wanderer
+		case 8: n = 8 + randInt(4); break;	// Seeker
+		case 9: n = 5 + randInt(3); break;	// Goo Sack
+		case 10: n = 2 + randInt(2); break;	// 
+		case 11: n = 3 + randInt(2); break;	// Provocable Wanderer
+		case 12: n = 3 + randInt(2); break;	// 
+		case 13: n = 3 + randInt(2); break;	// 
+		case 14: n = 3 + randInt(3); break;	// 
+		case 15: n = 3 + randInt(3); break;	// 
+		case 16: n = 3 + randInt(3); break;	// 
+		}
+
+		while (n > 0) {
+
+			x = 1 + randInt(cols - 2);
+			y = 1 + randInt(rows - 2);
+
+			noSpawn = m_maze[y*cols + x].noSpawn;
+			wall = m_maze[y*cols + x].wall;
+			enemy = m_maze[y*cols + x].enemy;
+			hero = m_maze[y*cols + x].hero;
+
+			while (noSpawn || wall || enemy || hero) { // while monster position clashes with wall, player, or idol, reroll its position
+				x = 1 + randInt(cols - 2);
+				y = 1 + randInt(rows - 2);
+
+				noSpawn = m_maze[y*cols + x].noSpawn;
+				wall = m_maze[y*cols + x].wall;
+				enemy = m_maze[y*cols + x].enemy;
+				hero = m_maze[y*cols + x].hero;
+			}
+
+			// the type of enemy
+			switch (i) {
+			case 0:
+				monster = std::make_shared<Goblin>(x, y, 10); break;
+			case 1:
+				monster = std::make_shared<Toad>(x, y); break;
+			case 2:
+				monster = std::make_shared<Puff>(x, y); break;
+			case 3:
+				monster = std::make_shared<Spider>(*this, x, y); break;
+			case 4:
+				monster = std::make_shared<Broundabout>(x, y); break;
+			case 5:
+				monster = std::make_shared<Bombee>(x, y); break;
+			case 6:
+				monster = std::make_shared<Roundabout>(x, y); break;
+			case 7:
+				monster = std::make_shared<SleepingWanderer>(x, y); break;
+			case 8:
+				monster = std::make_shared<Seeker>(x, y, 10); break;
+			case 9:
+				monster = std::make_shared<GooSack>(x, y); break;
+			case 10:
+				monster = std::make_shared<RabidWanderer>(x, y); break;
+			case 11:
+				monster = std::make_shared<ProvocableWanderer>(x, y); break;
+			case 12:
+				monster = std::make_shared<Rat>(x, y); break;
+			case 13:
+				monster = std::make_shared<InvertedPuff>(x, y); break;
+			case 14:
+				monster = std::make_shared<WeakCrate>(x, y); break;
+			case 15:
+				monster = std::make_shared<WeakBarrel>(x, y); break;
+			case 16:
+				monster = std::make_shared<LargePot>(x, y); break;
+			}
+
+			m_monsters.emplace_back(monster);
+
+			// If monster spans multiple tiles, add their segments
+			if (monster->isMultiSegmented())
+				monster->addSegments(*this);
+
+			m_maze[y*cols + x].monster_name = monster->getName();
+			m_maze[y*cols + x].enemy = true;
+
+			n--;
+			monster.reset();
+		}
+	}
+	/// END MONSTER GENERATION
+
+
+	//	TRAP GENERATION
+	std::string trap_type = "";
+	std::shared_ptr<Traps> trap(nullptr);
+
+	for (int i = 0; i < 8; i++) { // i < number_of_different_trap_types
+
+		// number of each trap to spawn
+		switch (i) {
+		case 0: n = 2 + randInt(5); break; // Pit
+		case 1: n = 0 + randInt(1); break; // Firebars
+		case 2: n = 10 + randInt(1); break; // Braziers
+		case 3: n = 15 + randInt(5); break; // Puddles
+		case 4: n = 5 + randInt(10); break; // Springs
+		case 5: n = 3 + randInt(3); break; // Turrets
+		case 6: n = 2 + randInt(3); break; // Moving Blocks
+		case 7: n = 10 + randInt(3); break; // 
+		case 8: n = 4 + randInt(4); break; // 
+		default: n = 0; break;
+		}
+
+		while (n > 0) {
+
+			x = 1 + randInt(cols - 2);
+			y = 1 + randInt(rows - 2);
+
+			noSpawn = m_maze[y*cols + x].noSpawn;
+			_trap = m_maze[y*cols + x].trap;
+			wall = m_maze[y*cols + x].wall;
+			enemy = m_maze[y*cols + x].enemy;
+			hero = m_maze[y*cols + x].hero;
+			_item = m_maze[y*cols + x].item;
+
+			// while item position clashes with wall, player, etc., then reroll its position
+			while (noSpawn || _trap || wall || enemy || hero || _item) {
+				x = 1 + randInt(cols - 2);
+				y = 1 + randInt(rows - 2);
+
+				noSpawn = m_maze[y*cols + x].noSpawn;
+				_trap = m_maze[y*cols + x].trap;
+				wall = m_maze[y*cols + x].wall;
+				enemy = m_maze[y*cols + x].enemy;
+				hero = m_maze[y*cols + x].hero;
+				_item = m_maze[y*cols + x].item;
+			}
+
+			// type of item to spawn
+			switch (i) {
+			case 0:
+				trap = std::make_shared<Pit>(x, y);
+				trap_type = PIT; break;
+			case 1:
+				trap = std::make_shared<Firebar>(x, y, rows);
+				trap_type = FIREBAR; break;
+			case 2:
+				trap = std::make_shared<Brazier>(x, y); break;
+			case 3:
+				trap = std::make_shared<Puddle>(x, y);
+				trap_type = PUDDLE; break;
+			case 4: {
+				char move;
+				switch (1 + randInt(8)) {
+				case 1: move = 'l'; break;	// L
+				case 2: move = 'r'; break;	// R
+				case 3: move = 'u'; break;	// U
+				case 4: move = 'd'; break;	// D
+				case 5: move = '1'; break;	// Q1
+				case 6: move = '2'; break;	// Q2
+				case 7: move = '3'; break;	// Q3
+				case 8: move = '4'; break;	// Q4
+				}
+				//									(int x, int y, bool trigger, char direction = random)
+				trap = std::make_shared<Spring>(x, y, false);
+				//											(int x, int y, bool trigger, bool known, bool cardinal)
+				//trap = std::make_shared<Spring>(1 + randInt(cols - 2), 1 + randInt(rows - 2), true, true, true);
+				trap_type = SPRING;
+
+				// Begin check for if any spring traps are pointing toward each other
+				std::shared_ptr<Spring> thisSpring = std::dynamic_pointer_cast<Spring>(trap);
+				thisSpring->oppositeSprings(*this);
+
+				break;
+			}
+			case 5:
+				char move;
+				switch (1 + randInt(4)) {
+				case 1: move = 'l'; break;	// L
+				case 2: move = 'r'; break;	// R
+				case 3: move = 'u'; break;	// U
+				case 4: move = 'd'; break;	// D
+				}
+				trap = std::make_shared<Turret>(x, y, move);
+				trap_type = TURRET; break;
+			case 6:
+				trap = std::make_shared<MovingBlock>(x, y, (randInt(2) == 0 ? 'h' : 'v'));
+				trap_type = MOVING_BLOCK; break;
+			case 7:
+				trap = std::make_shared<CrumbleFloor>(x, y, 4);
+				trap_type = CRUMBLE_FLOOR; break;
+			case 8:
+				
+				break;
+			}
+
+			m_traps.emplace_back(trap);
+
+			m_maze[y*cols + x].trap_name = trap->getName();
+			m_maze[y*cols + x].trap = true;
+
+			if (trap->actsAsWall()) {
+				m_maze[y*cols + x].wall = true;
+			}
+
+
+			n--;
+			trap.reset();
+		}
+	}
+	/// END TRAP GENERATION
+
+
+	//	ITEM GENERATION
+	std::string item_name = "";
+	std::shared_ptr<Objects> item(nullptr);
+
+	for (int i = 0; i < 19; i++) { // i < number_of_different_items
+
+		// number of each item to spawn
+		switch (i) {
+		case 0: n = 1; break; // Life Potion
+		case 1: n = 1; break; // Bomb
+		case 2: n = 2; break; // Brown Chest
+		case 3: n = 1; break; // Rusty Cutlass
+		case 4: n = 1; break; // Skeleton Key
+		case 5: n = 1; break; // Wood Shield
+		case 6: n = 2; break; // Freeze Spell
+		case 7: n = 1 + randInt(3); break; // Earthquake Spell
+		case 8: n = 2 + randInt(3); break; // 
+		case 9: n = 2 + randInt(3); break; // 
+		case 10: n = 2 + randInt(3); break; // 
+		case 11: n = 1 + randInt(1); break; // 
+		case 12: n = 1; break;
+		case 13: n = 1; break;
+		case 14: n = 1; break;
+		case 15: n = 1; break;
+		case 16: n = 1; break;
+		case 17: n = 1; break;
+		case 18: n = 1; break;
+		case 19: n = 1; break;
+		case 20: n = 1; break;
+		case 21: n = 1; break;
+		default: n = 0; break;
+		}
+
+		while (n > 0) {
+
+			x = 1 + randInt(cols - 2);
+			y = 1 + randInt(rows - 2);
+
+			noSpawn = m_maze[y*cols + x].noSpawn;
+			_item = m_maze[y*cols + x].item;
+			wall = m_maze[y*cols + x].wall;
+			_trap = m_maze[y*cols + x].trap;
+			hero = m_maze[y*cols + x].hero;
+
+			// while item position clashes with wall, player, etc., then reroll its position
+			while (noSpawn || _item || wall || _trap || hero) {
+				x = 1 + randInt(cols - 2);
+				y = 1 + randInt(rows - 2);
+
+				noSpawn = m_maze[y*cols + x].noSpawn;
+				_item = m_maze[y*cols + x].item;
+				wall = m_maze[y*cols + x].wall;
+				_trap = m_maze[y*cols + x].trap;
+				hero = m_maze[y*cols + x].hero;
+			}
+
+			// Type of item to spawn
+			switch (i) {
+			case 0:
+				item = std::make_shared<LifePotion>(x, y); break;
+			case 1:
+				item = std::make_shared<Bomb>(x, y); break;
+			case 2:
+				item = std::make_shared<Firecrackers>(x, y); break;
+			case 3:
+				item = std::make_shared<RockSummonSpell>(x, y); break;
+			case 4:
+				item = std::make_shared<IceShardSpell>(x, y); break;
+			case 5:
+				item = std::make_shared<WoodShield>(x, y); break;
+			case 6:
+				item = std::make_shared<FreezeSpell>(x, y); break;
+			case 7:
+				item = std::make_shared<EarthquakeSpell>(x, y); break;
+			case 8:
+				item = std::make_shared<FireBlastSpell>(x, y); break;
+			case 9:
+				item = std::make_shared<WindSpell>(x, y); break;
+			case 10:
+				item = std::make_shared<InvisibilitySpell>(x, y); break;
+			case 11:
+				item = std::make_shared<SteadyLifePotion>(x, y); break;
+			case 12:
+				item = std::make_shared<HailStormSpell>(x, y); break;
+			case 13:
+				item = std::make_shared<LuckUp>(x, y); break;
+			case 14:
+				item = std::make_shared<EtherealSpell>(x, y); break;
+			case 15:
+				item = std::make_shared<ShockwaveSpell>(x, y); break;
+			case 16:
+				item = std::make_shared<Matches>(x, y); break;
+			case 17:
+				item = std::make_shared<WindBlastSpell>(x, y); break;
+			case 18:
+				item = std::make_shared<BearTrap>(x, y); break;
+			case 19:
+				item = std::make_shared<InvisibilitySpell>(x, y); break;
+			case 20:
+				item = std::make_shared<InvisibilitySpell>(x, y); break;
+			}
+
+			if (item->isChest())
+				m_maze[y*cols + x].wall = true;
+
+			m_maze[y*cols + x].object = item;
+			m_maze[y*cols + x].item_name = item->getName();
+			m_maze[y*cols + x].item = true;
+			n--;
+			item.reset();
+		}
+	}
+	/// END ITEM GENERATION
+}
+
+// Level generation
+std::vector<std::string> FirstFloor::topChunks(std::vector<std::vector<std::vector<std::string>>> &c) {
+
 	std::vector<std::vector<std::string>> one =
 	{ {wll, wll, wll, wll, wll, wll},
 	  {wll, wll,  i_bc,  sp, wll, wll},
@@ -3063,7 +4793,7 @@ std::vector<std::string> Dungeon::topChunks(std::vector<std::vector<std::vector<
 	  {  sp, wll, wll,   sp, t_df,   sp},
 	  {  sp,   sp,   sp,   sp, wll,   sp} };
 
-	std::vector<std::vector<std::string>> four = 
+	std::vector<std::vector<std::string>> four =
 	{ {  sp,   sp, wll, wll,   sp,   sp},
 	  {  sp,  t_s,   sp,   sp,  t_s,   sp},
 	  {wll,   sp,  m_k,   sp,   sp, wll},
@@ -3071,7 +4801,7 @@ std::vector<std::string> Dungeon::topChunks(std::vector<std::vector<std::vector<
 	  {  sp,  t_s,   sp,   sp,  t_s,   sp},
 	  {  sp,   sp, wll, wll,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> five = 
+	std::vector<std::vector<std::string>> five =
 	{ {wll, i_ri, wll, wll, t_td,   sp},
 	  {t_tr,   sp,   sp,   sp,   sp,   sp},
 	  {wll,  PIT, wll,   sp,   sp, wll},
@@ -3079,7 +4809,7 @@ std::vector<std::string> Dungeon::topChunks(std::vector<std::vector<std::vector<
 	  {  sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp, wll, wll,   sp,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> six = 
+	std::vector<std::vector<std::string>> six =
 	{ {  sp,   sp,  t_s,   sp,   sp, wll},
 	  {  sp,   sp, wll,   sp,   sp,  t_s},
 	  {  sp,   sp,  t_s,   sp,   sp, wll},
@@ -3087,7 +4817,7 @@ std::vector<std::string> Dungeon::topChunks(std::vector<std::vector<std::vector<
 	  {  sp,   sp,  t_s,   sp,   sp, wll},
 	  {  sp,   sp, wll,   sp,   sp,  t_s} };
 
-	std::vector<std::vector<std::string>> seven = 
+	std::vector<std::vector<std::string>> seven =
 	{ {wll, wll, PIT, wll,  i_gd, wll},
 	  {t_df, wll,   sp, wll,   sp, wll},
 	  {wll, wll,   sp,   sp,   sp, wll},
@@ -3095,7 +4825,7 @@ std::vector<std::string> Dungeon::topChunks(std::vector<std::vector<std::vector<
 	  {wll,   sp,   sp,   sp,   sp, wll},
 	  {wll,   sp,   sp,   sp,   sp, wll} };
 
-	std::vector<std::vector<std::string>> eight = 
+	std::vector<std::vector<std::string>> eight =
 	{ {t_td,   sp,   sp,   sp,   sp, t_td},
 	  {  sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp},
@@ -3103,7 +4833,7 @@ std::vector<std::string> Dungeon::topChunks(std::vector<std::vector<std::vector<
 	  {  sp, t_tl, wll, wll, t_tr,   sp},
 	  {  sp, wll, wll, wll, wll,   sp} };
 
-	std::vector<std::vector<std::string>> nine = 
+	std::vector<std::vector<std::string>> nine =
 	{ {  sp,   sp,  t_f, wll,   sp,   sp},
 	  {  sp, wll,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp, wll, t_mb},
@@ -3111,7 +4841,7 @@ std::vector<std::string> Dungeon::topChunks(std::vector<std::vector<std::vector<
 	  {  sp,   sp, wll,  t_f,   sp,   sp},
 	  {wll,   sp,   sp,   sp,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> ten = 
+	std::vector<std::vector<std::string>> ten =
 	{ {wll, wll,   sp, wll, wll,   sp},
 	  {  sp, wll, wll,   sp, wll, wll},
 	  {  sp, wll, i_gd, wll,   sp, wll},
@@ -3119,13 +4849,133 @@ std::vector<std::string> Dungeon::topChunks(std::vector<std::vector<std::vector<
 	  {  sp,   sp, wll,   sp,   sp, wll},
 	  {  sp,   sp,   sp,   sp,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> eleven = 
+	std::vector<std::vector<std::string>> eleven =
 	{ {  sp,   sp, r_wl, r_wl,   sp,   sp},
 	  {wll,   sp, i_gd, r_wl,   sp, r_wl},
 	  {  sp,   sp, wll,   sp,  t_s,   sp},
 	  {  sp, wll,   sp, wll,   sp,   sp},
 	  {  sp,   sp,   sp, wll,   sp, r_wl},
 	  {wll,   sp, wll, wll,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xii =
+	{ {  sp,   sp,  wll,  wll,   sp,   sp},
+	  {  sp,  wll,   sp,   sp,  wll,   sp},
+	  { wll,  t_p,   sp,   sp,   sp,  wll},
+	  { wll,   sp,   sp,   sp,   sp,  wll},
+	  {  sp,   sp,   sp, t_ts,  wll,   sp},
+	  {  sp,   sp,  wll,  wll,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xiii =
+	{ { t_sk, t_sk, i_rc, i_gd, t_sk, t_sk},
+	  { t_sk, t_sk, t_cf, t_cf, t_sk, t_sk},
+	  {   sp, t_sk, t_sk, t_sk, t_sk,   sp},
+	  {   sp,   sp, t_sk, t_sk,   sp,   sp},
+	  {   sp,   sp,   sp,   sp,   sp,   sp},
+	  {t_str,   sp,   sp,   sp,   sp,t_stl} };
+
+	std::vector<std::vector<std::string>> xiv =
+	{ {  wll,   sp,   sp,   sp,t_sbr,  wll},
+	  {t_str,  wll,   sp,   sp,  wll,   sp},
+	  {   sp,   sp,  wll,  wll,   sp,   sp},
+	  {   sp,  t_s,  wll,  wll,   sp,  t_s},
+	  {   sp,  wll,   sp,t_str,  wll,   sp},
+	  {  wll,   sp,   sp,   sp,   sp,  wll} };
+
+	std::vector<std::vector<std::string>> xv =
+	{ { wll, i_gd,   sp,  wll, t_td,  wll},
+	  { wll,  wll,   sp,  wll,   sp,  wll},
+	  { wll,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,t_mbh,   sp,  t_p,   sp},
+	  {  sp,   sp, t_tu,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xvi =
+	{ {   sp,   sp, t_sk,   sp,   sp,  wll},
+	  {   sp,   sp,t_mbv,   sp,   sp,t_mbv},
+	  {   sp,   sp,   sp, i_ri,t_mbh,   sp},
+	  {   sp,   sp, t_cf, m_gs,   sp,   sp},
+	  {t_mbh, t_pt,   sp,   sp, t_ts,   sp},
+	  {   sp,t_mbv,   sp,  wll,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xvii =
+	{ { wll,   sp,  m_rm, i_rw, m_gs,  wll},
+	  { _dv, m_rm,  m_rm, m_rm,  sp,  wll},
+	  { wll, t_ts,   sp,   sp, i_gd,  wll},
+	  { wll,   sp, m_br,   sp,  t_s,  wll},
+	  { wll,  wll,  wll,  _dh,  wll,  wll},
+	  {  sp,   sp,   sp,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xviii =
+	{ {  sp,  wll,  wll, i_ri,  wll,  wll},
+	  { wll,   sp,  wll,  wll, r_wl,  wll},
+	  {  sp,  wll,  wll,  wll,  wll,  wll},
+	  {  sp,   sp,   sp,   sp,   sp,  wll},
+	  {  sp,   sp,  wll,   sp, r_wl,  wll},
+	  {  sp,  wll,   sp,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xix =
+	{ { unb,  _x_,  unb, i_gc,  t_f,  unb},
+	  { _dv, t_as,  unb,  _x_,   sp,  unb},
+	  { unb,  _dh,  unb,  _x_,   sp,  unb},
+	  { unb,t_mbh,  _x_,  _x_,  wll,  unb},
+	  { unb,  _x_, t_su,  _x_,  unb,  unb},
+	  { unb,  unb,  unb,  unb,  wll,  wll} };
+
+	std::vector<std::vector<std::string>> xx =
+	{ {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  { wll, t_tr,   sp,   sp, t_cf,  wll},
+	  { wll, t_tr,   sp,   sp, t_cf,  wll},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xxi =
+	{ {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xxii =
+	{ {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xxiii =
+	{ {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xxiv =
+	{ {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xxv =
+	{ {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xxvi =
+	{ {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp} };
 
 	c.push_back(one);
 	c.push_back(two);
@@ -3139,12 +4989,27 @@ std::vector<std::string> Dungeon::topChunks(std::vector<std::vector<std::vector<
 	c.push_back(nine);
 	c.push_back(ten);
 	c.push_back(eleven);
+	c.push_back(xii);
+	c.push_back(xiii);
+	c.push_back(xiv);
+	c.push_back(xv);
+	c.push_back(xvi);
+	c.push_back(xvii);
+	c.push_back(xviii);
+	c.push_back(xix);
+	/*c.push_back(xx);
+	c.push_back(xxi);
+	c.push_back(xxii);
+	c.push_back(xxiii);
+	c.push_back(xxiv);
+	c.push_back(xxv);
+	c.push_back(xxvi);*/
 
 	c = mixChunks(c);
 
 	return combineChunks(c);
 }
-std::vector<std::string> Dungeon::middleChunks(std::vector<std::vector<std::vector<std::string>>> &c) {
+std::vector<std::string> FirstFloor::middleChunks(std::vector<std::vector<std::vector<std::string>>> &c) {
 
 	std::vector<std::vector<std::string>> i =
 	{ {  sp,   sp,   sp,   sp, r_wl,   sp},
@@ -3314,13 +5179,94 @@ std::vector<std::string> Dungeon::middleChunks(std::vector<std::vector<std::vect
 	  {  sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,  wll,   sp,   sp, r_wl,   sp} };
 
-	std::vector<std::vector<std::string>> xxii = // check for infinitely looping springs
+	std::vector<std::vector<std::string>> xxii =
+	{ {  sp,   sp,  wll,  wll,   sp,   sp},
+	  {  sp,  wll,   sp,   sp,  wll,   sp},
+	  { wll,  _x_,  _x_, m_gs,  wll,   sp},
+	  { wll,  _x_,  wll, i_gd,  wll,   sp},
+	  { wll,  _x_,  _x_,  wll,   sp,   sp},
+	  {  sp,  wll,   sp,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xxiii =
 	{ {  sp,   sp,   sp,   sp,   sp,   sp},
-	  {  sp,   sp,  t_s,   sp,  t_s,   sp},
+	  {r_wl,   sp,t_sbr,  _x_,t_sbl,   sp},
+	  {  sp,   sp,  _x_, t_pt,  _x_,   sp},
+	  {  sp,   sp,t_str,  _x_,t_stl,   sp},
+	  {r_wl,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp, r_wl,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xxiv =
+	{ {  sp,   sp,  wll,   sp,   sp,   sp},
+	  {  sp,  wll, t_sk,  wll,  wll,  wll},
+	  {  sp,  wll, t_ts, t_ts, i_ri,  wll},
+	  {  sp,  _x_, t_ts,  wll,  wll,   sp},
+	  {  sp,  wll,  _x_,  wll,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,  wll,   sp} };
+
+	std::vector<std::vector<std::string>> xxv =
+	{ {  sp,   sp,   sp, t_td,   sp,   sp},
+	  {  sp,  t_s,   sp,  t_p,   sp,   sp},
+	  {  sp,   sp,   sp, t_ts,   sp,   sp},
+	  {  sp,  wll, t_sk, i_ri, t_sk,  wll},
+	  {  sp,   sp,   sp, t_sk,   sp,   sp},
+	  {  sp,  t_s,   sp,  wll,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xxvi =
+	{ {r_wl,  wll,   sp,   sp,  wll,   sp},
+	  { wll,  wll,   sp,   sp,  wll,   sp},
+	  {  sp,   sp,  t_p,   sp,   sp,   sp},
+	  {  sp,   sp,t_mbv,   sp,  t_s,   sp},
+	  {  sp,   sp, t_pt,   sp,  wll,   sp},
+	  { wll,   sp,   sp,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xxvii =
+	{ {  sp,   sp,  wll,   sp,   sp,   sp},
+	  {  sp,  wll,   sp,   sp,  wll,   sp},
+	  {  sp,  wll,   sp,   sp,   sp,   sp},
+	  { wll,   sp,   sp,  wll,   sp,   sp},
+	  {  sp,   sp, t_tl,  wll,   sp,   sp},
+	  {  sp,   sp,  wll,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> xxviii =
+	{ {t_tr,   sp,   sp,   sp,   sp, t_td},
+	  {  sp,  t_s,   sp,   sp,  t_s,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,  t_s,   sp,   sp,  t_s,   sp},
+	  {t_tu,   sp,   sp,   sp,   sp, t_tl} };
+
+	std::vector<std::vector<std::string>> xxix =
+	{ {t_td,  t_p,   sp,   sp,  t_p, t_tl},
+	  {  sp,   sp,   sp, t_sk,   sp,   sp},
+	  {  sp,   sp, t_pt,   sp,   sp,  t_s},
+	  { t_p,   sp,   sp, t_sk,   sp,   sp},
+	  {  sp, t_sk,   sp,   sp, t_ts,  t_p},
+	  {t_tr,   sp,  t_p,   sp,   sp, t_tu} };
+
+	std::vector<std::vector<std::string>> xxx =
+	{ {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,  wll,  wll,  wll,  t_s,   sp},
+	  { wll, t_ts,  wll,  wll,  wll,   sp},
+	  { wll,  wll, i_bc,  wll,  wll,   sp},
+	  { wll, t_ts,  wll, t_ts, t_ts,   sp},
+	  {  sp,  wll,  wll, t_ts,   sp, t_tu} };
+
+	/*std::vector<std::vector<std::string>> xxxi =
+	{ {  sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,  t_s,  t_s,  t_s,  t_s,   sp},
-	  {  sp,  t_s,  t_s,  t_s,  t_s,   sp},
-	  {  sp,   sp,  t_s,   sp,   sp,   sp},
-	  {  sp,  wll,   sp,   sp, r_wl,   sp} };
+	  {  sp,  t_s,  t_s,  t_s,   sp,   sp},
+	  {  sp,  t_s,  t_s,   sp,  t_s,   sp},
+	  {  sp,   sp,  t_s,  t_s,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp} };*/
+
+	std::vector<std::vector<std::string>> xxxi =
+	{ {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp} };
+
 
 	c.push_back(i);
 	c.push_back(ii);
@@ -3343,14 +5289,23 @@ std::vector<std::string> Dungeon::middleChunks(std::vector<std::vector<std::vect
 	c.push_back(xix);
 	c.push_back(xx);
 	c.push_back(xxi);
-	//c.push_back(xxii);
+	c.push_back(xxii);
+	c.push_back(xxiii);
+	c.push_back(xxiv);
+	c.push_back(xxv);
+	c.push_back(xxvi);
+	c.push_back(xxvii);
+	c.push_back(xxviii);
+	c.push_back(xxix);
+	c.push_back(xxx);
+	c.push_back(xxxi);
 
 	c = mixChunks(c);
 
 	return combineChunks(c);
 }
-std::vector<std::string> Dungeon::bottomChunks(std::vector<std::vector<std::vector<std::string>>> &c) {
-	
+std::vector<std::string> FirstFloor::bottomChunks(std::vector<std::vector<std::vector<std::string>>> &c) {
+
 	std::vector<std::vector<std::string>> i =
 	{ {  sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp},
@@ -3545,7 +5500,7 @@ std::vector<std::string> Dungeon::bottomChunks(std::vector<std::vector<std::vect
 
 	return combineChunks(c);
 }
-std::vector<std::vector<std::vector<std::string>>> Dungeon::mixChunks(std::vector<std::vector<std::vector<std::string>>> c) {
+std::vector<std::vector<std::vector<std::string>>> FirstFloor::mixChunks(std::vector<std::vector<std::vector<std::string>>> c) {
 	int cols = getCols();
 
 	std::string x = SPAWN_DISALLOWED;
@@ -3587,7 +5542,7 @@ std::vector<std::vector<std::vector<std::string>>> Dungeon::mixChunks(std::vecto
 	  {  sp, wll, wll, wll, wll,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp} };
 
-	int s;
+
 
 	for (int i = 0; i < (cols - 2) / 6 /*number_of_columns - 2 / length_of_each_chunk*/; i++) {
 		if ((layer - 1) * 6 + i == playerChunk)
@@ -3619,10 +5574,10 @@ std::vector<std::vector<std::vector<std::string>>> Dungeon::mixChunks(std::vecto
 
 	return v;
 }
-std::vector<std::string> Dungeon::combineChunks(std::vector<std::vector<std::vector<std::string>>> c) {
+std::vector<std::string> FirstFloor::combineChunks(std::vector<std::vector<std::vector<std::string>>> c) {
 	std::vector<std::string> v;
 	for (int i = 0; i < 6; i++) {			// iterate thru rows of 2d vector
-		for (int j = 0; j < c.size(); j++) {	// iterate thru vector of 2d vectors
+		for (unsigned int j = 0; j < c.size(); j++) {	// iterate thru vector of 2d vectors
 			for (int k = 0; k < 6; k++) {			// iterate thru columns of 2d vector
 				v.push_back(c.at(j)[i][k]);
 			}
@@ -3632,7 +5587,7 @@ std::vector<std::string> Dungeon::combineChunks(std::vector<std::vector<std::vec
 	return v;
 }
 
-std::vector<std::string> Dungeon::generateLevel() {
+std::vector<std::string> FirstFloor::generateLevel() {
 	int rows = getRows();
 	int cols = getCols();
 
@@ -3688,7 +5643,7 @@ std::vector<std::string> Dungeon::generateLevel() {
 			layer++;
 		}
 
-		for (int i = 0; i < v.size(); i++)
+		for (unsigned int i = 0; i < v.size(); i++)
 			finalvec.push_back(v.at(i));
 
 		b.clear();
@@ -3697,1185 +5652,14 @@ std::vector<std::string> Dungeon::generateLevel() {
 
 	return finalvec;
 }
-void Dungeon::fillLevel(std::vector<std::string> finalvec, Player p, int start, int end) {
-	int rows = getRows();
-	int cols = getCols();
-
-	int count = 0;
-	char object;
-	std::shared_ptr<Monster> monster(nullptr);
-
-	for (int i = start; i < rows - 1; i++) {
-		for (int j = 1; j < cols + end; j++) {
-
-			if (finalvec.at(count) == RANDOM_WALL) {
-				// 50% chance to spawn wall
-				if (randInt(2) == 0) {
-					getDungeon()[i*cols + j].top = WALL;
-					getDungeon()[i*cols + j].wall = true;
-				}
-			}
-			else if (finalvec.at(count) == REG_WALL) {
-				getDungeon()[i*cols + j].top = WALL;
-				getDungeon()[i*cols + j].wall = true;
-			}
-			else if (finalvec.at(count) == UNB_WALL) {
-				getDungeon()[i*cols + j].top = UNBREAKABLE_WALL;
-				getDungeon()[i*cols + j].wall = true;
-				getDungeon()[i*cols + j].boundary = true;
-			}
-			else if (finalvec.at(count) == DOOR_HORIZONTAL) {
-				getDungeon()[i*cols + j].top = getDungeon()[i*cols + j].traptile = DOOR_H;
-				getDungeon()[i*cols + j].wall = true;
-
-				std::shared_ptr<Door> door = std::make_shared<Door>(j, i);
-				getDoors().emplace_back(door);
-			}
-			else if (finalvec.at(count) == DOOR_VERTICAL) {
-				getDungeon()[i*cols + j].top = getDungeon()[i*cols + j].traptile = DOOR_V;
-				getDungeon()[i*cols + j].wall = true;
-
-				std::shared_ptr<Door> door = std::make_shared<Door>(j, i);
-				getDoors().emplace_back(door);
-			}
-			else if (finalvec.at(count) == SPAWN_DISALLOWED) {
-				getDungeon()[i*cols + j].noSpawn = true;
-			}
-			else if (finalvec.at(count) == STAIRCASE) {
-				std::shared_ptr<Traps> stairs = std::make_shared<Stairs>(j, i);
-				getDungeon()[i*cols + j].trap_name = STAIRCASE;
-				getDungeon()[i*cols + j].trap = true;
-				getDungeon()[i*cols + j].exit = true;
-				getTraps().emplace_back(stairs);
-			}
-			else if (finalvec.at(count) == LOCKED_STAIRCASE) {
-				std::shared_ptr<Traps> stairs = std::make_shared<Stairs>(j, i);
-				getDungeon()[i*cols + j].trap_name = LOCKED_STAIRCASE;
-				getDungeon()[i*cols + j].trap = true;
-				
-				getTraps().emplace_back(stairs);
-			}
-			else if (finalvec.at(count) == DEVILS_WATER) {
-				std::shared_ptr<Traps> devils_water = std::make_shared<Traps>(j, i, DEVILS_WATER, "Water_Tile1_48x48.png", 0, false);
-				getTraps().emplace_back(devils_water);
-				devils_water.reset();
-
-				getDungeon()[i*cols + j].trap_name = finalvec.at(count);
-				getDungeon()[i*cols + j].trap = true;
-			}
-			else if (finalvec.at(count) == FOUNTAIN) {
-				getDungeon()[i*cols + j].top = c_FOUNTAIN;
-				getDungeon()[i*cols + j].wall = true;
-			}
-
-			else if (finalvec.at(count) == PLAYER) {
-				
-				if (m_level != 1) {
-					player.at(0) = p;
-					player.at(0).setPosX(j);
-					player.at(0).setPosY(i);
-					//player.at(0).addItem(std::make_shared<Bomb>());
-					//player.at(0).equipShield(*this, std::make_shared<WoodShield>());
-					getDungeon()[i*cols + j].hero = true;
-					count++;
-					continue;
-				}
-				
-				getDungeon()[i*cols + j].hero = true;
-
-				Player p;
-				player.push_back(p);
-				player.at(0).setPosX(j); player.at(0).setPosY(i);
-
-				player.at(0).addItem(std::make_shared<Bomb>());
-				//player.at(0).addItem(std::make_shared<StatPotion>());
-				//player.at(0).addItem(std::make_shared<PoisonCloud>());
-				//player.at(0).addItem(std::make_shared<Teleport>());
-				//player.at(0).addItem(std::make_shared<DizzyElixir>());
-				//player.at(0).addItem(std::make_shared<EtherealSpell>());
-				//player.at(0).addItem(std::make_shared<EtherealSpell>());
-				//player.at(0).addWeapon(std::make_shared<ArcaneStaff>());
-				//player.at(0).addWeapon(std::make_shared<VulcanHammer>());
-				//player.at(0).addWeapon(std::make_shared<IronLongSword>());
-				player.at(0).equipShield(*this, std::make_shared<WoodShield>());
-				//player.at(0).equipShield(*this, std::make_shared<ReflectShield>());
-				//player.at(0).equipTrinket(*this, std::make_shared<VulcanRune>());
-			}
-			else if (finalvec.at(count) == GOBLIN) {
-				getDungeon()[i*cols + j].enemy = true;
-
-				monster = std::make_shared<Goblin>(j, i, 12);
-				getMonsters().emplace_back(monster);
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-			}
-			else if (finalvec.at(count) == SEEKER) {
-				getDungeon()[i*cols + j].enemy = true;
-
-				monster = std::make_shared<Seeker>(j, i, 10);
-				getMonsters().emplace_back(monster);
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-			}
-			else if (finalvec.at(count) == DEAD_SEEKER) {
-				getDungeon()[i*cols + j].enemy = true;
-
-				monster = std::make_shared<DeadSeeker>(j, i);
-				getMonsters().emplace_back(monster);
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-			}
-			else if (finalvec.at(count) == ITEM_THIEF) {
-				getDungeon()[i*cols + j].enemy = true;
-
-				monster = std::make_shared<ItemThief>(j, i);
-				getMonsters().emplace_back(monster);
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-			}
-			else if (finalvec.at(count) == ARCHER) {
-				getDungeon()[i*cols + j].enemy = true;
-
-				monster = std::make_shared<Archer>(j, i);
-				getMonsters().emplace_back(monster);
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-			}
-			else if (finalvec.at(count) == WANDERER) {
-				getDungeon()[i*cols + j].enemy = true;
-
-				monster = std::make_shared<Wanderer>(j, i);
-				getMonsters().emplace_back(monster);
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-			}
-			else if (finalvec.at(count) == ZAPPER) {
-				getDungeon()[i*cols + j].enemy = true;
-
-				monster = std::make_shared<Zapper>(j, i, rows);
-				getMonsters().emplace_back(monster);
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-			}
-			else if (finalvec.at(count) == SPINNER) {
-				getDungeon()[i*cols + j].enemy = true;
-
-				monster = std::make_shared<Spinner>(j, i, rows);
-				getMonsters().emplace_back(monster);
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-			}
-			else if (finalvec.at(count) == GOO_SACK) {
-				getDungeon()[i*cols + j].enemy = true;
-
-				monster = std::make_shared<GooSack>(j, i);
-				getMonsters().emplace_back(monster);
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-			}
-			else if (finalvec.at(count) == BOMBEE) {
-				getDungeon()[i*cols + j].enemy = true;
-
-				monster = std::make_shared<Bombee>(j, i);
-				getMonsters().emplace_back(monster);
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-			}
-			else if (finalvec.at(count) == ROUNDABOUT) {
-				getDungeon()[i*cols + j].enemy = true;
-
-				monster = std::make_shared<Roundabout>(j, i);
-				getMonsters().emplace_back(monster);
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-			}
-			else if (finalvec.at(count) == FIRE_ROUNDABOUT) {
-				getDungeon()[i*cols + j].enemy = true;
-
-				monster = std::make_shared<FireRoundabout>(j, i);
-				getMonsters().emplace_back(monster);
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-			}
-			else if (finalvec.at(count) == BROUNDABOUT) {
-				getDungeon()[i*cols + j].enemy = true;
-
-				monster = std::make_shared<Broundabout>(j, i);
-				getMonsters().emplace_back(monster);
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-			}
-			else if (finalvec.at(count) == MOUNTED_KNIGHT) {
-				getDungeon()[i*cols + j].enemy = true;
-
-				monster = std::make_shared<MountedKnight>(j, i);
-				getMonsters().emplace_back(monster);
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-			}
-			else if (finalvec.at(count) == RANDOM_MONSTER) {
-			
-				// the type of enemy
-				switch (randInt(8)) {
-				case 0: monster = std::make_shared<Goblin>(j, i, 10); break;
-				case 1:	monster = std::make_shared<Wanderer>(j, i);	break;
-				case 2:	monster = std::make_shared<Archer>(j, i); break;
-				case 3:	monster = std::make_shared<Zapper>(j, i, rows); break;
-				case 4:	monster = std::make_shared<Spinner>(j, i, rows);break;
-				case 5:	monster = std::make_shared<Roundabout>(j, i);	break;
-				case 6:	monster = std::make_shared<MountedKnight>(j, i);	break;
-				case 7:	monster = std::make_shared<Seeker>(j, i, 10);	break;
-				//case 5:	monster = std::make_shared<Bombee>(j, i);	break;
-				}
-
-				getMonsters().emplace_back(monster);
-
-				getDungeon()[i*cols + j].monster_name = monster->getName();
-				getDungeon()[i*cols + j].enemy = true;
-			}
-
-			else if (finalvec.at(count) == PIT) {
-				getDungeon()[i*cols + j].trap = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<Pit>(j, i);
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == FIREBAR) {
-				getDungeon()[i*cols + j].trap = true;
-				getDungeon()[i*cols + j].wall = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<Firebar>(j, i, rows);
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == DOUBLE_FIREBAR) {
-				getDungeon()[i*cols + j].trap = true;
-				getDungeon()[i*cols + j].wall = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<DoubleFirebar>(j, i, rows);
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == SPIKES) {
-				getDungeon()[i*cols + j].trap = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<Spikes>(j, i);
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == AUTOSPIKE_DEACTIVE) {
-				getDungeon()[i*cols + j].trap = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<SpikeTrap>(j, i, 4);
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == TRIGGERSPIKE_DEACTIVE) {
-				getDungeon()[i*cols + j].trap = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<TriggerSpike>(j, i);
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == PUDDLE) {
-				getDungeon()[i*cols + j].trap = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<Puddle>(j, i);
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == SPRING) {
-				getDungeon()[i*cols + j].trap = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<Spring>(j, i, false);
-
-				// Begin check for if any spring traps are pointing toward each other
-				std::shared_ptr<Spring> thisSpring = std::dynamic_pointer_cast<Spring>(trap);
-				thisSpring->oppositeSprings(*this);
-
-
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == LEFT_TURRET) {
-				getDungeon()[i*cols + j].trap = true;
-				getDungeon()[i*cols + j].wall = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<Turret>(j, i, 'l');
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == RIGHT_TURRET) {
-				getDungeon()[i*cols + j].trap = true;
-				getDungeon()[i*cols + j].wall = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<Turret>(j, i, 'r');
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == UP_TURRET) {
-				getDungeon()[i*cols + j].trap = true;
-				getDungeon()[i*cols + j].wall = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<Turret>(j, i, 'u');
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == DOWN_TURRET) {
-				getDungeon()[i*cols + j].trap = true;
-				getDungeon()[i*cols + j].wall = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<Turret>(j, i, 'd');
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == TURRET) {
-				getDungeon()[i*cols + j].trap = true;
-				getDungeon()[i*cols + j].wall = true;
-
-				char move;
-				switch (1 + randInt(4)) {
-				case 1: move = 'l'; break;	// L
-				case 2: move = 'r'; break;	// R
-				case 3: move = 'u'; break;	// U
-				case 4: move = 'd'; break;	// D
-				}
-
-				std::shared_ptr<Traps> trap = std::make_shared<Turret>(j, i, move);
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == MOVING_BLOCK) {
-				getDungeon()[i*cols + j].trap = true;
-				getDungeon()[i*cols + j].wall = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<MovingBlock>(j, i, (randInt(2) == 0 ? 'h' : 'v'));
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == MOVING_BLOCK_H) {
-				getDungeon()[i*cols + j].trap = true;
-				getDungeon()[i*cols + j].wall = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<MovingBlock>(j, i, 'h');
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == MOVING_BLOCK_V) {
-				getDungeon()[i*cols + j].trap = true;
-				getDungeon()[i*cols + j].wall = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<MovingBlock>(j, i, 'v');
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == CRUMBLE_FLOOR) {
-				getDungeon()[i*cols + j].trap = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<CrumbleFloor>(j, i);
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == CRUMBLE_LAVA) {
-				getDungeon()[i*cols + j].trap = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<CrumbleLava>(j, i);
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-			else if (finalvec.at(count) == LAVA) {
-				getDungeon()[i*cols + j].trap = true;
-
-				std::shared_ptr<Traps> trap = std::make_shared<Lava>(j, i);
-				getTraps().emplace_back(trap);
-				getDungeon()[i*cols + j].trap_name = trap->getItem();
-			}
-
-			else if (finalvec.at(count) == GOLD) {
-				getDungeon()[i*cols + j].gold = 4 + randInt(9);
-			}
-			else if (finalvec.at(count) == HEART_POD) {
-				std::shared_ptr<Objects> objects = std::make_shared<HeartPod>();
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-			else if (finalvec.at(count) == LIFEPOT) {
-				std::shared_ptr<Objects> objects = std::make_shared<LifePotion>();
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-			else if (finalvec.at(count) == BIG_LIFEPOT) {
-				std::shared_ptr<Objects> objects = std::make_shared<BigLifePotion>();
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-			else if (finalvec.at(count) == ARMOR) {
-				std::shared_ptr<Objects> objects = std::make_shared<ArmorDrop>();
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-			else if (finalvec.at(count) == STATPOT) {
-				std::shared_ptr<Objects> objects = std::make_shared<StatPotion>();
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-			else if (finalvec.at(count) == BOMB) {
-				std::shared_ptr<Objects> objects = std::make_shared<Bomb>();
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-			else if (finalvec.at(count) == BROWN_CHEST) {
-				std::shared_ptr<Objects> objects = std::make_shared<BrownChest>();
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-			else if (finalvec.at(count) == BROWN_CHEST) {
-				std::shared_ptr<Objects> objects = std::make_shared<BrownChest>();
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-			else if (finalvec.at(count) == SILVER_CHEST) {
-				std::shared_ptr<Objects> objects = std::make_shared<SilverChest>();
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-			else if (finalvec.at(count) == GOLDEN_CHEST) {
-				std::shared_ptr<Objects> objects = std::make_shared<GoldenChest>();
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-			else if (finalvec.at(count) == RANDOM_CHEST) {
-				std::shared_ptr<Objects> objects(nullptr);
-				switch (randInt(3)) {
-				case 0: objects = std::make_shared<BrownChest>(); break;
-				case 1: objects = std::make_shared<SilverChest>(); break;
-				case 2: objects = std::make_shared<GoldenChest>(); break;
-				}
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-			else if (finalvec.at(count) == RANDOM_ITEM) {
-				std::shared_ptr<Objects> objects(nullptr);
-				switch (randInt(4)) {
-				case 0: objects = std::make_shared<LifePotion>(); break;
-				case 1: objects = std::make_shared<StatPotion>(); break;
-				case 2: objects = std::make_shared<Bomb>(); break;
-				case 3: objects = std::make_shared<ShieldRepair>(); break;
-				}
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-			else if (finalvec.at(count) == RANDOM_WEAPON) {
-				std::shared_ptr<Objects> objects(nullptr);
-				switch (randInt(4)) {
-				case 0: objects = std::make_shared<RustyCutlass>(); break;
-				case 1: objects = std::make_shared<GoldenShortSword>(); break;
-				case 2: objects = std::make_shared<Katana>(); break;
-				case 3: objects = std::make_shared<RustyCutlass>(); break;
-				}
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-			else if (finalvec.at(count) == RANDOM_SHIELD) {
-				std::shared_ptr<Objects> objects(nullptr);
-				int n = 1 + randInt(100);
-				if (n >= 1 && n < 50) objects = std::make_shared<WoodShield>();
-				else if (n >= 50 && n < 70) objects = std::make_shared<IronShield>();
-				else if (n >= 70 && n < 90) objects = std::make_shared<ReflectShield>();
-				else if (n >= 90 && n <= 100) objects = std::make_shared<ThornedShield>();
-
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-			else if (finalvec.at(count) == RANDOM_TRINKET) {
-				std::shared_ptr<Objects> objects(nullptr);
-				int n = 1 + randInt(100);
-				if (n >= 1 && n < 25) objects = std::make_shared<DarkStar>();
-				else if (n >= 25 && n < 50) objects = std::make_shared<BrightStar>();
-				else if (n >= 50 && n < 75) objects = std::make_shared<GoldPot>();
-				else if (n >= 75 && n <= 100) objects = std::make_shared<LuckyPig>();
-
-				getDungeon()[i*cols + j].object = objects;
-				getDungeon()[i*cols + j].item = true;
-			}
-
-			count++;
-		}
-	}
-
-	/*
-	bool _trap, wall, noSpawn;
-	int x = 1 + randInt(cols - 2);
-	int y = 1 + randInt(rows - 2);
-
-	noSpawn = m_maze[y*cols + x].noSpawn;
-	_trap = m_maze[y*cols + x].trap;
-	wall = m_maze[y*cols + x].wall;
-
-	///	while stairs do not spawn on the side opposite from the player
-	while (noSpawn || _trap || wall || (x >= 5 && x <= cols - 5 && !(y < 5 || y > rows - 5)) || (y >= 5 && y <= rows - 5 && !(x < 5 || x > cols - 5))){// ||
-		//(x < 5 && (y > 5 || y < rows - 5)) || (x > cols - 5 && (y > 5 || y < rows - 5)) || (y < 5 && (x > 5 || x < cols - 5)) || (y > cols - 5 && (x > 5 || x < cols - 5))) {
-	//while (_trap || wall || ((player.at(0).getPosX() < 5 && stairs->getPosX() >= 5) || (player.at(0).getPosX() > cols - 6 && stairs->getPosX() < cols - 6))) {
-		x = 1 + randInt(cols - 2);
-		y = 1 + randInt(rows - 2);
-
-		noSpawn = m_maze[y*cols + x].noSpawn;
-		_trap = m_maze[y*cols + x].trap;
-		wall = m_maze[y*cols + x].wall;
-	}
-	std::shared_ptr<Traps> stairs = std::make_shared<Stairs>();
-	m_maze[stairs->getPosY()*cols + stairs->getPosX()].exit = true;
-	m_maze[stairs->getPosY()*cols + stairs->getPosX()].traptile = STAIRS;
-	m_maze[stairs->getPosY()*cols + stairs->getPosX()].trap_name = STAIRCASE;
-	m_maze[stairs->getPosY()*cols + stairs->getPosX()].trap = true;
-	m_traps.emplace_back(stairs);*/
-}
-
-
-// ===========================================
-//				:::: SHOP ::::
-// ===========================================
-Shop::Shop(Player p, int level) : Dungeon(level) {
-
-	_Tile *tile;
-
-	// initialize tiles
-	for (int i = 0; i < m_rows; i++) {
-		for (int j = 0; j < m_cols; j++) {
-			tile = new _Tile;
-			tile->upper = tile->top = tile->bottom = tile->projectile = tile->traptile = SPACE;
-			tile->npc = tile->hero = tile->wall = tile->item = tile->trap = tile->enemy = tile->exit = false;
-			tile->price = tile->gold = 0;
-			tile->marked = false;
-			tile->object = nullptr;
-			tile->item_name = tile->shop_action = "";
-
-			m_shop1.push_back(*tile);
-			delete tile;
-		}
-	}
-
-	// price adjustment multiplier
-	switch (level) {
-	case 2: m_priceMultiplier = 1.0f; break;
-	case 4: m_priceMultiplier = 2.2f; break;
-	case 6: m_priceMultiplier = 3.6f; break;
-	default: m_priceMultiplier = 1.0f;
-	}
-	
-
-	// get the shop layout
-	std::vector<char> v = generate();
-	int rows = getRows();
-	int cols = getCols();
-	char top, bottom, traptile;
-
-	// begin mapping shop
-	for (int i = 0; i < rows; i++) {
-		for (int j = 0; j < cols; j++) {
-			switch (v.at(i*cols + j)) {
-			case c_PLAYER: {
-				m_shop1[i*cols + j].hero = true;
-				player.at(0) = p;
-				player.at(0).setPosX(j);
-				player.at(0).setPosY(i);
-				//player.at(0).setMoney(1000);
-				break;
-			}
-			case '#': {
-				m_shop1[i*cols + j].top = m_shop1[i*cols + j].bottom = m_shop1[i*cols + j].traptile = UNBREAKABLE_WALL;
-				m_shop1[i*cols + j].wall = true;
-				m_shop1[i*cols + j].boundary = true;
-				break;
-			}
-			case DOOR_V: {
-				m_shop1[i*cols + j].top = DOOR_V;
-				m_shop1[i*cols + j].bottom = SPACE;
-				m_shop1[i*cols + j].traptile = DOOR_V;
-				m_shop1[i*cols + j].wall = true;
-				
-				Door door;
-				door.setPosX(j);
-				door.setPosY(i);
-				m_doors.emplace_back(new Door(door));
-				break;
-			}
-			case STAIRS: {
-				std::shared_ptr<Traps> stairs = std::make_shared<Stairs>(j, i);
-				getTraps().emplace_back(stairs);
-				m_shop1[i*cols + j].top = m_shop1[i*cols + j].bottom = SPACE;
-				m_shop1[i*cols + j].exit = true;
-				m_shop1[i*cols + j].trap_name = STAIRCASE;
-				m_shop1[i*cols + j].trap = true;
-				break;
-			}
-				// purchase spot
-			case 'p': {
-				m_shop1[i*cols + j].shop_action = PURCHASE;
-				break;
-			}
-				// item price
-			case '$': {
-
-				break;
-			}
-				// shop counter
-			case 'c': {
-				m_shop1[i*cols + j].shop_action = "countertop";
-				m_shop1[i*cols + j].wall = true;
-				m_shop1[i*cols + j].boundary = true;
-				break;
-			}
-				// shopkeeper
-			case 'k': {
-				m_shop1[i*cols + j].shop_action = "shopkeeper";
-				m_shop1[i*cols + j].wall = true;
-				break;
-			}
-				// breakable object
-			case 'd': {
-				m_shop1[i*cols + j].shop_action = "breakable";
-				break;
-			}
-				// secret thing
-			case 'b': {
-				m_shop1[i*cols + j].shop_action = "secret";
-				break;
-			}
-					  // 1, 2, 3 : hp, shield repair, bombs
-			case '1': {
-				switch (randInt(2)) {
-				case 0: m_shop1[i*cols + j].object = std::make_shared<LifePotion>(); m_shop1[i*cols + j].item_name = LIFEPOT; m_shop1[i*cols + j].price = 30 * m_priceMultiplier; break;
-				case 1: m_shop1[i*cols + j].object = std::make_shared<ShieldRepair>(); m_shop1[i*cols + j].item_name = SHIELD_REPAIR; m_shop1[i*cols + j].price = 25 * m_priceMultiplier; break;
-				}
-				m_shop1[i*cols + j].shop_action = "shop_item";
-				m_shop1[i*cols + j].boundary = true;
-				m_shop1[i*cols + j].wall = true;
-				m_shop1[i*cols + j].item = true;
-				break;
-			}
-			case '2': {
-				switch (randInt(3)) {
-				case 0: m_shop1[i*cols + j].object = std::make_shared<ShieldRepair>(); m_shop1[i*cols + j].item_name = SHIELD_REPAIR; m_shop1[i*cols + j].price = 25 * m_priceMultiplier; break;
-				case 1: m_shop1[i*cols + j].object = std::make_shared<Bomb>(); m_shop1[i*cols + j].item_name = BOMB; m_shop1[i*cols + j].price = 25 * m_priceMultiplier; break;
-				case 2: m_shop1[i*cols + j].object = std::make_shared<StatPotion>(); m_shop1[i*cols + j].item_name = STATPOT; m_shop1[i*cols + j].price = 23 * m_priceMultiplier; break;
-				}
-				m_shop1[i*cols + j].boundary = true;
-				m_shop1[i*cols + j].wall = true;
-				m_shop1[i*cols + j].item = true;
-				m_shop1[i*cols + j].shop_action = "shop_item";
-				break;
-			}
-			case '3': {
-				switch (randInt(2)) {
-				case 0: m_shop1[i*cols + j].object = std::make_shared<LifePotion>(); m_shop1[i*cols + j].item_name = LIFEPOT; m_shop1[i*cols + j].price = 30 * m_priceMultiplier; break;
-				case 1: m_shop1[i*cols + j].object = std::make_shared<Bomb>(); m_shop1[i*cols + j].item_name = BOMB; m_shop1[i*cols + j].price = 25 * m_priceMultiplier; break;
-				}
-				m_shop1[i*cols + j].boundary = true;
-				m_shop1[i*cols + j].wall = true;
-				m_shop1[i*cols + j].item = true;
-				m_shop1[i*cols + j].shop_action = "shop_item";
-				break;
-			}
-					  // 4, 5 : random items
-			case '4': {
-				switch (randInt(8)) {
-				case 0: m_shop1[i*cols + j].object = std::make_shared<IronLongSword>(); m_shop1[i*cols + j].price = (100 + randInt(6)) * m_priceMultiplier; break;
-				case 1: m_shop1[i*cols + j].object = std::make_shared<IronLance>(); m_shop1[i*cols + j].price = (80 + randInt(5)) * m_priceMultiplier; break;
-				case 2: m_shop1[i*cols + j].object = std::make_shared<ArcaneStaff>(); m_shop1[i*cols + j].price = (55 + randInt(5)) * m_priceMultiplier; break;
-				case 3: m_shop1[i*cols + j].object = std::make_shared<Katana>(); m_shop1[i*cols + j].price = (85 + randInt(4)) * m_priceMultiplier; break;
-				case 4: m_shop1[i*cols + j].object = std::make_shared<WoodBow>(); m_shop1[i*cols + j].price = (120 + randInt(11)) * m_priceMultiplier; break;
-				case 5: m_shop1[i*cols + j].object = std::make_shared<WoodShield>(j, i); m_shop1[i*cols + j].price = 38 * m_priceMultiplier; break;
-				case 6: m_shop1[i*cols + j].object = std::make_shared<IronShield>(j, i); m_shop1[i*cols + j].price = 65 * m_priceMultiplier; break;
-				case 7: m_shop1[i*cols + j].object = std::make_shared<BloodShortSword>(); m_shop1[i*cols + j].price = (70 + randInt(8)) * m_priceMultiplier; break;
-				}
-				m_shop1[i*cols + j].boundary = true;
-				m_shop1[i*cols + j].wall = true;
-				m_shop1[i*cols + j].item = true;
-				m_shop1[i*cols + j].item_name = m_shop1[i*cols + j].object->getItem();
-				m_shop1[i*cols + j].shop_action = "shop_item";
-				break;
-			}
-			case '5': {
-				switch (randInt(8)) {
-				case 0: m_shop1[i*cols + j].object = std::make_shared<BigLifePotion>(); m_shop1[i*cols + j].price = (30) * m_priceMultiplier; break;
-				case 1: m_shop1[i*cols + j].object = std::make_shared<FireBlastSpell>(); m_shop1[i*cols + j].price = (39 + randInt(3)) * m_priceMultiplier; break;
-				case 2: m_shop1[i*cols + j].object = std::make_shared<Teleport>(); m_shop1[i*cols + j].price = (40 + randInt(3)) * m_priceMultiplier; break;
-				case 3: m_shop1[i*cols + j].object = std::make_shared<ThornedShield>(); m_shop1[i*cols + j].price = (85 + randInt(9)) * m_priceMultiplier; break;
-				case 4: m_shop1[i*cols + j].object = std::make_shared<DizzyElixir>(); m_shop1[i*cols + j].price = 25 * m_priceMultiplier; break;
-				case 5: m_shop1[i*cols + j].object = std::make_shared<Bloodrite>(); m_shop1[i*cols + j].price = (68 + randInt(5)) * m_priceMultiplier; break;
-				case 6: m_shop1[i*cols + j].object = std::make_shared<VulcanRune>(); m_shop1[i*cols + j].price = (68 + randInt(5)) * m_priceMultiplier; break;
-				case 7: m_shop1[i*cols + j].object = std::make_shared<EtherealSpell>(); m_shop1[i*cols + j].price = (54) * m_priceMultiplier; break;
-				}
-				m_shop1[i*cols + j].boundary = true;
-				m_shop1[i*cols + j].wall = true;
-				m_shop1[i*cols + j].item = true;
-				m_shop1[i*cols + j].item_name = m_shop1[i*cols + j].object->getItem();
-				m_shop1[i*cols + j].shop_action = "shop_item";
-				break;
-			}
-					  // 6 : random chest
-			case '6': {
-				int n = 1 + randInt(100);
-				
-				// 60% chance
-				if (n <= 60) { m_shop1[i*cols + j].object = std::make_shared<BrownChest>(); m_shop1[i*cols + j].item_name = BROWN_CHEST; m_shop1[i*cols + j].price = 25 * m_priceMultiplier; }
-				// 35% chance
-				else if (n > 60 && n <= 95) { m_shop1[i*cols + j].object = std::make_shared<SilverChest>(); m_shop1[i*cols + j].item_name = SILVER_CHEST; m_shop1[i*cols + j].price = 45 * m_priceMultiplier; }
-				// 5% chance
-				else if (n > 95) { m_shop1[i*cols + j].object = std::make_shared<GoldenChest>(); m_shop1[i*cols + j].item_name = GOLDEN_CHEST; m_shop1[i*cols + j].price = 100 * m_priceMultiplier; }
-
-				m_shop1[i*cols + j].boundary = true;
-				m_shop1[i*cols + j].wall = true;
-				m_shop1[i*cols + j].item = true;
-				m_shop1[i*cols + j].shop_action = "shop_item";
-				break;
-			}
-			}
-		}
-	}
-}
-Shop& Shop::operator=(Shop const &dungeon) {
-	m_shop1 = dungeon.m_shop1;
-	player = dungeon.player;
-	m_level = dungeon.m_level;
-
-	m_npcs = dungeon.m_npcs;
-	m_monsters = dungeon.m_monsters;
-	//m_shopMonsters = dungeon.m_shopMonsters;
-	//m_shopActives = dungeon.m_shopActives;
-	m_doors = dungeon.m_doors;
-	m_traps = dungeon.m_traps;
-
-	return *this;
-}
-
-void Shop::peekDungeon(int x, int y, char move) {
-	char top, projectile, bottom, traptile;
-	bool boundary, wall, item, trap, enemy;
-
-	int rows = m_rows;
-	int cols = m_cols;
-	std::string shop_action = m_shop1[y*cols + x].shop_action;
-
-	auto scene = dynamic_cast<Shop1Scene*>(m_scene);
-
-	int initHP = player.at(0).getHP();
-
-	// reset player's blocking stance
-	player.at(0).setBlock(false);
-
-	// set player's facing direction
-	switch (move) {
-	case 'l':
-	case 'r':
-	case 'u':
-	case 'd':
-		player.at(0).setFacingDirection(move); break;
-	}
-
-	// set player's action key (for items that have casting time)
-	player.at(0).setAction(move);
-
-	// red tint if player has bloodlust
-	if (player.at(0).hasBloodlust()) {
-		bloodlustTint(player.at(0));
-	}
-
-	// check for any afflictions
-	player.at(0).checkAfflictions();
-
-	// if player is confused, switch their movement direction
-	if (player.at(0).isConfused()) {
-		switch (move) {
-		case 'l': move = 'r'; break;
-		case 'r': move = 'l'; break;
-		case 'u': move = 'd'; break;
-		case 'd': move = 'u'; break;
-		}
-	}
-
-	// :::: Move player ::::
-	int weprange = player.at(0).getWeapon()->getRange();
-	bool moveUsed = false;
-	bool far_enemy, close_enemy;
-
-	// check for special weapon attack patterns
-	if (player.at(0).getWeapon()->hasAttackPattern()) {
-		player.at(0).getWeapon()->usePattern(*this, moveUsed);
-	}
-
-	// otherwise, check the action taken
-	if (!moveUsed) {
-
-		// if it was a movement action
-		if (move == 'l' || move == 'r' || move == 'u' || move == 'd') {
-			// determines which way to move
-			int n = 0, m = 0;
-
-			switch (move) {
-			case 'l': n = -1; m = 0; break;
-			case 'r': n = 1; m = 0; break;
-			case 'u': n = 0; m = -1; break;
-			case 'd': n = 0; m = 1; break;
-			}
-
-			top = m_shop1[(y + m)*cols + (x + n)].top;
-			bottom = m_shop1[(y + m)*cols + (x + n)].bottom;
-			traptile = m_shop1[(y + m)*cols + (x + n)].traptile;
-
-			boundary = m_shop1[(y + m)*cols + (x + n)].boundary;
-			wall = (player.at(0).isEthereal() ? false : m_shop1[(y + m)*cols + (x + n)].wall);
-			item = m_shop1[(y + m)*cols + (x + n)].item;
-			trap = m_shop1[(y + m)*cols + (x + n)].trap;
-			enemy = m_shop1[(y + m)*cols + (x + n)].enemy;
-
-			if (!(wall || enemy || boundary)) {
-				// move character to the left
-				m_shop1[y*cols + x].hero = false;
-				m_shop1[(y + m)*cols + (x + n)].hero = true;
-				player.at(0).setPosX(x + n); player.at(0).setPosY(y + m);
-
-				// pick up any gold/money that was on the ground
-				if (m_shop1[player[0].getPosY()*cols + player[0].getPosX()].gold > 0) {
-					goldPickup(m_shop1, player.at(0).getPosX(), player.at(0).getPosY());
-				}
-
-				if (trap) {
-					; // check for traps
-				}
-				if (item) {
-					foundItem(m_shop1, x + n, y + m);
-				}
-				if (m_shop1[(y + m)*cols + (x + n)].shop_action == PURCHASE) {
-					// if there's a price already floating, remove before showing the new one
-					if (scene->itemprice != nullptr)
-						scene->deconstructShopHUD();
-
-					scene->showShopHUD(*this, x + n, y + m);
-				}
-				else if (scene->itemprice != nullptr && m_shop1[(y + m)*cols + (x + n)].shop_action != PURCHASE) {
-					scene->deconstructShopHUD();
-				}
-			}
-			else if (wall && !boundary) {
-				if (top == DOOR_H || top == DOOR_V) {
-					openDoor(x + n, y + m);
-				}
-				else if (top == DOOR_H_OPEN || top == DOOR_V_OPEN) {
-					m_shop1[y*cols + x].hero = false;
-					m_shop1[(y + m)*cols + (x + n)].hero = true;
-					player.at(0).setPosX(x + n); player.at(0).setPosY(y + m);
-				}
-				else if (top == DOOR_H_LOCKED || top == DOOR_V_LOCKED) {
-					// play locked door sound
-					cocos2d::experimental::AudioEngine::play2d("Locked.mp3", false, 1.0f);
-				}
-			}
-			else if (enemy) {	// monster encountered
-				fight(x + n, y + m);
-			}
-		}
-
-		else if (move == 'e') {
-			// do this if item needs to be purchased
-			if (shop_action == "purchase") {
-				purchaseItem(m_shop1, x, y);
-			}
-			// else if the item purchased was a chest, do this
-			else if (shop_action == "chest purchased") {
-				//m_shop1[y*cols + x].item_name = "";
-				//removeSprite(item_sprites, rows, x, y - 1);
-				collectItem(*this, x, y);
-			}
-			// else if there's just an item sitting on the ground, do this
-			else {
-				collectItem(*this, x, y);
-			}
-
-			if (m_level > 2)
-				return;
-		}
-
-		else if (move == 'b') {
-			if (player.at(0).hasShield()) {
-				// play setting up shield stance sound effect
-				cocos2d::experimental::AudioEngine::play2d("Shield_Stance.mp3", false, 1.0f);
-
-				player.at(0).setBlock(true);
-			}
-		}
-	}
-
-	// queue player move
-	queueMoveSprite(player.at(0).getSprite(), player.at(0).getPosX(), player.at(0).getPosY());
-
-	// pick up any gold/money that was on the ground
-	if (m_shop1[player[0].getPosY()*cols + player[0].getPosX()].gold > 0) {
-		goldPickup(m_shop1, player.at(0).getPosX(), player.at(0).getPosY());
-	}
-
-	// check active items in play
-	checkActive();
-
-	// if there are any doors, check them
-	if (!getDoors().empty()) {
-		checkDoors();
-	}
-
-	//	if player is dead then return
-	if (player.at(0).getHP() <= 0) {
-		if (!dungeonText.empty())
-			showText();
-		return;
-	}
-
-	// flash player sprite if took damage
-	if (player.at(0).getHP() < initHP) {
-		auto tintRed = cocos2d::TintTo::create(0.1, cocos2d::Color3B(255, 70, 70));
-		auto tintNormal = cocos2d::TintTo::create(0.1, cocos2d::Color3B(255, 255, 255));
-		player.at(0).getSprite()->runAction(cocos2d::Blink::create(0.2, 4));
-		player.at(0).getSprite()->runAction(cocos2d::Sequence::createWithTwoActions(tintRed, tintNormal));
-
-		player.at(0).decreaseMoneyBonus();
-	}
-}
-
-void Shop::purchaseItem(std::vector<_Tile> &dungeon, int x, int y) {
-	int cols = m_cols;
-	int rows = m_rows;
-	std::string item = dungeon[(y-1)*cols + x].item_name;
-	std::shared_ptr<Objects> object = dungeon[(y - 1)*cols + x].object;
-	int playerGold = player.at(0).getMoney();
-	int price = dungeon[(y-1)*cols + x].price;
-
-	int items = player.at(0).getItems().size();
-	int maxItems = player.at(0).getMaxItemInvSize();
-	int weapons = player.at(0).getWeapons().size();
-	int maxWeapons = player.at(0).getMaxWeaponInvSize();
-
-	// if player has enough money, let them buy it
-	if (playerGold >= price && (!object->isItem() || (object->isItem() && items < maxItems) || (object->isWeapon() && weapons < maxWeapons))) {
-		// purchase sound
-		cocos2d::experimental::AudioEngine::play2d("Purchase_Item1.mp3", false, 1.0f);
-
-		player.at(0).setMoney(playerGold - price);
-		dungeon[y*cols + x].shop_action = ""; // removes purchase ability
-		collectItem(*this, x, y - 1);
-
-		// remove HUD after purchasing
-		auto scene = dynamic_cast<Shop1Scene*>(m_scene);
-		scene->deconstructShopHUD();
-	}
-	// else play insufficient funds sound
-	else {
-		cocos2d::experimental::AudioEngine::play2d("Insufficient_Funds.mp3", false, 1.0f);
-	}
-}
-void Shop::collectItem(Dungeon &dungeon, int x, int y) {
-	// :::: If coming from purchase item, y is equal to py-1 where py is the player's y position ::::
-
-	// :::: If collectItem is called directly, then there is no y shift ::::
-
-	int maxrows = getRows();
-	int maxcols = getCols();
-
-	int current_inv_size = player.at(0).getWeapons().size() + player.at(0).getItems().size();
-	int current_wep_inv_size = player.at(0).getWeapons().size();
-	int current_item_inv_size = player.at(0).getItems().size();
-	int max_wep_inv_size = player.at(0).getMaxWeaponInvSize();
-	int max_item_inv_size = player.at(0).getMaxItemInvSize();
-	std::string image;
-
-	char bottom = dungeon[y*maxcols + x].bottom;
-	char traptile = dungeon[y*maxcols + x].traptile;
-	bool exit = dungeon[y*maxcols + x].exit;
-	
-	std::string item_name = dungeon[y*maxcols + x].item_name;
-	std::string shop_action = dungeon[y*maxcols + x].shop_action;
-	std::shared_ptr<Objects> object = dungeon[y*maxcols + x].object;
-
-	// if it's the stairs, then advance level and return
-	if (exit) {
-		setLevel(getLevel() + 1);
-		return;
-	}
-
-	// if object is null, then do nothing and return
-	if (object == nullptr) {
-		cocos2d::experimental::AudioEngine::play2d("Player_Movement.mp3", false, 1.0f);
-
-		return;
-	}
-
-	if (object->isAutoUse()) {
-		std::shared_ptr<Drops> drop = std::dynamic_pointer_cast<Drops>(object);
-		drop->changeStats(*drop, player.at(0));
-
-		cocos2d::experimental::AudioEngine::play2d(drop->getSoundName(), false, 1.0f);
-
-		drop.reset();
-
-		dungeon[y*maxcols + x].item_name = EMPTY;
-		dungeon[y*maxcols + x].object = nullptr;
-		dungeon[y*maxcols + x].item = false;
-		removeSprite(item_sprites, maxrows, x, y);
-	}
-	else if (object->isItem()) {
-		if (current_item_inv_size < max_item_inv_size) {
-			std::shared_ptr<Drops> drop = std::dynamic_pointer_cast<Drops>(object);
-			player.at(0).addItem(drop);
-
-			cocos2d::experimental::AudioEngine::play2d(drop->getSoundName(), false, 1.0f);
-
-			if (shop_action == "chest purchased") {
-				removeSprite(item_sprites, maxrows, x, y - 1);
-			}
-
-			drop.reset();
-		}
-		else {
-			cocos2d::experimental::AudioEngine::play2d("Player_Movement.mp3", false, 1.0f);
-
-			return;
-		}
-	}
-	else if (object->isWeapon()) {
-		if (current_wep_inv_size < max_wep_inv_size) {
-			std::shared_ptr<Weapon> weapon = std::dynamic_pointer_cast<Weapon>(object);
-			player.at(0).addWeapon(weapon);
-
-			cocos2d::experimental::AudioEngine::play2d(weapon->getSoundName(), false, 1.0f);
-
-			if (shop_action == "chest purchased") {
-				removeSprite(item_sprites, maxrows, x, y - 1);
-			}
-
-			weapon.reset();
-		}
-		else {
-			cocos2d::experimental::AudioEngine::play2d("Player_Movement.mp3", false, 1.0f);
-
-			return;
-		}
-	}
-	else if (object->isChest()) {
-		std::shared_ptr<Chests> chest = std::dynamic_pointer_cast<Chests>(object);
-
-		removeSprite(item_sprites, maxrows, x, y);
-		image = chest->open(*chest, dungeon[(y + 1)*maxcols + x]);
-		addSprite(item_sprites, maxrows, x, y, 2, image);
-
-		cocos2d::experimental::AudioEngine::play2d(chest->getSoundName(), false, 1.0f);
-
-		dungeon[(y + 1)*maxcols + x].shop_action = "chest purchased";
-
-		chest.reset();
-	}
-	else if (object->isShield()) {
-		removeSprite(item_sprites, maxrows, x, y);
-		// save shield at this spot, overwritten if shield is dropped
-		std::shared_ptr<Shield> shield = std::dynamic_pointer_cast<Shield>(object);
-		player.at(0).equipShield(*this, shield, true);
-		shield.reset();
-	}
-	else if (object->isTrinket()) {
-		std::shared_ptr<Trinket> trinket = std::dynamic_pointer_cast<Trinket>(object);
-		player.at(0).equipTrinket(*this, trinket, true);
-		trinket.reset();
-	}
-	
-	// if an item was added, remove the sprite that was taken and reset tile item status
-	if (current_inv_size < player.at(0).getWeapons().size() + player.at(0).getItems().size()) {
-		dungeon[y*maxcols + x].bottom = SPACE;
-		dungeon[y*maxcols + x].object = nullptr;
-		dungeon[y*maxcols + x].item_name = EMPTY;
-		dungeon[y*maxcols + x].item = false;
-		removeSprite(item_sprites, maxrows, x, y);
-	}
-}
-
-std::vector<char> Shop::generate() {
-	char dv = DOOR_V;
-	char s = STAIRS;
-	char c = 'c'; // shop countertop, where items will sit
-	char k = 'k'; // shopkeeper
-	char d = 'd'; // random breakable object
-	// 1, 2, 3 : hp, shield repair, bombs
-	// 4, 5 : random items
-	// 6 : random chest
-	// 'p' : stand here to purchase
-	// '$' : insert price here
-
-	std::vector<char> shop = {
-	//    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17   18   19   20   21   22   23   24   25   26
-/*0*/   '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
-/*1*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#',
-/*2*/	'#', '#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#',
-/*3*/	'#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', ' ', ' ', ' ', '#', '#',
-/*4*/	'#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',  dv, ' ', ' ', 'b', ' ', '#', '#',
-/*5*/	'#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', ' ', ' ', ' ', '#', '#',
-/*6*/	'#', '#', '#', '#', '#', '#', '#', ' ', ' ', ' ', ' ', ' ', ' ',  k , ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#',
-/*7*/	'#', '#', '#', '#', '#', '#', '#',  c , '$', '$', '$', ' ', ' ', '$', ' ', '$', ' ', '$', ' ',  c , '#', '#', '#', '#', '#', '#', '#',
-/*8*/	'#', '#', '#', '#', '#', '#', '#',  c , '1', '2', '3',  c ,  c , '4',  c , '5',  c , '6',  c ,  c , '#', '#', '#', '#', '#', '#', '#',
-/*9*/	'#',  d ,  d , ' ', ' ',  d , '#', ' ', 'p', 'p', 'p', ' ', ' ', 'p', ' ', 'p', ' ', 'p', ' ', ' ', '#', ' ', ' ', ' ', ' ',  d , '#',
-/*10*/	'#', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', ' ', ' ', ' ', '#',
-/*11*/	'#', '@', ' ', ' ', ' ', ' ',  dv, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',  dv, ' ', ' ',   s, ' ', ' ', '#',
-/*12*/	'#', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', ' ', ' ',  d , '#',
-/*13*/	'#',  d , ' ', ' ',  d ,  d , '#',  d ,  d , ' ', ' ',  d , ' ', ' ',  d , ' ', ' ', ' ',  d ,  d , '#', ' ', ' ', ' ',  d ,  d , '#',
-/*14*/	'#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#'
-		};
-
-	return shop;
-}
-
-std::vector<_Tile>& Shop::getDungeon() {
-	return m_shop1;
-}
-int Shop::getRows() const {
-	return m_rows;
-}
-int Shop::getCols() const {
-	return m_cols;
-}
 
 
 // ==============================================
 //				:::: 2ND FLOOR ::::
 // ==============================================
-SecondFloor::SecondFloor(Player p) : Dungeon(3), m_openexit(false), m_watersUsed(false), m_watersCleared(true), m_guardians(-1) {
+SecondFloor::SecondFloor(std::shared_ptr<Player> p) : Dungeon(3, MAXROWS2, MAXCOLS2), m_openexit(false), m_watersUsed(false), m_watersCleared(true), m_guardians(-1) {
 	int rows = getRows();
 	int cols = getCols();
-
-	_Tile *tile;
-	int i, j;
-
-	//	initialize entire dungeon to blank space
-	for (i = 0; i < rows; i++) {
-		for (j = 0; j < cols; j++) {
-			tile = new _Tile;
-			tile->upper = tile->top = tile->bottom = tile->projectile = tile->traptile = tile->extra = SPACE;
-			tile->npc = tile->hero = tile->wall = tile->item = tile->trap = tile->enemy = tile->exit = false;
-			tile->gold = 0;
-			tile->item_name = "";
-			tile->object = nullptr;
-			tile->marked = tile->noSpawn = false;
-
-			m_maze2.push_back(*tile);
-			delete tile;
-		}
-	}
-
-	//	initialize top and bottom of dungeon to be unbreakable walls
-	for (i = 0; i < rows; i++) {
-		for (j = 0; j < cols; j++) {
-			m_maze2[i*cols + j].top = UNBREAKABLE_WALL;
-			m_maze2[i*cols + j].bottom = UNBREAKABLE_WALL;
-			m_maze2[i*cols + j].traptile = UNBREAKABLE_WALL;
-			m_maze2[i*cols + j].wall = true;
-			m_maze2[i*cols + j].boundary = true;
-		}
-		i += (rows - 2);
-	}
-
-	//	initialize edges of dungeon to be walls
-	for (i = 0; i < rows - 1; i++) {
-		m_maze2[i*cols].top = m_maze2[i*cols].bottom = m_maze2[i*cols].traptile = UNBREAKABLE_WALL;
-		m_maze2[i*cols + cols - 1].top = m_maze2[i*cols + cols - 1].bottom = m_maze2[i*cols + cols - 1].traptile = UNBREAKABLE_WALL;
-	
-		m_maze2[i*cols].wall = true;
-		m_maze2[i*cols + cols - 1].wall = true;
-		m_maze2[i*cols].boundary = true;
-		m_maze2[i*cols + cols - 1].boundary = true;
-	}
-
 
 
 	// :::: GENERATE LEVEL ::::
@@ -4884,8 +5668,8 @@ SecondFloor::SecondFloor(Player p) : Dungeon(3), m_openexit(false), m_watersUsed
 	fillLevel(finalvec, p);
 
 	// set staircase coordinates
-	for (int i = 0; i < getTraps().size(); i++) {
-		if (getTraps()[i]->getItem() == STAIRCASE) {
+	for (unsigned int i = 0; i < getTraps().size(); i++) {
+		if (getTraps()[i]->getName() == STAIRCASE) {
 			m_stairsX = getTraps()[i]->getPosX();
 			m_stairsY = getTraps()[i]->getPosY();
 		}
@@ -4894,7 +5678,6 @@ SecondFloor::SecondFloor(Player p) : Dungeon(3), m_openexit(false), m_watersUsed
 	// ---- END LEVEL GENERATION ----
 
 
-	char toptile, bottomtile, traptile;
 	bool hero, wall, enemy, trap, noSpawn;
 
 
@@ -4902,29 +5685,36 @@ SecondFloor::SecondFloor(Player p) : Dungeon(3), m_openexit(false), m_watersUsed
 	std::shared_ptr<Traps> button = std::make_shared<Button>();
 	button->setPosX(cols/2-1);
 	button->setPosY(rows/2-6);
-	//m_maze2[button->getPosY()*cols + button->getPosX()].traptile = BUTTON;
-	m_maze2[button->getPosY()*cols + button->getPosX()].trap_name = BUTTON_UNPRESSED;
-	m_maze2[button->getPosY()*cols + button->getPosX()].trap = true;
+	m_maze[button->getPosY()*cols + button->getPosX()].trap_name = BUTTON_UNPRESSED;
+	m_maze[button->getPosY()*cols + button->getPosX()].trap = true;
 	m_traps.push_back(button);
 
 
 	// GENERATE EXTRA MONSTERS
 	int n, x, y;
-	char monstertype;
 	shared_ptr<Monster> monster(nullptr);
-	for (int i = 0; i < 6; i++) {
+	for (int i = 0; i < 18; i++) {
 
 		//	selects how many of a type of monster to place
 		switch (i) {
-		case 0: n = 15 + randInt(4); break; // Zapper
-		case 1: n = 15 + randInt(5); break; // Wanderer
-		case 2: n = 20 + randInt(8); break; // Spinner
-		case 3: n = 25 + randInt(5); break; // Roundabout
-		case 4: n = 3 + randInt(2); break; // Bombee
-		case 5: n = 15 + randInt(10); break; // Fire Roundabout
+		case 0: n = 8 + randInt(4); break; // 
+		case 1: n = 5 + randInt(5); break; //
+		case 2: n = 6 + randInt(8); break; // 
+		case 3: n = 15 + randInt(10); break; // 
+		case 4: n = 1 + randInt(2); break; // 
+		case 5: n = 2 + randInt(2); break; // 
 		case 6: n = 5 + randInt(3); break; // 
-		case 7: n = 3 + randInt(3); break; // 
-		case 8: n = 4 + randInt(4); break; //
+		case 7: n = 14 + randInt(3); break; // 
+		case 8: n = 5 + randInt(4); break; //
+		case 9: n = 8 + randInt(4); break; //
+		case 10: n = 12 + randInt(4); break; //
+		case 11: n = 8 + randInt(4); break; //
+		case 12: n = 4 + randInt(4); break; //
+		case 13: n = 8 + randInt(4); break; //
+		case 14: n = 4 + randInt(4); break; //
+		case 15: n = 1 + randInt(1); break; //
+		case 16: n = 8 + randInt(4); break; //
+		case 17: n = 4 + randInt(4); break; //
 		}
 
 		while (n > 0) {
@@ -4932,48 +5722,66 @@ SecondFloor::SecondFloor(Player p) : Dungeon(3), m_openexit(false), m_watersUsed
 			x = 1 + randInt(cols - 2);
 			y = 1 + randInt(rows - 2);
 
-			noSpawn = m_maze2[y*cols + x].noSpawn;
-			wall = m_maze2[y*cols + x].wall;
-			hero = m_maze2[y*cols + x].hero;
-			enemy = m_maze2[y*cols + x].enemy;
-			trap = m_maze2[y*cols + x].trap;
+			noSpawn = m_maze[y*cols + x].noSpawn;
+			wall = m_maze[y*cols + x].wall;
+			hero = m_maze[y*cols + x].hero;
+			enemy = m_maze[y*cols + x].enemy;
+			trap = m_maze[y*cols + x].trap;
 
 			while (noSpawn || hero || wall || enemy || trap) { // while monster position clashes with wall, player, or idol, reroll its position
 				x = 1 + randInt(cols - 2);
 				y = 1 + randInt(rows - 2);
 
-				noSpawn = m_maze2[y*cols + x].noSpawn;
-				wall = m_maze2[y*cols + x].wall;
-				hero = m_maze2[y*cols + x].hero;
-				enemy = m_maze2[y*cols + x].enemy;
-				trap = m_maze2[y*cols + x].trap;
+				noSpawn = m_maze[y*cols + x].noSpawn;
+				wall = m_maze[y*cols + x].wall;
+				hero = m_maze[y*cols + x].hero;
+				enemy = m_maze[y*cols + x].enemy;
+				trap = m_maze[y*cols + x].trap;
 			}
 
 			// the type of enemy
 			switch (i) {
 			case 0:
-				monster = make_shared<Zapper>(x, y, rows); break;
-			case 1:
 				monster = make_shared<Wanderer>(x, y); break;
-			case 2:
-				monster = make_shared<Spinner>(x, y, rows); break;
+			case 1:
+				monster = make_shared<RabidWanderer>(x, y); break;
+			case 2:		
+				monster = make_shared<ProvocableWanderer>(x, y); break;
 			case 3:
-				monster = make_shared<Roundabout>(x, y); break;
+				monster = make_shared<FlameWanderer>(x, y); break;
 			case 4:
 				monster = make_shared<Bombee>(x, y); break;
 			case 5:
-				monster = make_shared<FireRoundabout>(x, y); break;
+				monster = make_shared<CharredBombee>(x, y); break;			
 			case 6:
 				monster = make_shared<Roundabout>(x, y); break;
 			case 7:
-				monster = make_shared<MountedKnight>(x, y); break;
+				monster = make_shared<FireRoundabout>(x, y); break;			
 			case 8:
-				monster = make_shared<Seeker>(x, y, 11); break;
+				monster = make_shared<Zapper>(x, y, rows); break;
+			case 9:
+				monster = make_shared<Spinner>(x, y, rows); break;
+			case 10:
+				monster = make_shared<Puff>(x, y); break;
+			case 11:
+				monster = make_shared<GustyPuff>(x, y); break;
+			case 12:
+				monster = make_shared<StrongGustyPuff>(x, y); break;
+			case 13:
+				monster = make_shared<InvertedPuff>(x, y); break;
+			case 14:
+				monster = make_shared<SpikedInvertedPuff>(x, y); break;
+			case 15:
+				monster = make_shared<ItemThief>(x, y); break;
+			case 16:
+				monster = make_shared<Serpent>(*this, x, y); break;
+			case 17:
+				monster = make_shared<Charger>(x, y); break;
 			}
 
 			getMonsters().emplace_back(monster);
-			m_maze2[y*cols + x].monster_name = monster->getName();
-			m_maze2[y*cols + x].enemy = true;
+			m_maze[y*cols + x].monster_name = monster->getName();
+			m_maze[y*cols + x].enemy = true;
 
 			n--;
 			monster.reset();
@@ -4982,8 +5790,8 @@ SecondFloor::SecondFloor(Player p) : Dungeon(3), m_openexit(false), m_watersUsed
 	
 }
 SecondFloor& SecondFloor::operator=(SecondFloor const &dungeon) {
-	for (unsigned i = 0; i < dungeon.getRows()*dungeon.getCols(); i++) {
-		m_maze2[i] = dungeon.m_maze2[i];
+	for (int i = 0; i < dungeon.getRows()*dungeon.getCols(); i++) {
+		m_maze[i] = dungeon.m_maze[i];
 	}
 	player = dungeon.player;
 
@@ -5007,306 +5815,51 @@ SecondFloor& SecondFloor::operator=(SecondFloor const &dungeon) {
 	return *this;
 }
 
-void SecondFloor::peekDungeon(int x, int y, char move) {
-	int rows = getRows();
-	int cols = getCols();
-
-	char top, bottom, traptile;
-	bool boundary, wall, item, trap, enemy;
-	std::string trap_name;
-
-	int initHP = player.at(0).getHP();
-
-	// reset player's blocking stance
-	player.at(0).setBlock(false);
-
-	// set player's facing direction
-	switch (move) {
-	case 'l':
-	case 'r':
-	case 'u':
-	case 'd':
-		player.at(0).setFacingDirection(move); break;
-	}
-
-	// set player's action key (for items that have casting time)
-	player.at(0).setAction(move);
-
-	// red tint if player has bloodlust
-	if (player.at(0).hasBloodlust()) {
-		bloodlustTint(player.at(0));
-	}
-
-	// check for any afflictions
-	player.at(0).checkAfflictions();
-
-	// if player is confused, switch their movement direction
-	if (player.at(0).isConfused()) {
-		switch (move) {
-		case 'l': move = 'r'; break;
-		case 'r': move = 'l'; break;
-		case 'u': move = 'd'; break;
-		case 'd': move = 'u'; break;
-		}
-	}
-
-	//			:::: MOVE PLAYER ::::
-	int weprange = player.at(0).getWeapon()->getRange();
-	bool moveUsed = false;
-
-	// if player is not immobilized, move them
-	if (!(player.at(0).isStunned() || player.at(0).isFrozen())) {
-
-		// check for special weapon attack patterns
-		if (player.at(0).getWeapon()->hasAttackPattern()) {
-			player.at(0).getWeapon()->usePattern(*this, moveUsed);
-		}
-
-		if (!moveUsed) {
-
-			// if it was a movement action
-			if (move == 'l' || move == 'r' || move == 'u' || move == 'd') {
-				// determines which way to move
-				int n = 0, m = 0;
-
-				switch (move) {
-				case 'l': n = -1; m = 0; break;
-				case 'r': n = 1; m = 0; break;
-				case 'u': n = 0; m = -1; break;
-				case 'd': n = 0; m = 1; break;
-				}
-
-				top = m_maze2[(y + m)*cols + (x + n)].top;
-				bottom = m_maze2[(y + m)*cols + (x + n)].bottom;
-				trap_name = m_maze2[(y + m)*cols + (x + n)].trap_name;
-				traptile = m_maze2[(y + m)*cols + (x + n)].traptile;
-
-				boundary = m_maze2[(y + m)*cols + (x + n)].boundary;
-				wall = (player.at(0).isEthereal() ? false : m_maze2[(y + m)*cols + (x + n)].wall);
-				item = m_maze2[(y + m)*cols + (x + n)].item;
-				trap = m_maze2[(y + m)*cols + (x + n)].trap;
-				enemy = m_maze2[(y + m)*cols + (x + n)].enemy;
-
-				if (!(wall || enemy || boundary)) {
-					m_maze2[y*cols + x].hero = false;
-					m_maze2[(y + m)*cols + (x + n)].hero = true;
-					player.at(0).setPosX(x + n); player.at(0).setPosY(y + m);
-
-					// pick up any gold/money that was on the ground
-					if (m_maze2[player[0].getPosY()*cols + player[0].getPosX()].gold > 0) {
-						goldPickup(m_maze2, player.at(0).getPosX(), player.at(0).getPosY());
-					}
-
-					if (trap) {
-						// queue player move
-						queueMoveSprite(player.at(0).getSprite(), player.at(0).getPosX(), player.at(0).getPosY());
-
-						if (trap_name == BUTTON_UNPRESSED) {
-							if (!m_openexit) {
-								cocos2d::experimental::AudioEngine::play2d("Button_Pressed.mp3", false, 1.0f);
-								cocos2d::experimental::AudioEngine::play2d("Exit_Opening.mp3", false, 1.0f);
-													
-								// replace button with pressed button
-								int pos = findTrap(x + n, y + m);
-								if (pos != -1) {
-									getTraps().at(pos)->getSprite()->removeFromParent();
-									getTraps().at(pos)->setSprite(createSprite(x + n, y + m, -1, "Button_Pressed_48x48.png"));
-								}
-
-								// replace locked stairs with open staircase
-								int stairsPos = findTrap(m_stairsX, m_stairsY);
-								if (stairsPos != -1) {
-									getTraps().at(stairsPos)->getSprite()->removeFromParent();
-									getTraps().at(stairsPos)->setSprite(createSprite(m_stairsX, m_stairsY, -1, "Stairs_48x48.png"));
-								}
-
-
-								m_openexit = true;
-								m_maze2[m_stairsY*cols + m_stairsX].exit = true;
-								//dungeonText.push_back("The stairs have been unlocked!\n");
-							}
-						}
-						else if (trap_name == DEVILS_WATER) {
-							if (!m_watersUsed) {
-								devilsWaterPrompt();
-							}
-						}
-						else {
-							trapEncounter(x + n, y + m);
-						}
-					}
-				}
-				else if (wall && !boundary) {
-					if (top == DOOR_H || top == DOOR_V) {
-						openDoor(x + n, y + m);
-					}
-					else if (top == DOOR_H_OPEN || top == DOOR_V_OPEN) {
-						m_maze2[y*cols + x].hero = false;
-						m_maze2[(y + m)*cols + (x + n)].hero = true;
-						player.at(0).setPosX(x + n); player.at(0).setPosY(y + m);
-					}
-					else if (top == DOOR_H_LOCKED || top == DOOR_V_LOCKED) {
-						// play locked door sound
-						cocos2d::experimental::AudioEngine::play2d("Locked.mp3", false, 1.0f);
-					}
-				}
-				else if (enemy) {	// monster encountered
-					fight(x + n, y + m);
-				}
-			}
-
-			else if (move == 'e') {
-				collectItem(*this, x, y);
-
-				if (getLevel() > 3)
-					return;
-			}
-
-			else if (move == 'b') {
-				if (player.at(0).hasShield()) {
-					// play setting up shield stance sound effect
-					cocos2d::experimental::AudioEngine::play2d("Shield_Stance.mp3", false, 1.0f);
-
-					player.at(0).setBlock(true);
-				}
-			}
-
-			// check if player is idling over lava
-			if (!(move == 'l' || move == 'r' || move == 'u' || move == 'd')) {
-				trap_name = m_maze2[y*cols + x].trap_name;
-				if (trap_name == LAVA) {
-					trapEncounter(x, y);
-				}
-			}
-		}
-
-	}
-
-	// queue player move
-	if (player.at(0).getPosX() != x || player.at(0).getPosY() != y) {
-		queueMoveSprite(player.at(0).getSprite(), player.at(0).getPosX(), player.at(0).getPosY());
-	}
-
-	// pick up any gold/money that was on the ground
-	if (m_maze2[player[0].getPosY()*cols + player[0].getPosX()].gold > 0) {
-		goldPickup(m_maze2, player.at(0).getPosX(), player.at(0).getPosY());
-	}
-
+void SecondFloor::specialActions() {
 	// check if player entered devil's waters and killed all guardians
 	if (m_guardians == 0 && m_watersCleared) {
 		guardiansDefeated();
-		
+
 		m_guardians = -1; // prevents if statement from being entered again
 	}
+}
+bool SecondFloor::specialTrapCheck(int x, int y) {
+	std::string trap_name = getDungeon()[y*getCols() + x].trap_name;
 
-	// check active items in play
-	checkActive();
+	if (trap_name == BUTTON_UNPRESSED) {
+		if (!m_openexit) {
+			cocos2d::experimental::AudioEngine::play2d("Button_Pressed.mp3", false, 1.0f);
+			cocos2d::experimental::AudioEngine::play2d("Exit_Opening.mp3", false, 1.0f);
 
-	// if there are any doors, check them
-	if (!getDoors().empty()) {
-		checkDoors();
-	}
-
-	// update sprite lighting
-	updateLighting();
-
-	//	if player is dead then return
-	if (player.at(0).getHP() <= 0) {
-		//if (!dungeonText.empty())
-			//showText();
-		return;
-	}
-
-	// if all monsters are dead?
-	if (getMonsters().empty()) {
-		//if (!dungeonText.empty())
-			//showText();
-
-		return;
-	}
-
-	// :::: Move monsters ::::
-	int mx, my, mInitHP;
-
-	for (unsigned i = 0; i < getMonsters().size(); i++) {
-		mInitHP = getMonsters().at(i)->getHP();
-		mx = getMonsters().at(i)->getPosX();
-		my = getMonsters().at(i)->getPosY();
-
-		// check for any afflictions
-		getMonsters().at(i)->checkAfflictions();
-
-		// check if an affliction killed the monster
-		if (getMonsters().at(i)->getHP() <= 0) {
-			monsterDeath(i);
-			i--;
-			continue;
-		}
-
-		// if monster is too far away, don't bother moving them
-		if (abs(player.at(0).getPosX() - mx) + abs(player.at(0).getPosY() - my) > 25) {
-			continue;
-		}
-
-		// if not stunned, use turn to move
-		if (!(getMonsters().at(i)->isStunned() || getMonsters().at(i)->isFrozen())) {
-
-			// if player is invisible, check if the monster chases them
-			if (player.at(0).isInvisible()) {
-				if (getMonsters().at(i)->chasesPlayer()) {
-					continue;
-				}
+			// replace button with pressed button
+			int pos = findTrap(x, y);
+			if (pos != -1) {
+				getTraps().at(pos)->getSprite()->removeFromParent();
+				getTraps().at(pos)->setSprite(createSprite(x, y, -1, "Button_Pressed_48x48.png"));
 			}
 
-			// move the monster
-			getMonsters().at(i)->move(*getMonsters().at(i), *this);
-
-
-			// flash monster sprite if damage was taken
-			if (getMonsters().at(i)->getHP() < mInitHP) {
-				runMonsterDamage(getMonsters().at(i)->getSprite());
+			// replace locked stairs with open staircase
+			int stairsPos = findTrap(m_stairsX, m_stairsY);
+			if (stairsPos != -1) {
+				getTraps().at(stairsPos)->getSprite()->removeFromParent();
+				getTraps().at(stairsPos)->setSprite(createSprite(m_stairsX, m_stairsY, -1, "Stairs_48x48.png"));
 			}
 
-			//	if player is dead then break
-			if (player.at(0).getHP() <= 0) {
-				player.at(0).setDeath(getMonsters().at(i)->getName());
-				break;
-			}
+
+			m_openexit = true;
+			getDungeon()[m_stairsY*getCols() + m_stairsX].exit = true;
 		}
-
 	}
-
-	// check monsters on traps
-	monsterTrapEncounter();
-
-	// check if player is holding the skeleton key
-	if (player.at(0).hasSkeletonKey()) {
-		player.at(0).checkKeyConditions(dungeonText);
-	}
-
-	// invulnerability check: if player is invulnerable and their hp is lower than initial, set hp back to original
-	if (player.at(0).isInvulnerable() && player.at(0).getHP() < initHP) {
-		player.at(0).setHP(initHP);
-	}
-
-	// flash player sprite if took damage
-	if (player.at(0).getHP() < initHP) {
-
-		// if player is invisible, they lose invisibility when damaged unless they had enough intellect
-		if (player.at(0).isInvisible() && player.at(0).getInt() < 8) {
-			player.at(0).removeAffliction("invisibility");
+	else if (trap_name == DEVILS_WATER) {
+		if (!m_watersUsed) {
+			devilsWaterPrompt();
 		}
-
-		runPlayerDamage(player.at(0).getSprite());
-
-		player.at(0).decreaseMoneyBonus();
+	}
+	else {
+		trapEncounter(x, y);
 	}
 
-	// run actions
-	runSpawn();
-
-	//if (!dungeonText.empty())
-		//showText();
+	return true;
 }
 
 void SecondFloor::devilsWater(bool bathed) {
@@ -5321,10 +5874,8 @@ void SecondFloor::devilsGift() {
 	int cols = getCols();
 
 	m_watersUsed = true;
-	player.at(0).setMaxHP(player.at(0).getMaxHP() + 30);
-	player.at(0).addAffliction(std::make_shared<HealOverTime>(30));
-
-	//cout << "You feel life force flow through you, but there is a price to pay for your actions... \n";
+	player.at(0)->setMaxHP(player.at(0)->getMaxHP() + 30);
+	player.at(0)->addAffliction(std::make_shared<HealOverTime>(30));
 
 	Archer a1(33, 15), a2(33, 22), a3(44, 15), a4(44,22);
 	a1.setName("Guardian");
@@ -5337,26 +5888,26 @@ void SecondFloor::devilsGift() {
 	a3.setSprite(createSprite(42, 27, 1, "Archer_48x48.png"));
 	a4.setSprite(createSprite(42, 28, 1, "Archer_48x48.png"));
 
-	a1.setPosX(31); a1.setPosY(27); m_monsters.emplace_back(new Archer(a1)); m_maze2[a1.getPosY()*cols + a1.getPosX()].enemy = true;
-	a2.setPosX(31); a2.setPosY(28); m_monsters.emplace_back(new Archer(a2)); m_maze2[a2.getPosY()*cols + a2.getPosX()].enemy = true;
-	a3.setPosX(42); a3.setPosY(27); m_monsters.emplace_back(new Archer(a3)); m_maze2[a3.getPosY()*cols + a3.getPosX()].enemy = true;
-	a4.setPosX(42); a4.setPosY(28); m_monsters.emplace_back(new Archer(a4)); m_maze2[a4.getPosY()*cols + a4.getPosX()].enemy = true;
+	a1.setPosX(31); a1.setPosY(27); m_monsters.emplace_back(new Archer(a1)); m_maze[a1.getPosY()*cols + a1.getPosX()].enemy = true;
+	a2.setPosX(31); a2.setPosY(28); m_monsters.emplace_back(new Archer(a2)); m_maze[a2.getPosY()*cols + a2.getPosX()].enemy = true;
+	a3.setPosX(42); a3.setPosY(27); m_monsters.emplace_back(new Archer(a3)); m_maze[a3.getPosY()*cols + a3.getPosX()].enemy = true;
+	a4.setPosX(42); a4.setPosY(28); m_monsters.emplace_back(new Archer(a4)); m_maze[a4.getPosY()*cols + a4.getPosX()].enemy = true;
 
 	// close off the exits with walls after accepting the devils gift
 	for (int i = 29; i <= 30; i++) {
 		for (int j = 27; j <= 28; j++) {
-			addSprite(wall_sprites, rows, i, j, 1, "D_Wall_Terrain2_48x48.png");
+			addSprite(wall_sprites, i, j, 1, "D_Wall_Terrain2_48x48.png");
 
-			m_maze2[j*cols + i].top = UNBREAKABLE_WALL;
-			m_maze2[j*cols + i].wall = true;
+			m_maze[j*cols + i].wall_type = UNB_WALL;
+			m_maze[j*cols + i].wall = true;
 		}
 	}
 	for (int i = 43; i <= 44; i++) {
 		for (int j = 27; j <= 28; j++) {
-			addSprite(wall_sprites, rows, i, j, 1, "D_Wall_Terrain2_48x48.png");
+			addSprite(wall_sprites, i, j, 1, "D_Wall_Terrain2_48x48.png");
 
-			m_maze2[j*cols + i].top = UNBREAKABLE_WALL;
-			m_maze2[j*cols + i].wall = true;
+			m_maze[j*cols + i].wall_type = UNB_WALL;
+			m_maze[j*cols + i].wall = true;
 		}
 	}
 
@@ -5369,34 +5920,32 @@ void SecondFloor::guardiansDefeated() {
 	// remove the blocked walls
 	for (int i = 29; i <= 30; i++) {
 		for (int j = 27; j <= 28; j++) {
-			removeSprite(wall_sprites, getRows(), i, j);
+			removeSprite(wall_sprites, i, j);
 
-			m_maze2[j*getCols() + i].top = SPACE;
-			m_maze2[j*getCols() + i].wall = false;
+			m_maze[j*getCols() + i].wall_type = EMPTY;
+			m_maze[j*getCols() + i].wall = false;
 		}
 	}
 	for (int i = 43; i <= 44; i++) {
 		for (int j = 27; j <= 28; j++) {
-			removeSprite(wall_sprites, getRows(), i, j);
+			removeSprite(wall_sprites, i, j);
 
-			m_maze2[j*getCols() + i].top = SPACE;
-			m_maze2[j*getCols() + i].wall = false;
+			m_maze[j*getCols() + i].wall_type = EMPTY;
+			m_maze[j*getCols() + i].wall = false;
 		}
 	}
 }
 void SecondFloor::devilsWaterPrompt() {
-	auto scene = dynamic_cast<Level2Scene*>(m_scene);
-	scene->m_hud->devilsWaters(scene->kbListener, *this);
+	auto scene = dynamic_cast<LevelScene*>(m_scene);
+	scene->enableListener(false);
+	scene->callDevilsWaters();
 
 	m_waterPrompt = true;
 }
-bool SecondFloor::getWaterPrompt() {
-	return m_waterPrompt;
-}
 
-void SecondFloor::monsterDeath(int pos) { // monster's coordinates
+void SecondFloor::monsterDeath(int pos) {
 	// call monster's death function
-	getMonsters().at(pos)->death(*getMonsters().at(pos), *this);
+	getMonsters().at(pos)->death(*this);
 
 	// check if monster was a guardian
 	if (getMonsters().at(pos)->getName() == "Guardian") {
@@ -5408,20 +5957,7 @@ void SecondFloor::monsterDeath(int pos) { // monster's coordinates
 	// remove them from the monster vector
 	getMonsters().erase(getMonsters().begin() + pos);
 }
-void SecondFloor::fight(int x, int y) { // monster's coordinates
-	int i = findMonster(x, y);
 
-	if (i == -1)
-		return;
-
-	//player.at(0).attack(m_f2monsters, m_f2actives, i, dungeonText);
-	player.at(0).attack(*this, *getMonsters().at(i));
-
-	std::string monster = getMonsters().at(i)->getName();
-	if (getMonsters().at(i)->getHP() <= 0) {
-		monsterDeath(i);
-	}
-}
 
 std::vector<std::vector<std::string>> SecondFloor::outermostChunks() {
 
@@ -5546,7 +6082,6 @@ std::vector<std::vector<std::string>> SecondFloor::outermostChunks() {
 	c.push_back(xx);
 	c.push_back(xxi);*/
 
-	//c = mixOutermostChunks(c);
 
 	return c.at(randInt(c.size()));
 }
@@ -5800,9 +6335,27 @@ std::vector<std::string> SecondFloor::innerChunksCT(std::vector<std::vector<std:
 	c = mixInnerChunksCT(c);
 
 	return combineChunks(c);
-}
-std::vector<std::string> SecondFloor::innerChunksCB(std::vector<std::vector<std::vector<std::string>>> &c) {
-	std::vector<std::vector<std::string>> i =
+}*/
+
+std::vector<std::vector<std::string>> cornerChunks(int corner, bool innerRing) {
+
+	/**  Corner legend:
+	*    TL: 1 (A)
+	*    TR: 2 (B)
+	*    BL: 3 (C)
+	*    BR: 4 (D)
+	*/
+
+	// Top-left: 1
+	std::vector<std::vector<std::string>> A_i =
+	{ {i_ri, t_cl, m_gs,   sp,   sp,   sp,   sp,   sp},
+	  {t_cl, t_cl,   sp,   sp, r_wl,   sp,   sp,   sp},
+	  {m_gs,   sp, m_gs,   sp, m_rm,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp, r_wl,   sp,   sp,   sp},
+	  {  sp, r_wl, m_rm, r_wl, r_wl,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> A_ii =
 	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
@@ -5810,7 +6363,7 @@ std::vector<std::string> SecondFloor::innerChunksCB(std::vector<std::vector<std:
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> ii =
+	std::vector<std::vector<std::string>> A_iii =
 	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
@@ -5818,7 +6371,7 @@ std::vector<std::string> SecondFloor::innerChunksCB(std::vector<std::vector<std:
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> iii =
+	std::vector<std::vector<std::string>> A_iv =
 	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
@@ -5826,7 +6379,8 @@ std::vector<std::string> SecondFloor::innerChunksCB(std::vector<std::vector<std:
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> iv =
+	// Top-right: 2
+	std::vector<std::vector<std::string>> B_i =
 	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
@@ -5834,7 +6388,7 @@ std::vector<std::string> SecondFloor::innerChunksCB(std::vector<std::vector<std:
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> v =
+	std::vector<std::vector<std::string>> B_ii =
 	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
@@ -5842,7 +6396,7 @@ std::vector<std::string> SecondFloor::innerChunksCB(std::vector<std::vector<std:
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> vi =
+	std::vector<std::vector<std::string>> B_iii =
 	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
@@ -5850,7 +6404,7 @@ std::vector<std::string> SecondFloor::innerChunksCB(std::vector<std::vector<std:
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> vii =
+	std::vector<std::vector<std::string>> B_iv =
 	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
@@ -5858,7 +6412,8 @@ std::vector<std::string> SecondFloor::innerChunksCB(std::vector<std::vector<std:
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> viii =
+	// Bottom-left: 3
+	std::vector<std::vector<std::string>> C_i =
 	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
@@ -5866,7 +6421,7 @@ std::vector<std::string> SecondFloor::innerChunksCB(std::vector<std::vector<std:
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> ix =
+	std::vector<std::vector<std::string>> C_ii =
 	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
@@ -5874,7 +6429,7 @@ std::vector<std::string> SecondFloor::innerChunksCB(std::vector<std::vector<std:
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> x =
+	std::vector<std::vector<std::string>> C_iii =
 	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
@@ -5882,7 +6437,7 @@ std::vector<std::string> SecondFloor::innerChunksCB(std::vector<std::vector<std:
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> xi =
+	std::vector<std::vector<std::string>> C_iv =
 	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
@@ -5890,7 +6445,8 @@ std::vector<std::string> SecondFloor::innerChunksCB(std::vector<std::vector<std:
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
 
-	std::vector<std::vector<std::string>> xii =
+	// Bottom-right: 4
+	std::vector<std::vector<std::string>> D_i =
 	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
@@ -5898,18 +6454,48 @@ std::vector<std::string> SecondFloor::innerChunksCB(std::vector<std::vector<std:
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
 
-	c.push_back(i);
-	c.push_back(ii);
-	c.push_back(iii);
-	c.push_back(iv);
-	c.push_back(v);
-	c.push_back(vi);
-	c.push_back(vii);
-	c.push_back(viii);
-	c.push_back(ix);
-	c.push_back(x);
-	c.push_back(xi);
-	c.push_back(xii);
+	std::vector<std::vector<std::string>> D_ii =
+	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> D_iii =
+	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::string>> D_iv =
+	{ {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
+	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
+
+	std::vector<std::vector<std::vector<std::string>>> c;
+
+	c.push_back(A_i);
+	c.push_back(A_ii);
+	c.push_back(A_iii);
+	c.push_back(A_iv);
+	c.push_back(B_i);
+	c.push_back(B_ii);
+	c.push_back(B_iii);
+	c.push_back(B_iv);
+	c.push_back(C_i);
+	c.push_back(C_ii);
+	c.push_back(C_iii);
+	c.push_back(C_iv);
+	c.push_back(D_i);
+	c.push_back(D_ii);
+	c.push_back(D_iii);
+	c.push_back(D_iv);
 	/*c.push_back(xiii);
 	c.push_back(xiv);
 	c.push_back(xv);
@@ -5919,12 +6505,11 @@ std::vector<std::string> SecondFloor::innerChunksCB(std::vector<std::vector<std:
 	c.push_back(xix);
 	c.push_back(xx);
 	c.push_back(xxi);
+	*/
 
-	c = mixInnerChunksCB(c);
-
-	return combineChunks(c);
+	return c.at(randInt(c.size()));
 }
-std::vector<std::string> SecondFloor::centerChunks(std::vector<std::vector<std::vector<std::string>>> &c) {
+std::vector<std::vector<std::string>> junctionChunks() {
 	std::vector<std::vector<std::string>> i =
 	{ { wll,  wll,   sp,   sp,   sp,   sp,   sp,   sp},
 	  { wll,  wll,   sp,   sp,   sp,   sp,   sp,   sp},
@@ -6021,6 +6606,8 @@ std::vector<std::string> SecondFloor::centerChunks(std::vector<std::vector<std::
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp},
 	  {  sp,   sp,   sp,   sp,   sp,   sp,   sp,   sp} };
 
+	std::vector<std::vector<std::vector<std::string>>> c;
+
 	c.push_back(i);
 	c.push_back(ii);
 	c.push_back(iii);
@@ -6042,12 +6629,11 @@ std::vector<std::string> SecondFloor::centerChunks(std::vector<std::vector<std::
 	c.push_back(xix);
 	c.push_back(xx);
 	c.push_back(xxi);
+	*/
 
-	c = mixCenterChunks(c);
 
-	return combineChunks(c);
+	return c.at(randInt(c.size()));
 }
-*/
 
 std::vector<std::vector<std::string>> SecondFloor::lavaChunks() {
 	//	 LAVA CHUNKS
@@ -6384,7 +6970,7 @@ std::vector<std::string> SecondFloor::generateLevel() {
 		b = combineChunks(v);
 
 		// add to the final dungeon map
-		for (int i = 0; i < b.size(); i++)
+		for (unsigned int i = 0; i < b.size(); i++)
 			finalvec.push_back(b.at(i));
 
 		b.clear();
@@ -6396,7 +6982,7 @@ std::vector<std::string> SecondFloor::generateLevel() {
 std::vector<std::string> SecondFloor::combineChunks(std::vector<std::vector<std::vector<std::string>>> c) {
 	std::vector<std::string> v;
 	for (int i = 0; i < 6; i++) {			// iterate thru rows of 2d vector
-		for (int j = 0; j < c.size(); j++) {	// iterate thru vector of 2d vectors
+		for (unsigned int j = 0; j < c.size(); j++) {	// iterate thru vector of 2d vectors
 			for (int k = 0; k < 8; k++) {			// iterate thru columns of 2d vector
 				v.push_back(c.at(j)[i][k]);
 			}
@@ -6407,342 +6993,13 @@ std::vector<std::string> SecondFloor::combineChunks(std::vector<std::vector<std:
 }
 
 
-std::vector<_Tile>& SecondFloor::getDungeon() {
-	return m_maze2;
-}
-int SecondFloor::getRows() const {
-	return m_rows;
-}
-int SecondFloor::getCols() const {
-	return m_cols;
-}
-
 
 // ==============================================
 //				:::: 3RD FLOOR ::::
 // ==============================================
-ThirdFloor::ThirdFloor(Player p) : Dungeon(4), m_locked(false) {
+ThirdFloor::ThirdFloor(std::shared_ptr<Player> p) : Dungeon(5, MAXROWS3, MAXCOLS3), m_locked(false) {
 	int rows = getRows();
 	int cols = getCols();
-
-	_Tile *tile;
-	int i, j;
-
-	//	initialize entire dungeon to blank space
-	for (i = 0; i < rows; i++) {
-		for (j = 0; j < cols; j++) {
-			tile = new _Tile;
-			tile->upper = tile->top = tile->bottom = tile->projectile = tile->traptile = SPACE;
-			tile->npc = tile->hero = tile->wall = tile->item = tile->trap = tile->enemy = tile->exit = false;
-			tile->gold = 0;
-			tile->item_name = "";
-			tile->object = nullptr;
-			tile->marked = false;
-
-			m_maze3.push_back(*tile);
-			delete tile;
-		}
-	}
-
-	//	initialize top and bottom of dungeon to be unbreakable walls
-	for (i = 0; i < rows; i++) {
-		for (j = 0; j < cols; j++) {
-			m_maze3[i*cols + j].top = UNBREAKABLE_WALL;
-			m_maze3[i*cols + j].bottom = UNBREAKABLE_WALL;
-			m_maze3[i*cols + j].traptile = UNBREAKABLE_WALL;
-			m_maze3[i*cols + j].wall = true;
-			m_maze3[i*cols + j].boundary = true;
-		}
-		i += (rows - 2);
-	}
-
-	//	initialize edges of dungeon to be walls
-	for (i = 0; i < rows - 1; i++) {
-		m_maze3[i*cols].top = m_maze3[i*cols].bottom = m_maze3[i*cols + j].traptile = UNBREAKABLE_WALL;
-		m_maze3[i*cols + cols - 1].top = m_maze3[i*cols + cols - 1].bottom = m_maze3[i*cols + cols - 1].traptile = UNBREAKABLE_WALL;
-	
-		m_maze3[i*cols].wall = true;
-		m_maze3[i*cols + cols - 1].wall = true;
-		m_maze3[i*cols].boundary = true;
-		m_maze3[i*cols + cols - 1].boundary = true;
-	}
-
-	/*
-	// selects layer for the player and exit chunks to be on
-	m_layer = 1;
-	m_playerchunk = 1 + randInt(4);
-	m_playerplaced = m_exitplaced = false;
-
-	switch (m_playerchunk) {
-	case 1: m_exitchunk = 4; break;
-	case 2: m_exitchunk = 3; break;
-	case 3: m_exitchunk = 2; break;
-	case 4: m_exitchunk = 1; break;
-	default: break;
-	}
-
-	// RANDOMLY GENERATES LEVEL CHUNKS
-	std::vector<std::vector<std::vector<char>>> c, pool;
-	std::vector<char> v, finalvec;
-
-	int count = 0;
-	while (count < (rows - 2) / 9) {
-		if (count == 0) {
-			TLChunks(c, pool); pool.clear(); m_layer++;
-			topChunks(c, pool); pool.clear();
-			v = TRChunks(c, pool); pool.clear();
-		}
-		else if (count == 1 || count == 2) {
-			leftEdgeChunks(c, pool); pool.clear();
-			middleChunks(c, pool); pool.clear();
-			v = rightEdgeChunks(c, pool); pool.clear();
-		}
-		else if (count == 3) {
-			m_layer++;
-			BLChunks(c, pool); pool.clear(); m_layer++;
-			bottomChunks(c, pool); pool.clear();
-			v = BRChunks(c, pool); pool.clear();
-		}
-
-		for (i = 0; i < v.size(); i++)
-			finalvec.push_back(v.at(i) == '#' ? WALL : v.at(i));
-
-		c.clear();
-		count++;
-	}
-
-	count = 0;
-	char object;
-	for (i = 0; i < rows - 1; i++) { // changed to i = 0 from i = 1
-
-		// Originally j < cols - 1
-		for (j = 1; j < cols; j++) {
-			m_maze3[i*cols + j].top = finalvec.at(count);
-			m_maze3[i*cols + j].bottom = finalvec.at(count);
-			if (m_maze3[i*cols + j].top == WALL || m_maze3[i*cols + j].top == UNBREAKABLE_WALL) {
-				m_maze3[i*cols + j].traptile = finalvec.at(count);
-				m_maze3[i*cols + j].wall = true;
-			}
-			if (finalvec.at(count) == c_LAVA) {
-				std::shared_ptr<Traps> lava = std::make_shared<Lava>(j, i);
-				m_traps.emplace_back(lava);
-				lava.reset();
-
-				m_maze3[i*cols + j].top = SPACE;
-				m_maze3[i*cols + j].bottom = SPACE;
-				m_maze3[i*cols + j].traptile = finalvec.at(count);
-				m_maze3[i*cols + j].trap_name = LAVA;
-				m_maze3[i*cols + j].trap = true;
-			}
-
-			//	if the object was an item or enemy
-			if (m_maze3[i*cols + j].bottom != WALL && m_maze3[i*cols + j].bottom != SPACE) {
-
-				object = m_maze3[i*cols + j].bottom;
-
-				switch (object) {
-				case c_PLAYER:
-					m_maze3[i*cols + j].top = SPACE;
-					m_maze3[i*cols + j].bottom = SPACE;
-					m_maze3[i*cols + j].hero = true;
-					player.at(0) = p;
-					player.at(0).setPosX(j);
-					player.at(0).setPosY(i);
-					break;
-				case DOOR_V:
-				case DOOR_H: {
-					m_maze3[i*cols + j].bottom = SPACE;
-					m_maze3[i*cols + j].traptile = finalvec.at(count);
-					m_maze3[i*cols + j].wall = true;
-					
-					Door door;
-					door.setPosX(j);
-					door.setPosY(i);
-					m_doors.emplace_back(new Door(door));
-					break;
-				}
-				case STAIRS: {
-					Stairs stairs;
-					stairs.setPosX(j);
-					stairs.setPosY(i);
-					//m_traps.emplace_back(new Stairs(stairs));
-
-
-					m_maze3[i*cols + j].top = SPACE;
-					m_maze3[i*cols + j].bottom = SPACE;
-					m_maze3[i*cols + j].traptile = STAIRS;
-					m_maze3[i*cols + j].exit = true;
-					m_maze3[i*cols + j].trap = true;
-					break;
-				}
-				case BUTTON: {
-					Button button;
-					button.setPosX(j);
-					button.setPosY(i);
-					//m_traps.emplace_back(new Button(button));
-
-					m_maze3[i*cols + j].top = SPACE;
-					m_maze3[i*cols + j].bottom = SPACE;
-					m_maze3[i*cols + j].traptile = BUTTON;
-					m_maze3[i*cols + j].trap = true;
-					break;
-				}
-				case c_BOMB: {
-					m_maze3[i*cols + j].object = std::make_shared<Bomb>();
-
-					m_maze3[i*cols + j].top = SPACE;
-					m_maze3[i*cols + j].item_name = BOMB;
-					m_maze3[i*cols + j].item = true;
-					break;
-				}
-				case c_ARMOR: {
-					m_maze3[i*cols + j].object = std::make_shared<ArmorDrop>();
-					m_maze3[i*cols + j].top = SPACE;
-					m_maze3[i*cols + j].item_name = ARMOR;
-					m_maze3[i*cols + j].item = true;
-					break;
-				}
-				case c_LIFEPOT: {
-					m_maze3[i*cols + j].object = std::make_shared<LifePotion>();
-					m_maze3[i*cols + j].top = SPACE;
-					m_maze3[i*cols + j].item_name = LIFEPOT;
-					m_maze3[i*cols + j].item = true;
-					break;
-				}
-				case c_STATPOT: {
-					m_maze3[i*cols + j].object = std::make_shared<StatPotion>();
-					m_maze3[i*cols + j].top = SPACE;
-					m_maze3[i*cols + j].item_name = STATPOT;
-					m_maze3[i*cols + j].item = true;
-					break;
-				}
-				case c_HEART_POD: {
-					m_maze3[i*cols + j].object = std::make_shared<HeartPod>();
-					m_maze3[i*cols + j].top = SPACE;
-					m_maze3[i*cols + j].item_name = HEART_POD;
-					m_maze3[i*cols + j].item = true;
-					break;
-				}
-				case c_BROWN_CHEST: {
-					m_maze3[i*cols + j].object = std::make_shared<BrownChest>();
-					m_maze3[i*cols + j].top = SPACE;
-					m_maze3[i*cols + j].item_name = BROWN_CHEST;
-					m_maze3[i*cols + j].item = true;
-					break;
-				}
-				case c_SILVER_CHEST: {
-					m_maze3[i*cols + j].object = std::make_shared<SilverChest>();
-					m_maze3[i*cols + j].top = SPACE;
-					m_maze3[i*cols + j].item_name = SILVER_CHEST;
-					m_maze3[i*cols + j].item = true;
-					break;
-				}
-				case c_GOLDEN_CHEST: {
-					m_maze3[i*cols + j].object = std::make_shared<GoldenChest>();
-					m_maze3[i*cols + j].top = SPACE;
-					m_maze3[i*cols + j].item_name = GOLDEN_CHEST;
-					m_maze3[i*cols + j].item = true;
-					break;
-				}
-				case c_INFINITY_BOX: {
-					m_maze3[i*cols + j].object = std::make_shared<InfinityBox>();
-					m_maze3[i*cols + j].top = SPACE;
-					m_maze3[i*cols + j].item_name = INFINITY_BOX;
-					m_maze3[i*cols + j].item = true;
-					break;
-				}
-				case SPIKETRAP_DEACTIVE: {
-					SpikeTrap st(j, i, 4);
-					m_traps.emplace_back(new SpikeTrap(st)); //
-
-					m_maze3[i*cols + j].top = m_maze3[i*cols + j].bottom = SPACE;
-					m_maze3[i*cols + j].traptile = SPIKETRAP_DEACTIVE;
-					m_maze3[i*cols + j].trap = true;
-					break;
-				}
-				case TRIGGER_SPIKE_DEACTIVE: {
-					TriggerSpike ts(j, i);
-					//m_f3actives.emplace_back(new TriggerSpike(ts));
-					m_traps.emplace_back(new TriggerSpike(ts)); //
-
-					m_maze3[i*cols + j].top = m_maze3[i*cols + j].bottom = SPACE;
-					m_maze3[i*cols + j].traptile = TRIGGER_SPIKE_DEACTIVE;
-					m_maze3[i*cols + j].trap = true;
-					break;
-				}
-				case c_WANDERER: {
-					m_maze3[i*cols + j].bottom = SPACE;
-					Wanderer wand(j, i);
-					getMonsters().emplace_back(new Wanderer(wand));
-					m_maze3[i*cols + j].enemy = true;
-					break;
-				}
-				case c_GOBLIN: {
-					m_maze3[i*cols + j].bottom = SPACE;
-					Goblin goblin(j, i, 12);
-					getMonsters().emplace_back(new Goblin(goblin));
-					m_maze3[i*cols + j].enemy = true;
-					break;
-				}
-				case c_ARCHER: {
-					m_maze3[i*cols + j].bottom = SPACE;
-					Archer archer(j, i);
-					getMonsters().emplace_back(new Archer(archer));
-					m_maze3[i*cols + j].enemy = true;
-					break;
-				}
-				case c_SEEKER: {
-					m_maze3[i*cols + j].bottom = SPACE;
-					Seeker seeker(j, i, 10);
-					getMonsters().emplace_back(new Seeker(seeker));
-					m_maze3[i*cols + j].enemy = true;
-					break;
-				}
-				case c_MOUNTED_KNIGHT: {
-					m_maze3[i*cols + j].bottom = SPACE;
-					MountedKnight knight(j, i);
-					getMonsters().emplace_back(new MountedKnight(knight));
-					m_maze3[i*cols + j].enemy = true;
-					break;
-				}
-				case c_ZAPPER: {
-					m_maze3[i*cols + j].bottom = SPACE;
-					Zapper zapper(j, i, rows);
-					//zapper.setPosX(j);
-					//zapper.setPosY(i);
-					getMonsters().emplace_back(new Zapper(zapper));
-					m_maze3[i*cols + j].enemy = true;
-					break;
-				}
-				case c_SPINNER: {
-					m_maze3[i*cols + j].bottom = SPACE;
-					Spinner spinner(j, i, rows);
-					getMonsters().emplace_back(new Spinner(spinner));
-
-					m_maze3[i*cols + j].enemy = true;
-					break;
-				}
-				case c_ROUNDABOUT: {
-					m_maze3[i*cols + j].bottom = SPACE;
-					Roundabout ra(j, i);
-					getMonsters().emplace_back(new Roundabout(ra));
-					m_maze3[i*cols + j].enemy = true;
-					break;
-				}
-				case c_BOMBEE: {
-					m_maze3[i*cols + j].bottom = SPACE;
-					Bombee bombee(j, i);
-					getMonsters().emplace_back(new Bombee(bombee));
-					m_maze3[i*cols + j].enemy = true;
-					break;
-				}
-				default: break;
-				}
-			}
-			count++;
-		}
-	}
-	*/
 
 	std::vector<std::string> finalvec = generateLevel();
 	fillLevel(finalvec, p, 0, 0);
@@ -6750,8 +7007,8 @@ ThirdFloor::ThirdFloor(Player p) : Dungeon(4), m_locked(false) {
 	// END LEVEL GENERATION
 }
 ThirdFloor& ThirdFloor::operator=(ThirdFloor const &dungeon) {
-	for (unsigned i = 0; i < dungeon.getRows()*dungeon.getCols(); i++) {
-		m_maze3[i] = dungeon.m_maze3[i];
+	for (int i = 0; i < dungeon.getRows()*dungeon.getCols(); i++) {
+		m_maze[i] = dungeon.m_maze[i];
 	}
 	player = dungeon.player;
 
@@ -6774,267 +7031,6 @@ ThirdFloor& ThirdFloor::operator=(ThirdFloor const &dungeon) {
 	return *this;
 }
 
-void ThirdFloor::peekDungeon(int x, int y, char move) {
-	int rows = getRows();
-	int cols = getCols();
-
-	char top, bottom, traptile;
-	bool boundary, wall, item, enemy, trap;
-
-	int initHP = player.at(0).getHP();
-
-	// reset player's blocking stance
-	player.at(0).setBlock(false);
-
-	// set player's facing direction
-	switch (move) {
-	case 'l':
-	case 'r':
-	case 'u':
-	case 'd':
-		player.at(0).setFacingDirection(move); break;
-	}
-
-	// set player's action key (for items that have casting time)
-	player.at(0).setAction(move);
-
-	// red tint if player has bloodlust
-	if (player.at(0).hasBloodlust()) {
-		bloodlustTint(player.at(0));
-	}
-
-	// check for any afflictions
-	player.at(0).checkAfflictions();
-
-	// if player is confused, switch their movement direction
-	if (player.at(0).isConfused()) {
-		switch (move) {
-		case 'l': move = 'r'; break;
-		case 'r': move = 'l'; break;
-		case 'u': move = 'd'; break;
-		case 'd': move = 'u'; break;
-		}
-	}
-
-	// :::: Move player ::::
-	int weprange = player.at(0).getWeapon()->getRange();
-	bool moveUsed = false;
-
-	// if player is not immobilized, move them
-	if (!(player.at(0).isStunned() || player.at(0).isFrozen())) {
-
-		// check for special weapon attack patterns
-		if (player.at(0).getWeapon()->hasAttackPattern()) {
-			player.at(0).getWeapon()->usePattern(*this, moveUsed);
-		}
-
-		if (!moveUsed) {
-
-			// if it was a movement action
-			if (move == 'l' || move == 'r' || move == 'u' || move == 'd') {
-				// determines which way to move
-				int n = 0, m = 0;
-
-				switch (move) {
-				case 'l': n = -1; m = 0; break;
-				case 'r': n = 1; m = 0; break;
-				case 'u': n = 0; m = -1; break;
-				case 'd': n = 0; m = 1; break;
-				}
-
-				top = m_maze3[(y + m)*cols + (x + n)].top;
-				bottom = m_maze3[(y + m)*cols + (x + n)].bottom;
-				traptile = m_maze3[(y + m)*cols + (x + n)].traptile;
-
-				boundary = m_maze3[(y + m)*cols + (x + n)].boundary;
-				wall = (player.at(0).isEthereal() ? false : m_maze3[(y + m)*cols + (x + n)].wall);
-				item = m_maze3[(y + m)*cols + (x + n)].item;
-				trap = m_maze3[(y + m)*cols + (x + n)].trap;
-				enemy = m_maze3[(y + m)*cols + (x + n)].enemy;
-
-				if (!(wall || enemy || boundary)) {
-					m_maze3[y*cols + x].hero = false;
-					m_maze3[(y + m)*cols + (x + n)].hero = true;
-					player.at(0).setPosX(x + n); player.at(0).setPosY(y + m);
-
-					// pick up any gold/money that was on the ground
-					if (m_maze3[player[0].getPosY()*cols + player[0].getPosX()].gold > 0) {
-						goldPickup(m_maze3, player.at(0).getPosX(), player.at(0).getPosY());
-					}
-
-					if (trap) {
-						// queue player move
-						queueMoveSprite(player.at(0).getSprite(), player.at(0).getPosX(), player.at(0).getPosY());
-
-						trapEncounter(x + n, y + m);
-					}
-				}
-				else if (wall && !boundary) {
-					if (top == DOOR_H || top == DOOR_V) {
-						openDoor(x + n, y + m);
-					}
-					else if (top == DOOR_H_OPEN || top == DOOR_V_OPEN) {
-						m_maze3[y*cols + x].hero = false;
-						m_maze3[(y + m)*cols + (x + n)].hero = true;
-						player.at(0).setPosX(x + n); player.at(0).setPosY(y + m);
-					}
-					else if (top == DOOR_H_LOCKED || top == DOOR_V_LOCKED) {
-						// play locked door sound
-						cocos2d::experimental::AudioEngine::play2d("Locked.mp3", false, 1.0f);
-					}
-				}
-				else if (enemy) {	// monster encountered
-					fight(x + n, y + m);
-				}
-			}
-
-			else if (move == 'e') {
-				collectItem(*this, x, y);
-
-				if (getLevel() > 4)
-					return;
-			}
-
-			else if (move == 'b') {
-				if (player.at(0).hasShield()) {
-					// play setting up shield stance sound effect
-					cocos2d::experimental::AudioEngine::play2d("Shield_Stance.mp3", false, 1.0f);
-
-					player.at(0).setBlock(true);
-				}
-			}
-
-			// check if player is idling over lava
-			if (!(move == 'l' || move == 'r' || move == 'u' || move == 'd')) {
-				traptile = m_maze3[y*cols + x].traptile;
-				if (traptile == c_LAVA) {
-					trapEncounter(x, y);
-				}
-			}
-		}
-
-	}
-
-	// queue player move
-	if (player.at(0).getPosX() != x || player.at(0).getPosY() != y) {
-		queueMoveSprite(player.at(0).getSprite(), player.at(0).getPosX(), player.at(0).getPosY());
-	}
-
-	// pick up any gold/money that was on the ground
-	if (m_maze3[player[0].getPosY()*cols + player[0].getPosX()].gold > 0) {
-		goldPickup(m_maze3, player.at(0).getPosX(), player.at(0).getPosY());
-	}
-
-	// check active items in play
-	checkActive();
-
-	// if there are any doors, check them
-	if (!getDoors().empty()) {
-		checkDoors();
-	}
-
-	// update sprite lighting
-	updateLighting();
-
-	//	if player is dead then return
-	if (player.at(0).getHP() <= 0) {
-		//m_maze3[y*cols + x].top = 'X'; // change player icon to X to indicate death
-
-		//clearScreen();
-		//showDungeon();
-		//if (!dungeonText.empty())
-			//showText();
-		return;
-	}
-
-	// if all monsters are dead?
-	if (getMonsters().empty()) {
-		//if (!dungeonText.empty())
-		//	showText();
-
-		return;
-	}
-
-	// :::: Move monsters ::::
-	int mx, my, mInitHP;
-	for (unsigned i = 0; i < getMonsters().size(); i++) {
-		mInitHP = getMonsters().at(i)->getHP();
-		mx = getMonsters().at(i)->getPosX();
-		my = getMonsters().at(i)->getPosY();
-
-		// check for any afflictions
-		getMonsters().at(i)->checkAfflictions();
-
-		// check if an affliction killed the monster
-		if (getMonsters().at(i)->getHP() <= 0) {
-			monsterDeath(i);
-			i--;
-			continue;
-		}
-
-		// if monster is too far away, don't bother moving them
-		if (abs(player.at(0).getPosX() - mx) + abs(player.at(0).getPosY() - my) > 20) {
-			continue;
-		}
-
-		// if not stunned, use turn to move
-		if (!(getMonsters().at(i)->isStunned() || getMonsters().at(i)->isFrozen())) {
-
-			// if player is invisible, check if the monster chases them
-			if (player.at(0).isInvisible()) {
-				if (getMonsters().at(i)->chasesPlayer()) {
-					continue;
-				}
-			}
-
-			getMonsters().at(i)->move(*getMonsters().at(i), *this);
-
-			// flash monster sprite if damage was taken
-			if (getMonsters().at(i)->getHP() < mInitHP) {
-				runMonsterDamage(getMonsters().at(i)->getSprite());
-			}
-
-			//	if player is dead then break
-			if (player.at(0).getHP() <= 0) {
-				player.at(0).setDeath(getMonsters().at(i)->getName());
-				break;
-			}
-		}
-	}
-
-	// check monsters on traps
-	monsterTrapEncounter();
-
-	// check if player is holding the skeleton key
-	if (player.at(0).hasSkeletonKey()) {
-		player.at(0).checkKeyConditions(dungeonText);
-	}
-
-	// invulnerability check: if player is invulnerable and their hp is lower than initial, set hp back to original
-	if (player.at(0).isInvulnerable() && player.at(0).getHP() < initHP) {
-		player.at(0).setHP(initHP);
-	}
-
-	// flash player sprite if took damage
-	if (player.at(0).getHP() < initHP) {
-
-		// if player is invisible, they lose invisibility when damaged unless they had enough intellect
-		if (player.at(0).isInvisible() && player.at(0).getInt() < 8) {
-			player.at(0).removeAffliction("invisibility");
-		}
-
-		runPlayerDamage(player.at(0).getSprite());
-
-		player.at(0).decreaseMoneyBonus();
-	}
-
-	// run actions
-	runSpawn();
-
-	//if (!dungeonText.empty())
-		//showText();
-}
-
 void ThirdFloor::checkDoors() {
 	int maxrows = getRows();
 	int maxcols = getCols();
@@ -7042,7 +7038,7 @@ void ThirdFloor::checkDoors() {
 	if (!getDoors().empty()) {
 		int x, y;
 
-		for(int i = 0; i < getDoors().size(); i++) {
+		for(unsigned int i = 0; i < getDoors().size(); i++) {
 		
 			shared_ptr<Door> door = dynamic_pointer_cast<Door>(getDoors().at(i));
 			x = door->getPosX();
@@ -7055,11 +7051,11 @@ void ThirdFloor::checkDoors() {
 			// if door is locked, check if room is clear to unlock
 			if (door->isLocked()) {
 				if (roomCleared()) {
-					toggleDoorLocks(x, y, getDungeon()[y*maxcols + x].traptile);
+					toggleDoorLocks(x, y, getDungeon()[y*maxcols + x].wall_type);
 				}
 			}
 			// if door is unlocked, open, isn't being held, and nothing is in the way
-			else if (door->isOpen() && !door->isHeld() && !(enemy || hero) && (getDungeon()[y*maxcols + x].top == DOOR_H_OPEN || getDungeon()[y*maxcols + x].top == DOOR_V_OPEN)) {
+			else if (door->isOpen() && !door->isHeld() && !(enemy || hero) && (getDungeon()[y*maxcols + x].wall_type == DOOR_HORIZONTAL_OPEN || getDungeon()[y*maxcols + x].wall_type == DOOR_VERTICAL_OPEN)) {
 				// close the door
 				cocos2d::experimental::AudioEngine::play2d("Door_Closed.mp3", false, 1.0f);
 
@@ -7068,18 +7064,18 @@ void ThirdFloor::checkDoors() {
 
 				// replace sprite with closed door
 				//removeSprite(wall_sprites, maxrows, x, y);
-				if (getDungeon()[y*maxcols + x].traptile == DOOR_H)
-					addSprite(door_sprites, maxrows, x, y, -2, "Door_Horizontal_Closed_48x48.png");
+				if (getDungeon()[y*maxcols + x].wall_type == DOOR_HORIZONTAL_OPEN)
+					addSprite(door_sprites, x, y, -2, "Door_Horizontal_Closed_48x48.png");
 				else
-					addSprite(door_sprites, maxrows, x, y, -2, "Door_Vertical_Closed_48x48.png");
+					addSprite(door_sprites, x, y, -2, "Door_Vertical_Closed_48x48.png");
 
-				getDungeon()[y*maxcols + x].top = (getDungeon()[y*maxcols + x].traptile == DOOR_H ? DOOR_H : DOOR_V);
+				getDungeon()[y*maxcols + x].wall_type = (getDungeon()[y*maxcols + x].wall_type == DOOR_HORIZONTAL_OPEN ? DOOR_HORIZONTAL : DOOR_VERTICAL);
 				door->toggleOpen();
 				door->toggleHeld();
 
 				// if the room the player is now in isn't cleared, lock all doors
 				if (!roomCleared()) {
-					toggleDoorLocks(x, y, getDungeon()[y*maxcols + x].traptile);
+					toggleDoorLocks(x, y, getDungeon()[y*maxcols + x].wall_type);
 				}
 			}
 			else if (door->isOpen() && door->isHeld()) {
@@ -7091,15 +7087,15 @@ void ThirdFloor::checkDoors() {
 	}
 }
 bool ThirdFloor::roomCleared() {
-	int px = player.at(0).getPosX();
-	int py = player.at(0).getPosY();
+	int px = player.at(0)->getPosX();
+	int py = player.at(0)->getPosY();
 
 	// find the chunk the player is in
 	int xchunk = px / 14;
 	int ychunk = py / 10;
 
 	int mx, my, mxchunk, mychunk;
-	for (int i = 0; i < getMonsters().size(); i++) {
+	for (unsigned int i = 0; i < getMonsters().size(); i++) {
 		mx = getMonsters().at(i)->getPosX(); mxchunk = mx / 14;
 		my = getMonsters().at(i)->getPosY(); mychunk = my / 10;
 
@@ -7110,12 +7106,12 @@ bool ThirdFloor::roomCleared() {
 
 	return true;
 }
-void ThirdFloor::toggleDoorLocks(int dx, int dy, char doortype) {
+void ThirdFloor::toggleDoorLocks(int dx, int dy, std::string doortype) {
 	int rows = getRows();
 	int cols = getCols();
 
-	int px = player.at(0).getPosX();
-	int py = player.at(0).getPosY();
+	int px = player.at(0)->getPosX();
+	int py = player.at(0)->getPosY();
 
 	cocos2d::experimental::AudioEngine::play2d("Door_Locked.mp3", false, 1.0f);
 
@@ -7123,22 +7119,22 @@ void ThirdFloor::toggleDoorLocks(int dx, int dy, char doortype) {
 	std::string item;
 
 	// door is oriented vertically
-	if (doortype == DOOR_V || doortype == DOOR_V_LOCKED) {
+	if (doortype == DOOR_VERTICAL || doortype == DOOR_VERTICAL_LOCKED) {
 		// if player is to the left of the given door
 		if (px < dx) {
 			// find the doors to lock/unlock
-			for (int i = 0; i < getDoors().size(); i++) {
+			for (unsigned int i = 0; i < getDoors().size(); i++) {
 				shared_ptr<Door> door = getDoors().at(i);
 				x = door->getPosX();
 				y = door->getPosY();
 
 				if ((x == dx - 14 && y == dy) || (x == dx && y == dy)) {
 					door->toggleLock();
-					m_maze3[y*cols + x].top = (door->isLocked() ? DOOR_V_LOCKED : DOOR_V);
+					m_maze[y*cols + x].wall_type = (door->isLocked() ? DOOR_VERTICAL_LOCKED : DOOR_VERTICAL);
 				}
 				else if ((x == dx - 7 && y == dy - 5) || (x == dx - 7 && y == dy + 5)) {
 					door->toggleLock();
-					m_maze3[y*cols + x].top = (door->isLocked() ? DOOR_H_LOCKED : DOOR_H);
+					m_maze[y*cols + x].wall_type = (door->isLocked() ? DOOR_HORIZONTAL_LOCKED : DOOR_HORIZONTAL);
 				}
 				door.reset();
 			}
@@ -7146,18 +7142,18 @@ void ThirdFloor::toggleDoorLocks(int dx, int dy, char doortype) {
 		}
 		// else if player is to the right of the given door
 		else {
-			for (int i = 0; i < getDoors().size(); i++) {
+			for (unsigned int i = 0; i < getDoors().size(); i++) {
 				shared_ptr<Door> door = getDoors().at(i);
 				x = door->getPosX();
 				y = door->getPosY();
 
 				if ((x == dx + 14 && y == dy) || (x == dx && y == dy)) {
 					door->toggleLock();
-					m_maze3[y*cols + x].top = (door->isLocked() ? DOOR_V_LOCKED : DOOR_V);
+					m_maze[y*cols + x].wall_type = (door->isLocked() ? DOOR_VERTICAL_LOCKED : DOOR_VERTICAL);
 				}
 				else if ((x == dx + 7 && y == dy - 5) || (x == dx + 7 && y == dy + 5)) {
 					door->toggleLock();
-					m_maze3[y*cols + x].top = (door->isLocked() ? DOOR_H_LOCKED : DOOR_H);
+					m_maze[y*cols + x].wall_type = (door->isLocked() ? DOOR_HORIZONTAL_LOCKED : DOOR_HORIZONTAL);
 				}
 				door.reset();
 			}
@@ -7168,18 +7164,18 @@ void ThirdFloor::toggleDoorLocks(int dx, int dy, char doortype) {
 		// if player is above the given door
 		if (py < dy) {
 			// find the doors to lock/unlock
-			for (int i = 0; i < getDoors().size(); i++) {
+			for (unsigned int i = 0; i < getDoors().size(); i++) {
 				shared_ptr<Door> door = getDoors().at(i);
 				x = door->getPosX();
 				y = door->getPosY();
 
 				if ((x == dx && y == dy - 10) || (x == dx && y == dy)) {
 					door->toggleLock();
-					m_maze3[y*cols + x].top = (door->isLocked() ? DOOR_H_LOCKED : DOOR_H);
+					m_maze[y*cols + x].wall_type = (door->isLocked() ? DOOR_HORIZONTAL_LOCKED : DOOR_HORIZONTAL);
 				}
 				else if ((x == dx - 7 && y == dy - 5) || (x == dx + 7 && y == dy - 5)) {
 					door->toggleLock();
-					m_maze3[y*cols + x].top = (door->isLocked() ? DOOR_V_LOCKED : DOOR_V);
+					m_maze[y*cols + x].wall_type = (door->isLocked() ? DOOR_VERTICAL_LOCKED : DOOR_VERTICAL);
 				}
 				door.reset();
 			}
@@ -7187,18 +7183,18 @@ void ThirdFloor::toggleDoorLocks(int dx, int dy, char doortype) {
 		}
 		// else if player is below the given door
 		else {
-			for (int i = 0; i < getDoors().size(); i++) {
+			for (unsigned int i = 0; i < getDoors().size(); i++) {
 				shared_ptr<Door> door = getDoors().at(i);
 				x = door->getPosX();
 				y = door->getPosY();
 
 				if ((x == dx && y == dy + 10) || (x == dx && y == dy)) {
 					door->toggleLock();
-					m_maze3[y*cols + x].top = (door->isLocked() ? DOOR_H_LOCKED : DOOR_H);
+					m_maze[y*cols + x].wall_type = (door->isLocked() ? DOOR_HORIZONTAL_LOCKED : DOOR_HORIZONTAL);
 				}
 				else if ((x == dx - 7 && y == dy + 5) || (x == dx + 7 && y == dy + 5)) {
 					door->toggleLock();
-					m_maze3[y*cols + x].top = (door->isLocked() ? DOOR_V_LOCKED : DOOR_V);
+					m_maze[y*cols + x].wall_type = (door->isLocked() ? DOOR_VERTICAL_LOCKED : DOOR_VERTICAL);
 				}
 				door.reset();
 			}
@@ -7208,16 +7204,16 @@ void ThirdFloor::toggleDoorLocks(int dx, int dy, char doortype) {
 
 void ThirdFloor::hideRooms() {
 	// hide all elements
-	for (int i = 0; i < wall_sprites.size(); i++) {
+	for (unsigned int i = 0; i < wall_sprites.size(); i++) {
 		wall_sprites[i]->setVisible(false);
 	}
-	for (int i = 0; i < getMonsters().size(); i++) {
+	for (unsigned int i = 0; i < getMonsters().size(); i++) {
 		getMonsters()[i]->getSprite()->setVisible(false);
 	}
-	for (int i = 0; i < item_sprites.size(); i++) {
+	for (unsigned int i = 0; i < item_sprites.size(); i++) {
 		item_sprites[i]->setVisible(false);
 	}
-	for (int i = 0; i < getTraps().size(); i++) {
+	for (unsigned int i = 0; i < getTraps().size(); i++) {
 		getTraps()[i]->getSprite()->setVisible(false);
 	}
 	/*for (auto &it : spinner_sprites) {
@@ -7230,8 +7226,8 @@ void ThirdFloor::hideRooms() {
 	revealRoom();
 }
 void ThirdFloor::revealRoom() {
-	int px = player.at(0).getPosX();
-	int py = player.at(0).getPosY();
+	int px = player.at(0)->getPosX();
+	int py = player.at(0)->getPosY();
 
 	// find the chunk the player is in
 	int xchunk = px / 14;
@@ -7241,7 +7237,7 @@ void ThirdFloor::revealRoom() {
 	int sx, sy, sxchunk, sychunk;
 	/// x*SPACING_FACTOR - X_OFFSET, (maxrows - y)*SPACING_FACTOR - Y_OFFSET
 
-	for (int i = 0; i < wall_sprites.size(); i++) {
+	for (unsigned int i = 0; i < wall_sprites.size(); i++) {
 		spritePoint = wall_sprites[i]->getPosition();
 		sx = (spritePoint.x + X_OFFSET) / SPACING_FACTOR; sxchunk = sx / 14;
 		sy = MAXROWS3 - ((spritePoint.y + Y_OFFSET) / SPACING_FACTOR); sychunk = sy / 10;
@@ -7259,7 +7255,7 @@ void ThirdFloor::revealRoom() {
 			monster_sprites[i]->setVisible(true);
 		}
 	}*/
-	for (int i = 0; i < getMonsters().size(); i++) {
+	for (unsigned int i = 0; i < getMonsters().size(); i++) {
 		spritePoint = getMonsters()[i]->getSprite()->getPosition();
 		sx = (spritePoint.x + X_OFFSET) / SPACING_FACTOR; sxchunk = sx / 14;
 		sy = MAXROWS3 - ((spritePoint.y + Y_OFFSET) / SPACING_FACTOR); sychunk = sy / 10;
@@ -7268,7 +7264,7 @@ void ThirdFloor::revealRoom() {
 			getMonsters()[i]->getSprite()->setVisible(true);
 		}
 	}
-	for (int i = 0; i < item_sprites.size(); i++) {
+	for (unsigned int i = 0; i < item_sprites.size(); i++) {
 		spritePoint = item_sprites[i]->getPosition();
 		sx = (spritePoint.x + X_OFFSET) / SPACING_FACTOR; sxchunk = sx / 14;
 		sy = MAXROWS3 - ((spritePoint.y + Y_OFFSET) / SPACING_FACTOR); sychunk = sy / 10;
@@ -7277,7 +7273,7 @@ void ThirdFloor::revealRoom() {
 			item_sprites[i]->setVisible(true);
 		}
 	}
-	for (int i = 0; i < getTraps().size(); i++) {
+	for (unsigned int i = 0; i < getTraps().size(); i++) {
 		spritePoint = getTraps()[i]->getSprite()->getPosition();
 		sx = (spritePoint.x + X_OFFSET) / SPACING_FACTOR; sxchunk = sx / 14;
 		sy = MAXROWS3 - ((spritePoint.y + Y_OFFSET) / SPACING_FACTOR); sychunk = sy / 10;
@@ -7305,17 +7301,6 @@ void ThirdFloor::revealRoom() {
 		}
 	}*/
 }
-
-std::vector<_Tile>& ThirdFloor::getDungeon() {
-	return m_maze3;
-}
-int ThirdFloor::getRows() const {
-	return m_rows;
-}
-int ThirdFloor::getCols() const {
-	return m_cols;
-}
-
 
 void ThirdFloor::TLChunks(std::vector<std::vector<std::vector<std::string>>> &current, std::vector<std::vector<std::vector<std::string>>> pool) {
 
@@ -8444,7 +8429,7 @@ std::vector<std::string> ThirdFloor::generateLevel() {
 			v = BRChunks(c, pool); pool.clear();
 		}
 
-		for (int i = 0; i < v.size(); i++)
+		for (unsigned int i = 0; i < v.size(); i++)
 			finalvec.push_back(v.at(i));
 
 		c.clear();
@@ -8456,7 +8441,7 @@ std::vector<std::string> ThirdFloor::generateLevel() {
 std::vector<std::string> ThirdFloor::combineChunks(std::vector<std::vector<std::vector<std::string>>> c) {
 	std::vector<std::string> v;
 	for (int i = 0; i < 10; i++) {			// iterate thru rows of 2d vector
-		for (int j = 0; j < c.size(); j++) {	// iterate thru vector of 2d vectors
+		for (int j = 0; j < (int)c.size(); j++) {	// iterate thru vector of 2d vectors
 			for (int k = 0; k < 14; k++) {			// iterate thru columns of 2d vector
 				v.push_back(c.at(j)[i][k]);
 			}
@@ -8470,66 +8455,25 @@ std::vector<std::string> ThirdFloor::combineChunks(std::vector<std::vector<std::
 // ================================================
 //				:::: BOSS FLOOR ::::
 // ================================================
-FirstBoss::FirstBoss(Player p) : Dungeon(5) {
+FirstBoss::FirstBoss(std::shared_ptr<Player> p) : Dungeon(6, BOSSROWS, BOSSCOLS) {
 	int rows = getRows();
 	int cols = getCols();
 
-	_Tile *tile;
-	int i, j;
-
-	for (i = 0; i < BOSSROWS; i++) { //		initialize entire dungeon to blank space
-		for (j = 0; j < cols; j++) {
-			tile = new _Tile;
-
-			// all layers set to empty space
-			tile->upper = tile->top = tile->bottom = tile->projectile = tile->traptile = SPACE;
-			tile->wall = tile->item = tile->enemy = tile->trap = tile->exit = tile->overlap = tile->enemy_overlap = tile->marked = false;
-			tile->npc = tile->hero = false;
-			tile->gold = 0;
-			tile->overlap_count = tile->enemy_overlap_count = 0;
-
-			m_boss.push_back(*tile);
-			delete tile;
-		}
-	}
-
-	for (i = 0; i < BOSSROWS; i++) { //	initialize top and bottom of dungeon to be unbreakable walls
-		for (j = 0; j < cols; j++) {
-			m_boss[i*cols + j].top = UNBREAKABLE_WALL;
-			m_boss[i*cols + j].bottom = UNBREAKABLE_WALL;
-			m_boss[i*cols + j].traptile = UNBREAKABLE_WALL;
-			m_boss[i*cols + j].wall = true;
-			m_boss[i*cols + j].boundary = true;
-		}
-		i += (BOSSROWS - 2);
-	}
-
-	for (i = 1; i < BOSSROWS - 1; i++) { //		initialize edges of dungeon to be unbreakable walls
-		m_boss[i*cols].top = m_boss[i*cols].bottom = m_boss[i*cols].traptile = UNBREAKABLE_WALL;
-		m_boss[i*cols + cols - 1].top = m_boss[i*cols + cols-1].bottom = m_boss[i*cols + cols - 1].traptile = UNBREAKABLE_WALL;
-	
-		m_boss[i*cols].wall = true;
-		m_boss[i*cols + cols - 1].wall = true;
-		m_boss[i*cols].boundary = true;
-		m_boss[i*cols + cols - 1].boundary = true;
-	}
-
-
 	//	spawn player
-	player.at(0) = p;
-	player.at(0).setPosX(cols / 2);
-	player.at(0).setPosY(BOSSROWS - 3);
-	m_boss[player.at(0).getPosY()*cols + player.at(0).getPosX()].hero = true;
+	player.push_back(p);
+	player.at(0)->setPosX(cols / 2);
+	player.at(0)->setPosY(BOSSROWS - 3);
+	m_maze[player.at(0)->getPosY()*cols + player.at(0)->getPosX()].hero = true;
 
 
 	//	spawn boss
-	Smasher smasher;
+	Smasher smasher(this);
 	int col = smasher.getPosX();
 	int row = smasher.getPosY();
 	for (int i = row - 1; i < row + 2; i++) {
 		for (int j = col - 1; j < col + 2; j++) {
-			m_boss[i*cols + j].upper = SMASHER;
-			m_boss[i*cols + j].enemy = true;
+			m_maze[i*cols + j].upper = SMASHER;
+			m_maze[i*cols + j].enemy = true;
 		}
 	}
 	getMonsters().emplace_back(new Smasher(smasher));
@@ -8547,21 +8491,21 @@ FirstBoss::FirstBoss(Player p) : Dungeon(5) {
 		archer.setPosX(mx);
 		archer.setPosY(my);
 
-		top = m_boss[archer.getPosY()*cols + archer.getPosX()].top;
-		upper = m_boss[archer.getPosY()*cols + archer.getPosX()].upper;
+		top = m_maze[archer.getPosY()*cols + archer.getPosX()].top;
+		upper = m_maze[archer.getPosY()*cols + archer.getPosX()].upper;
 		while (top != SPACE || upper == SMASHER) { 
 			mx = 1 + randInt(cols - 2);
 			my = BOSSROWS / 2 + randInt(BOSSROWS / 2 - 2);
 			archer.setPosX(mx);
 			archer.setPosY(my);
 
-			top = m_boss[archer.getPosY()*cols + archer.getPosX()].top;
-			upper = m_boss[archer.getPosY()*cols + archer.getPosX()].upper;
+			top = m_maze[archer.getPosY()*cols + archer.getPosX()].top;
+			upper = m_maze[archer.getPosY()*cols + archer.getPosX()].upper;
 		}
 
 		m_firstbossMonsters.emplace_back(new Archer(archer));
-		m_boss[archer.getPosY()*cols + archer.getPosX()].top = ARCHER;
-		m_boss[archer.getPosY()*cols + archer.getPosX()].enemy = true;
+		m_maze[archer.getPosY()*cols + archer.getPosX()].top = ARCHER;
+		m_maze[archer.getPosY()*cols + archer.getPosX()].enemy = true;
 		n--;
 	}
 	*/
@@ -8570,44 +8514,41 @@ FirstBoss::FirstBoss(Player p) : Dungeon(5) {
 	int x = 1 + randInt(cols - 2);
 	int y = BOSSROWS / 2 + randInt(BOSSROWS / 2 - 2);
 	int speed = 3 + randInt(3);
-	char traptile;
+	bool trap;
 
 	int m = 12 + randInt(5);
 	while (m > 0) {
 		SpikeTrap spiketrap(x, y, speed);
 
-		traptile = m_boss[spiketrap.getPosY()*cols + spiketrap.getPosX()].traptile;
-		while (traptile != SPACE) { // while spiketrap position clashes with wall, player, or idol
+		trap = m_maze[spiketrap.getPosY()*cols + spiketrap.getPosX()].trap;
+		while (trap) {
 			x = 1 + randInt(cols - 2);
 			y = BOSSROWS / 2 + randInt(BOSSROWS / 2 - 2);
 			speed = 3 + randInt(3);
-			spiketrap.setPosX(x);				// reroll it
+			spiketrap.setPosX(x);
 			spiketrap.setPosY(y);
 			spiketrap.setSpeed(speed);
 			spiketrap.setCountdown(speed);
 
-			traptile = m_boss[spiketrap.getPosY()*cols + spiketrap.getPosX()].traptile;
+			trap = m_maze[spiketrap.getPosY()*cols + spiketrap.getPosX()].trap;
 		}
 
-		//m_firstbossActives.emplace_back(new SpikeTrap(spiketrap));
 		m_traps.emplace_back(new SpikeTrap(spiketrap));
 
-		m_boss[spiketrap.getPosY()*cols + spiketrap.getPosX()].traptile = SPIKETRAP_DEACTIVE;
-		m_boss[spiketrap.getPosY()*cols + spiketrap.getPosX()].trap = true;
+		m_maze[spiketrap.getPosY()*cols + spiketrap.getPosX()].trap_name = AUTOSPIKE_DEACTIVE;
+		m_maze[spiketrap.getPosY()*cols + spiketrap.getPosX()].trap = true;
 		m--;
 	}
 }
 FirstBoss& FirstBoss::operator=(FirstBoss const &dungeon) {
 	for (int i = 0; i < dungeon.getRows()*dungeon.getCols(); i++) {
-		m_boss[i] = dungeon.m_boss[i];
+		m_maze[i] = dungeon.m_maze[i];
 	}
 	player = dungeon.player;
 	m_level = dungeon.getLevel();
 
 	m_npcs = dungeon.m_npcs;
 	m_monsters = dungeon.m_monsters;
-	//m_firstbossMonsters = dungeon.m_firstbossMonsters;
-	//m_firstbossActives = dungeon.m_firstbossActives;
 	m_traps = dungeon.m_traps;
 
 	return *this;
@@ -8617,1653 +8558,165 @@ void FirstBoss::peekDungeon(int x, int y, char move) {
 	int rows = getRows();
 	int cols = getCols();
 
-	char upper, top, bottom, traptile;
-	bool boundary, wall, item, trap, enemy;
+	int initHP = player.at(0)->getHP(); // used for checking if player took damage ever
 
-	int initHP = player.at(0).getHP();
+	bool usedMove = false;
 
-	// reset player's blocking stance
-	player.at(0).setBlock(false);
-
-	// set player's facing direction
-	switch (move) {
-	case 'l':
-	case 'r':
-	case 'u':
-	case 'd':
-		player.at(0).setFacingDirection(move); break;
-	}
-
-	// set player's action key (for items that have casting time)
-	player.at(0).setAction(move);
-
-	// red tint if player has bloodlust
-	if (player.at(0).hasBloodlust()) {
-		bloodlustTint(player.at(0));
-	}
-
-	// check for any afflictions
-	player.at(0).checkAfflictions();
-
-	// :::: Move player ::::
-	int weprange = player.at(0).getWeapon()->getRange();
-	bool moveUsed = false;
-
-	// if player is not immobilized, move them
-	if (!(player.at(0).isStunned() || player.at(0).isFrozen())) {
-
-		// check for special weapon attack patterns
-		if (player.at(0).getWeapon()->hasAttackPattern()) {
-			player.at(0).getWeapon()->usePattern(*this, moveUsed);
-		}
-
-		if (!moveUsed) {
-
-			// if it was a movement action
-			if (move == 'l' || move == 'r' || move == 'u' || move == 'd') {
-				// determines which way to move
-				int n = 0, m = 0;
-
-				switch (move) {
-				case 'l': n = -1; m = 0; break;
-				case 'r': n = 1; m = 0; break;
-				case 'u': n = 0; m = -1; break;
-				case 'd': n = 0; m = 1; break;
-				}
-
-				top = m_boss[(y + m)*cols + (x + n)].top;
-				bottom = m_boss[(y + m)*cols + (x + n)].bottom;
-				traptile = m_boss[(y + m)*cols + (x + n)].traptile;
-
-				boundary = m_boss[(y + m)*cols + (x + n)].boundary;
-				wall = (player.at(0).isEthereal() ? false : m_boss[(y + m)*cols + (x + n)].wall);
-				item = m_boss[(y + m)*cols + (x + n)].item;
-				trap = m_boss[(y + m)*cols + (x + n)].trap;
-				enemy = m_boss[(y + m)*cols + (x + n)].enemy;
-
-				if (!(wall || enemy || boundary)) {
-					m_boss[y*cols + x].hero = false;
-					m_boss[(y + m)*cols + (x + n)].hero = true;
-					player.at(0).setPosX(x + n); player.at(0).setPosY(y + m);
-
-					if (trap) {
-						trapEncounter(x + n, y + m);
-					}
-				}
-				else if (wall && !boundary) {
-					if (top == DOOR_H || top == DOOR_V) {
-						openDoor(x + n, y + m);
-					}
-					else if (top == DOOR_H_OPEN || top == DOOR_V_OPEN) {
-						m_boss[y*cols + x].hero = false;
-						m_boss[(y + m)*cols + (x + n)].hero = true;
-						player.at(0).setPosX(x + n); player.at(0).setPosY(y + m);
-					}
-					else if (top == DOOR_H_LOCKED || top == DOOR_V_LOCKED) {
-						// play locked door sound
-						cocos2d::experimental::AudioEngine::play2d("Locked.mp3", false, 1.0f);
-					}
-				}
-				else if (enemy) {	// monster encountered
-					fight(x + n, y + m);
-				}
-			}
-
-			/*
-			if (move == 'l') { // moved to the left
-				upper = m_boss[y*cols + x - 1].upper;
-				top = m_boss[y*cols + x - 1].top;
-				bottom = m_boss[y*cols + x - 1].bottom;
-				traptile = m_boss[y*cols + x - 1].traptile;
-
-				wall = m_boss[y*cols + x - 1].wall;
-				item = m_boss[y*cols + x - 1].item;
-				enemy = m_boss[y*cols + x - 1].enemy;
-				trap = m_boss[y*cols + x - 1].trap;
-
-				if (!(wall || enemy)) {
-					m_boss[y*BOSSCOLS + x].hero = false;
-					m_boss[y*BOSSCOLS + x - 1].hero = true;
-					player.at(0).setPosX(x - 1);
-
-					if (trap) {
-						if (traptile == SPIKE) {
-							trapEncounter(*this, x - 1, y);
-
-							m_boss[y*BOSSCOLS + x - 1].traptile = SPACE;
-							m_boss[y*BOSSCOLS + x - 1].trap = false;
-
-							if (player.at(0).getHP() <= 0) {
-								player.at(0).setDeath("falling spike");
-								//clearScreen();
-								//showDungeon();
-								if (!dungeonText.empty())
-									showText();
-								return;
-							}
-						}
-						if (traptile == SPIKETRAP_ACTIVE) {
-							trapEncounter(*this, x - 1, y);
-						}
-					}
-					if (item) {
-						foundItem(m_boss, BOSSCOLS, x - 1, y);
-					}
-				}
-				else if (enemy) {
-					fight(x - 1, y);
-				}
-			}
-
-			else if (move == 'r') { // moved to the right
-				upper = m_boss[y*BOSSCOLS + x + 1].upper;
-				top = m_boss[y*BOSSCOLS + x + 1].top;
-				bottom = m_boss[y*BOSSCOLS + x + 1].bottom;
-				traptile = m_boss[y*BOSSCOLS + x + 1].traptile;
-
-				wall = m_boss[y*BOSSCOLS + x + 1].wall;
-				item = m_boss[y*BOSSCOLS + x + 1].item;
-				enemy = m_boss[y*BOSSCOLS + x + 1].enemy;
-				trap = m_boss[y*BOSSCOLS + x + 1].trap;
-
-				if (!(wall || enemy)) {
-					m_boss[y*BOSSCOLS + x].hero = false;
-					m_boss[y*BOSSCOLS + x + 1].hero = true;
-					player.at(0).setPosX(x + 1);
-
-					if (trap) {
-						if (traptile == SPIKE) {
-							trapEncounter(*this, x + 1, y);
-
-							m_boss[y*BOSSCOLS + x + 1].traptile = SPACE;
-							m_boss[y*BOSSCOLS + x + 1].trap = false;
-
-							if (player.at(0).getHP() <= 0) {
-								player.at(0).setDeath("falling spike");
-								//clearScreen();
-								//showDungeon();
-								if (!dungeonText.empty())
-									showText();
-								return;
-							}
-						}
-						if (traptile == SPIKETRAP_ACTIVE) {
-							trapEncounter(*this, x + 1, y);
-						}
-					}
-					if (item) {
-						foundItem(m_boss, BOSSCOLS, x + 1, y);
-					}
-				}
-				else if (enemy) {
-					fight(x + 1, y);
-				}
-			}
-
-			else if (move == 'u') { // moved up
-				upper = m_boss[(y - 1)*BOSSCOLS + x].upper;
-				top = m_boss[(y - 1)*BOSSCOLS + x].top;
-				bottom = m_boss[(y - 1)*BOSSCOLS + x].bottom;
-				traptile = m_boss[(y - 1)*BOSSCOLS + x].traptile;
-
-				wall = m_boss[(y - 1)*BOSSCOLS + x].wall;
-				item = m_boss[(y - 1)*BOSSCOLS + x].item;
-				enemy = m_boss[(y - 1)*BOSSCOLS + x].enemy;
-				trap = m_boss[(y - 1)*BOSSCOLS + x].trap;
-
-				if (!(wall || enemy)) {
-					m_boss[y*BOSSCOLS + x].hero = false;
-					m_boss[(y - 1)*BOSSCOLS + x].hero = true;
-					player.at(0).setPosY(y - 1);
-
-					if (trap) {
-						if (traptile == SPIKE) {
-							trapEncounter(*this, x, y - 1);
-
-							m_boss[(y - 1)*BOSSCOLS + x].traptile = SPACE;
-							m_boss[(y - 1)*BOSSCOLS + x].trap = false;
-
-							if (player.at(0).getHP() <= 0) {
-								player.at(0).setDeath("falling spike");
-								//clearScreen();
-								//showDungeon();
-								if (!dungeonText.empty())
-									showText();
-								return;
-							}
-						}
-						if (traptile == SPIKETRAP_ACTIVE) {
-							trapEncounter(*this, x, y - 1);
-						}
-					}
-					if (item) {
-						foundItem(m_boss, BOSSCOLS, x, y - 1);
-					}
-				}
-				else if (enemy) {
-					fight(x, y - 1);
-				}
-			}
-
-			else if (move == 'd') { // moved down
-				upper = m_boss[(y + 1)*BOSSCOLS + x].upper;
-				top = m_boss[(y + 1)*BOSSCOLS + x].top;
-				bottom = m_boss[(y + 1)*BOSSCOLS + x].bottom;
-				traptile = m_boss[(y + 1)*BOSSCOLS + x].traptile;
-
-				wall = m_boss[(y + 1)*BOSSCOLS + x].wall;
-				item = m_boss[(y + 1)*BOSSCOLS + x].item;
-				enemy = m_boss[(y + 1)*BOSSCOLS + x].enemy;
-				trap = m_boss[(y + 1)*BOSSCOLS + x].trap;
-
-				if (!(wall || enemy)) {
-					m_boss[y*BOSSCOLS + x].hero = false;
-					m_boss[(y + 1)*BOSSCOLS + x].hero = true;
-					player.at(0).setPosY(y + 1);
-
-					if (trap) {
-						if (traptile == SPIKE) {
-							trapEncounter(*this, x, y + 1);
-
-							m_boss[(y + 1)*BOSSCOLS + x].traptile = SPACE;
-							m_boss[(y + 1)*BOSSCOLS + x].trap = false;
-
-							if (player.at(0).getHP() <= 0) {
-								player.at(0).setDeath("falling spike");
-								//clearScreen();
-								//showDungeon();
-								if (!dungeonText.empty())
-									showText();
-								return;
-							}
-						}
-						if (traptile == SPIKETRAP_ACTIVE) {
-							trapEncounter(*this, x, y + 1);
-						}
-					}
-					if (item) {
-						foundItem(m_boss, BOSSCOLS, x, y + 1);
-					}
-				}
-				else if (enemy) {
-					fight(x, y + 1);
-				}
-			}
-			*/
-
-			else if (move == 'e') {
-				collectItem(*this, x, y);
-			}
-
-			else if (move == 'b') {
-				if (player.at(0).hasShield()) {
-					// play setting up shield stance sound effect
-					cocos2d::experimental::AudioEngine::play2d("Shield_Stance.mp3", false, 1.0f);
-
-					player.at(0).setBlock(true);
-				}
-			}
-
-		}
-
+	// Move player, unless they have the `Slow` attribute
+	if (!player.at(0)->isSlow()) {
+		player.at(0)->move(*this, move);
+		usedMove = true;
 	}
 
 	// check active items in play
 	checkActive();
 
-	if (player.at(0).getHP() <= 0) {
-		
-		if (!dungeonText.empty())
-			showText();
-		return;
-	}
+	// if there are any doors, check them
+	checkDoors();
 
-	// if all monsters are dead?
-	if (getMonsters().empty()) {
-		// queue player move to the front of the spawn
-		if (player.at(0).getPosX() != x || player.at(0).getPosY() != y) {
-			queueMoveSprite(player.at(0).getSprite(), player.at(0).getPosX(), player.at(0).getPosY(), .1f, true);
-		}
+	// Move monsters
+	checkMonsters();
 
-		// run actions
-		runSpawn();
+	if (player.at(0)->getPosX() != x || player.at(0)->getPosY() != y)
+		queueMoveSprite(player.at(0)->getSprite(), player.at(0)->getPosX(), player.at(0)->getPosY(), .1f, true);
 
-		//if (!dungeonText.empty())
-			//showText();
+	// Player moves after the monsters if they are Slow
+	if (player.at(0)->isSlow() && !usedMove)
+		player.at(0)->move(*this, move);
 
-		return;
-	}
+	// do any special actions unique to the floor
+	specialActions();
 
-	// move any monsters
-	int mx, my, mInitHP;
-	if (getMonsters().size() > 1) {
-		for (unsigned i = 1; i < getMonsters().size(); i++) {
-			mInitHP = getMonsters().at(i)->getHP();
-			mx = getMonsters().at(i)->getPosX();
-			my = getMonsters().at(i)->getPosY();
+	// check if player is holding the skeleton key
+	if (player.at(0)->hasSkeletonKey())
+		player.at(0)->checkKeyConditions();
 
-			// check for any afflictions
-			getMonsters().at(i)->checkAfflictions();
+	// invulnerability check: if player is invulnerable and their hp is lower than initial, set hp back to original
+	if (player.at(0)->isInvulnerable() && player.at(0)->getHP() < initHP)
+		player.at(0)->setHP(initHP);
 
-			// check if an affliction killed the monster
-			if (getMonsters().at(i)->getHP() <= 0) {
-				monsterDeath(i);
-				i--;
-				continue;
-			}
+	// flash player sprite if took damage
+	if (player.at(0)->getHP() < initHP) {
 
-			// if not stunned, use turn to move
-			if (!(getMonsters().at(i)->isStunned() || getMonsters().at(i)->isFrozen())) {
+		// if player is invisible, they lose invisibility when damaged unless they had enough intellect
+		if (player.at(0)->isInvisible() && player.at(0)->getInt() < 8)
+			player.at(0)->removeAffliction(INVISIBILITY);
 
-				// if player is invisible, check if the monster chases them
-				if (player.at(0).isInvisible()) {
-					if (getMonsters().at(i)->chasesPlayer()) {
-						continue;
-					}
-				}
+		runPlayerDamage(player.at(0)->getSprite());
 
-				// move the monster
-				getMonsters().at(i)->move(*getMonsters().at(i), *this);
-
-				// flash monster sprite if damage was taken
-				if (getMonsters().at(i)->getHP() < mInitHP) {
-					runMonsterDamage(getMonsters().at(i)->getSprite());
-				}
-
-				//	if player is dead then break
-				if (player.at(0).getHP() <= 0) {
-					player.at(0).setDeath(getMonsters().at(i)->getName());
-					break;
-				}
-			}
-		}
-	}
-
-	//	check if smasher is dead
-	if (getMonsters().at(0)->getName() != "Smasher") {
-		// queue player move to the front of the spawn
-		if (player.at(0).getPosX() != x || player.at(0).getPosY() != y) {
-			queueMoveSprite(player.at(0).getSprite(), player.at(0).getPosX(), player.at(0).getPosY(), .1f, true);
-		}
-
-		// run actions
-		runSpawn();
-		
-		//if (!dungeonText.empty())
-			//showText();
-		return;
-	}
-
-	//	check if smasher is currently executing a move
-	checkSmasher();
-
-	// queue player move to the front of the spawn
-	if (player.at(0).getPosX() != x || player.at(0).getPosY() != y) {
-		queueMoveSprite(player.at(0).getSprite(), player.at(0).getPosX(), player.at(0).getPosY(), .1, true);
+		player.at(0)->decreaseMoneyBonus();
 	}
 
 	// run actions
 	runSpawn();
 
-	// flash player sprite if took damage
-	if (player.at(0).getHP() < initHP) {
-		runPlayerDamage(player.at(0).getSprite());
-	}
+}
 
-	//	if killed by smasher then return
-	if (player.at(0).getHP() <= 0) {
-		//m_boss[player.at(0).getPosY()*BOSSCOLS + player.at(0).getPosX()].top = 'X'; //change player icon to X to indicate death
-		player.at(0).setDeath(getMonsters().at(0)->getName());
+void FirstBoss::checkMonsters() {
+
+	// If no monsters, or Smasher was killed do nothing
+	if (m_monsters.empty() || m_monsters.at(0)->getName() != "Smasher")
 		return;
-	}
 
-	//if (!dungeonText.empty())
-		//showText();
-}
+	// :::: Move monsters ::::
+	int mx, my, mInitHP;
+	for (unsigned int i = 1; i < m_monsters.size(); i++) {
+		mInitHP = m_monsters.at(i)->getHP();
+		mx = m_monsters.at(i)->getPosX();
+		my = m_monsters.at(i)->getPosY();
 
-void FirstBoss::checkSmasher() {
-	shared_ptr<Smasher> smasher = dynamic_pointer_cast<Smasher>(getMonsters().at(0));
-
-	//	check if smasher is currently executing a move
-	if (smasher->isActive()) {
-		switch (smasher->getMove()) {
-		case 1: move1(); break;
-		case 2: move2(); break;
-		case 3: move3(); break;
-		case 4: move4(); break;
-		case 5: move5(); break;
-		default: break;
+		// Check if monster is dead or was destroyed earlier
+		if (m_monsters.at(i)->isDead() || m_monsters.at(i)->wasDestroyed() || m_monsters.at(i)->getHP() <= 0) {
+			insertActorForRemoval(i);
+			continue;
 		}
-	}
-	// if smasher has finished a move and hasn't come off cooldown,
-	// then continue the cooldown process
-	else if (!smasher->isEnded()) {
-		switch (smasher->getMove()) {
-		case 1: resetUpward(); break;
-		case 2: {
-			switch (move) {
-			case 'u': resetDownward(); break;
-			case 'l': resetRightward(); break;
-			case 'r': resetLeftward(); break;
+
+		// check for any afflictions
+		m_monsters.at(i)->checkAfflictions();
+
+		// flash monster sprite if damage was taken
+		if (m_monsters.at(i)->getHP() < mInitHP) {
+			runMonsterDamageBlink(m_monsters.at(i)->getSprite());
+			mInitHP = m_monsters.at(i)->getHP();
+		}
+
+		// check if an affliction killed the monster
+		if (m_monsters.at(i)->getHP() <= 0) {
+			m_monsters.at(i)->setDead(true);
+			insertActorForRemoval(i);
+
+			continue;
+		}
+
+		// if monster is too far away, don't bother moving them
+		if (abs(player.at(0)->getPosX() - mx) >= 15 && abs(player.at(0)->getPosY() - my) >= 15)
+			continue;
+
+		// if not stunned, use turn to move
+		if (!(m_monsters.at(i)->isStunned() || m_monsters.at(i)->isFrozen())) {
+
+			// If monster is possessed, choose a random direction for them to move in
+			if (m_monsters.at(i)->isPossessed()) {
+
+				char move;
+				switch (randInt(4)) {
+				case 0: move = 'r'; break;
+				case 1: move = 'l'; break;
+				case 2: move = 'd'; break;
+				case 3: move = 'u'; break;
+				}
+
+				m_monsters.at(i)->attemptMove(*this, move);
+				continue;
 			}
 
-			break;
-		}
-		case 3: break;
-		case 4: break;
-		case 5: break;
-		default: break;
-		}
-	}
-	// smasher is not executing a move, so randomly select a new one
-	else {
-		pickMove();
-	}
+			// If the monster chases the player, then
+			if (m_monsters.at(i)->chasesPlayer()) {
 
-	smasher.reset();
-}
-void FirstBoss::pickMove() { // select a move to use
-	shared_ptr<Smasher> smasher = dynamic_pointer_cast<Smasher>(getMonsters().at(0));
-	int col = getMonsters().at(0)->getPosX();
-	int row = getMonsters().at(0)->getPosY();
-	int randmove = 1 + randInt(100);
-
-
-	// 12% chance : smash attack
-	if (randmove > 0 && randmove <= 12) {
-		smasher->setActive(true);
-		smasher->setMove(1);
-		getMonsters().at(0) = smasher;
-		move1();
-	}
-	// 15% chance : avalanche attack
-	else if (randmove > 12 && randmove <= 27) {
-		smasher->setActive(true);
-		smasher->setMove(2);
-		getMonsters().at(0) = smasher;
-		move2();
-	}
-	// 3% chance : archer/enemy spawning, max 3 at once
-	else if (randmove > 27 && randmove <= 30) {
-		if (getMonsters().size() < 3)
-			move3();
-		else
-			moveSmasher();
-	}
-	else if (randmove == 0) {
-		move4();
-	}
-	else if (randmove == 0) {
-		move5();
-	}
-	// 70% chance : random movement
-	else if (randmove > 30) {
-		moveSmasher();
-	}
-
-	smasher.reset();
-}
-void FirstBoss::move1() { // smashes!
-	shared_ptr<Smasher> smasher = dynamic_pointer_cast<Smasher>(getMonsters().at(0));
-	int col = getMonsters().at(0)->getPosX();
-	int row = getMonsters().at(0)->getPosY();
-
-	//	if wall immediately beneath smasher is an unbreakable wall, reset position to top
-	if (m_boss[(row+2)*BOSSCOLS + col].top == UNBREAKABLE_WALL) {
-		smasher->setEnded(false);
-		smasher->setActive(false);
-		getMonsters().at(0) = smasher;
-		resetUpward();
-
-		smasher.reset();
-		return;
-	}
-
-	moveSmasherD();
-	smasher.reset();
-}
-void FirstBoss::move2() { // starts avalanche
-	shared_ptr<Smasher> smasher = dynamic_pointer_cast<Smasher>(getMonsters().at(0));
-	int col = getMonsters().at(0)->getPosX();
-	int row = getMonsters().at(0)->getPosY();
-
-	int n = randInt(3);
-
-	// if this is the beginning of the move, then select a direction to move in
-	if (move == '0') {
-		switch (n) {
-		case 0: move = 'u'; break;
-		case 1: move = 'l'; break;
-		case 2: move = 'r'; break;
-		}
-	}
-
-	//	move is upward
-	if (move == 'u') {
-		//	if wall immediately above smasher is an unbreakable wall, make rocks fall
-		if (m_boss[(row - 2)*BOSSCOLS + col].top == UNBREAKABLE_WALL) {
-			cocos2d::experimental::AudioEngine::play2d("Rock_Slide.mp3", false, 1.0f);
-
-			smasher->setEnded(false);
-			smasher->setActive(false);
-			getMonsters().at(0) = smasher;
-			avalanche();
-			resetDownward();
-			smasher.reset();
-
-			return;
-		}
-
-		moveSmasherU();
-	}
-	//	move is to the left
-	else if (move == 'l') {
-		//	if wall immediately to the left of smasher is an unbreakable wall, make rocks fall
-		if (m_boss[(row)*BOSSCOLS + col - 2].top == UNBREAKABLE_WALL) {
-			cocos2d::experimental::AudioEngine::play2d("Rock_Slide.mp3", false, 1.0f);
-
-			smasher->setEnded(false);
-			smasher->setActive(false);
-			getMonsters().at(0) = smasher;
-			avalanche();
-			resetRightward();
-			smasher.reset();
-
-			return;
-		}
-
-		moveSmasherL();
-	}
-	//	move is to the right
-	else if (move == 'r') {
-		//	if wall immediately to the right of smasher is an unbreakable wall, make rocks fall
-		if (m_boss[(row)*BOSSCOLS + col + 2].top == UNBREAKABLE_WALL) {
-			cocos2d::experimental::AudioEngine::play2d("Rock_Slide.mp3", false, 1.0f);
-
-			smasher->setEnded(false);
-			smasher->setActive(false);
-			getMonsters().at(0) = smasher;
-			avalanche();
-			resetLeftward();
-			smasher.reset();
-
-			return;
-		}
-
-		moveSmasherR();
-	}
-
-	smasher.reset();
-}
-void FirstBoss::avalanche() {
-	//shared_ptr<Smasher> smasher = dynamic_pointer_cast<Smasher>(getMonsters().at(0));
-	int col = getMonsters().at(0)->getPosX();
-	int row = getMonsters().at(0)->getPosY();
-	int x, y, speed, spikecount;
-	char traptile;
-	spikecount = 15 + randInt(8);
-	std::shared_ptr<FallingSpike> spike = nullptr;
-	
-	for (int i = 0; i < spikecount; i++) {
-		x = 1 + randInt(BOSSCOLS - 2);
-		y = 1 + randInt(BOSSROWS / 3);
-		speed = 1 + randInt(3);
-		traptile = m_boss[y*BOSSCOLS + x].traptile;
-		spike = std::make_shared<FallingSpike>(x, y, speed);
-		//FallingSpike spike(x, y, speed);
-
-		while (traptile != SPACE || x == col || x == col-1 || x == col+1) { // while spike position clashes with anything
-			x = 1 + randInt(BOSSCOLS - 2);
-			y = 1 + randInt(BOSSROWS / 3);
-			spike->setPosX(x);	// reroll it
-			spike->setPosY(y);
-			
-			traptile = m_boss[spike->getPosY()*BOSSCOLS + spike->getPosX()].traptile;
-		}
-		// add spike sprite
-		//spike->setSprite(createSprite(spike->getPosX(), spike->getPosY(), 0, "CeilingSpike_48x48.png"));
-		addSprite(spike_sprites, getRows(), spike->getPosX(), spike->getPosY(), 0, "CeilingSpike_48x48.png");
-
-		m_traps.emplace_back(spike);
-		//m_traps.emplace_back(new FallingSpike(*spike));
-		m_boss[spike->getPosY()*BOSSCOLS + spike->getPosX()].trap = true;
-		m_boss[spike->getPosY()*BOSSCOLS + spike->getPosX()].traptile = c_SPIKE;
-		spike.reset();
-	}
-	//smasher.reset();
-}
-void FirstBoss::move3() {	// spawn two archers
-	int n = 2;
-	int x, y;
-	char top, hero;
-
-	if (getMonsters().size() <= 2) {
-		while (n > 0) {
-			x = 1 + randInt(BOSSCOLS - 2);
-			y = BOSSROWS - 2 - randInt(10);
-
-			Archer archer(x, y);
-			//archer.setPosX(x);
-			//archer.setPosY(y);
-
-			top = m_boss[y*BOSSCOLS + x].top;
-			hero = m_boss[y*BOSSCOLS + x].hero;
-			while (top != SPACE || hero) {
-				x = 1 + randInt(BOSSCOLS - 2);
-				y = BOSSROWS - 2 - randInt(10);
-				archer.setPosX(x);
-				archer.setPosY(y);
-
-				top = m_boss[archer.getPosY()*BOSSCOLS + archer.getPosX()].top;
-				hero = m_boss[archer.getPosY()*BOSSCOLS + archer.getPosX()].hero;
-			}
-			//addSprite(monster_sprites, BOSSROWS, archer.getPosX(), archer.getPosY(), 1, "Archer_48x48.png");
-			archer.setSprite(createSprite(archer.getPosX(), archer.getPosY(), 1, "Archer_48x48.png"));
-
-			getMonsters().emplace_back(new Archer(archer));
-			m_boss[archer.getPosY()*BOSSCOLS + archer.getPosX()].top = c_ARCHER;
-			m_boss[archer.getPosY()*BOSSCOLS + archer.getPosX()].enemy = true;
-			n--;
-		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Spawns.mp3", false, 1.0f);
-	}
-}
-void FirstBoss::move4() { // earthquake
-
-}
-void FirstBoss::move5() { // projectile bouncers
-
-}
-
-void FirstBoss::moveSmasher() { // pick a random direction to move in
-	int n = randInt(4);
-
-	switch(n) {
-	case 0: moveSmasherL(); break;
-	case 1: moveSmasherR(); break;
-	case 2: moveSmasherU(); break;
-	case 3: moveSmasherD(); break;
-	default: break;
-	}
-}
-void FirstBoss::moveSmasherL() {
-	//shared_ptr<Smasher> smasher = dynamic_pointer_cast<Smasher>(getMonsters().at(0));
-	int col = getMonsters().at(0)->getPosX();
-	int row = getMonsters().at(0)->getPosY();
-	int i, j;
-
-	//	if wall immediately to left smasher is an unbreakable wall, do nothing
-	if (m_boss[row*BOSSCOLS + col-2].top == UNBREAKABLE_WALL) {
-		//smasher.reset();
-		return;
-	}
-
-	//  if there is only one space to the left of the smasher
-	else if (m_boss[row*BOSSCOLS + col-3].top == UNBREAKABLE_WALL) {
-		// right side of smasher is set to spaces
-		for (i = col + 1, j = row - 1; j < row + 2; j++) {
-			m_boss[j*BOSSCOLS + i].upper = SPACE;
-			m_boss[j*BOSSCOLS + i].enemy = false;
-		}
-
-		//	smasher is pushed to left wall
-		for (i = col - 2, j = row - 1; j < row + 2; j++) {
-			//	if player is in the way, crush them
-			if (m_boss[j*BOSSCOLS + i].hero) {
-				getMonsters().at(0)->encounter(player.at(0), *(getMonsters().at(0)), dungeonText);
-			}
-			// if there are any monsters in the way, crush them
-			if (m_boss[j*BOSSCOLS + i].enemy && m_boss[j*BOSSCOLS + i].upper != SMASHER) {
-				int pos = findMonster(i, j);
-				getMonsters().at(0)->encounter(*(getMonsters().at(0)), *(getMonsters().at(pos)));
-
-				// check if monster died
-				if (getMonsters().at(pos)->getHP() <= 0) {
-					monsterDeath(pos);
+				// If they fell for a decoy, then attempt a greedy chase toward the decoy
+				int x, y;
+				if (checkDecoys(mx, my, x, y)) {
+					m_monsters.at(i)->attemptGreedyChase(*this, true, x, y);
+					continue;
 				}
+
+				// If player is invisible and there are no decoys, then do nothing
+				if (player.at(0)->isInvisible())
+					continue;
 			}
 
-			m_boss[j*BOSSCOLS + i].upper = SMASHER;
-			m_boss[j*BOSSCOLS + i].enemy = true;
-		}
+			m_monsters.at(i)->moveCheck(*this);
 
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-		//moveSprite(monster_sprites, BOSSROWS, col, row, 'l');
-		queueMoveSprite(getMonsters().at(0)->getSprite(), 'l');
-		getMonsters().at(0)->setPosX(col - 1);
-	}
+			// flash monster sprite if damage was taken
+			if (m_monsters.at(i)->getHP() < mInitHP)
+				runMonsterDamage(m_monsters.at(i)->getSprite());
 
-	//	if there are only two spaces to the left of the smasher
-	else if (m_boss[row*BOSSCOLS + col-4].top == UNBREAKABLE_WALL) {
-		// right 2 layers of smasher is set to spaces
-		for (i = col + 1; i > col - 1; i--) {
-			for (j = row - 1; j < row + 2; j++) {
-				m_boss[j*BOSSCOLS + i].upper = SPACE;
-				m_boss[j*BOSSCOLS + i].enemy = false;
-			}
-		}
-
-		//	smasher is pushed to left wall
-		for (i = col - 2; i > col - 4; i--) {
-			for (j = row - 1; j < row + 2; j++) {
-				//	if player is in the way, crush them
-				if (m_boss[j*BOSSCOLS + i].hero) {
-					player.at(0).setPosX(col - 3);
-					m_boss[j*BOSSCOLS + i].hero = false;
-					m_boss[player.at(0).getPosY()*BOSSCOLS + player.at(0).getPosX()].hero = true;
-					//queueMoveSprite(player.at(0).getSprite(), getRows(), player.at(0).getPosX(), player.at(0).getPosY(), .03);
-					getMonsters().at(0)->encounter(player.at(0), *(getMonsters().at(0)), dungeonText);
-				}
-				
-				// if there are any monsters in the way, crush them
-				if (m_boss[j*BOSSCOLS + i].enemy && m_boss[j*BOSSCOLS + i].upper != SMASHER) {					
-					int pos = findMonster(i, j);
-					getMonsters().at(0)->encounter(*(getMonsters().at(0)), *(getMonsters().at(pos)));
-					
-					// if there are two enemies stacked, then kill the second enemy first.
-					// :::: This is for the purpose of looking more natural on screen.
-					if (i != col - 3 && m_boss[j*BOSSCOLS + (i - 1)].enemy) {
-						int n = findMonster(i - 1, j);
-						
-						monsterDeath(n);
-					}
-
-					// move the monster and sprite
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, i, j, 'X', getMonsters(), col - 3, 0);
-
-					// check if monster died
-					if (getMonsters().at(pos)->getHP() <= 0) {
-						monsterDeath(pos);
-					}
-				}
-
-				m_boss[j*BOSSCOLS + i].upper = SMASHER;
-				m_boss[j*BOSSCOLS + i].enemy = true;
-
-			}
-		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-		
-		queueMoveSprite(getMonsters().at(0)->getSprite(), 'L');
-		getMonsters().at(0)->setPosX(col - 2);
-	}
-
-	//	if there are at least 3 spaces to left of the smasher
-	else if (m_boss[row*BOSSCOLS + col-4].top != UNBREAKABLE_WALL) {
-		// right 2 layers of smasher is set to spaces
-		for (i = col + 1; i > col - 1; i--) {
-			for (j = row - 1; j < row + 2; j++) {
-				//enemyOverlap(m_boss, BOSSROWS, BOSSCOLS, i, j);
-				m_boss[j*BOSSCOLS + i].upper = SPACE;				
-				m_boss[j*BOSSCOLS + i].enemy = false;
-			}
-		}
-
-		//	left two layers set to smasher
-		for (i = col - 2; i > col - 4; i--) {
-			for (j = row - 1; j < row + 2; j++) {
-				// if player is in the way, move them to the side
-				if (m_boss[j*BOSSCOLS + i].hero) {
-					// if there's another enemy, push them
-					if (m_boss[j*BOSSCOLS + i - 1].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, i - 1, j, 'l', getMonsters());
-					}
-					if (m_boss[j*BOSSCOLS + i - 2].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, i - 2, j, 'l', getMonsters());
-					}
-
-					player.at(0).setPosX(col - 4);
-					m_boss[j*BOSSCOLS + i].hero = false;
-					m_boss[player.at(0).getPosY()*BOSSCOLS + player.at(0).getPosX()].hero = true;
-					
-					//queueMoveSprite(player.at(0).getSprite(), getRows(), player.at(0).getPosX(), player.at(0).getPosY(), .03);
-				}
-				
-				// if there are any monsters in the way, move them
-				if (m_boss[j*BOSSCOLS + i].enemy && m_boss[j*BOSSCOLS + i].upper != SMASHER) {
-					// if player is in the way, push them
-					if (m_boss[j*BOSSCOLS + i - 1].hero || m_boss[j*BOSSCOLS + i - 2].hero) {
-						pushPlayer(m_boss, BOSSROWS, BOSSCOLS, 'l');
-					}
-					// if there's another enemy, push them
-					if (m_boss[j*BOSSCOLS + i - 1].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, i - 1, j, 'l', getMonsters());
-					}
-					if (i != col - 3 && m_boss[j*BOSSCOLS + i - 2].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, i - 2, j, 'l', getMonsters());
-					}
-
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, i, j, 'X', getMonsters(), col - 4, 0);
-				}
-
-				m_boss[j*BOSSCOLS + i].upper = SMASHER;
-				m_boss[j*BOSSCOLS + i].enemy = true;
-			}
-		}
-		//moveSprite(monster_sprites, BOSSROWS, col, row, 'L');
-		queueMoveSprite(getMonsters().at(0)->getSprite(), 'L');
-		getMonsters().at(0)->setPosX(col - 2);
-	}
-
-	//smasher.reset();
-}
-void FirstBoss::moveSmasherR() {
-	//shared_ptr<Smasher> smasher = dynamic_pointer_cast<Smasher>(getMonsters().at(0));
-	int col = getMonsters().at(0)->getPosX();
-	int row = getMonsters().at(0)->getPosY();
-	int i, j;
-
-	//	if wall immediately to right of smasher is an unbreakable wall, do nothing
-	if (m_boss[row*BOSSCOLS + col+2].top == UNBREAKABLE_WALL) {
-		//smasher.reset();
-		return;
-	}
-
-	//  if there is only one space to the right of the smasher
-	else if (m_boss[row*BOSSCOLS + col+3].top == UNBREAKABLE_WALL) {
-		// left side of smasher is set to spaces
-		for (i = col - 1, j = row - 1; j < row + 2; j++) {
-			m_boss[j*BOSSCOLS + i].upper = SPACE;
-			m_boss[j*BOSSCOLS + i].enemy = false;
-		}
-
-		//	smasher is pushed to right wall
-		for (i = col + 2, j = row - 1; j < row + 2; j++) {
-			//	if player is in the way, crush them
-			if (m_boss[j*BOSSCOLS + i].hero) {
-				getMonsters().at(0)->encounter(player.at(0), *(getMonsters().at(0)), dungeonText);
-			}
-			// if there are any monsters in the way, crush them
-			if (m_boss[j*BOSSCOLS + i].enemy && m_boss[j*BOSSCOLS + i].upper != SMASHER) {
-				int pos = findMonster(i, j);
-				getMonsters().at(0)->encounter(*(getMonsters().at(0)), *(getMonsters().at(pos)));
-
-				// check if monster died
-				if (getMonsters().at(pos)->getHP() <= 0) {
-					monsterDeath(pos);
-				}
+			// Check if monster is dead or was destroyed
+			if (m_monsters.at(i)->isDead() || m_monsters.at(i)->wasDestroyed() || m_monsters.at(i)->getHP() <= 0) {
+				insertActorForRemoval(i);
+				continue;
 			}
 
-			m_boss[j*BOSSCOLS + i].upper = SMASHER;
-			m_boss[j*BOSSCOLS + i].enemy = true;
-		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-		//moveSprite(monster_sprites, BOSSROWS, col, row, 'r');
-		queueMoveSprite(getMonsters().at(0)->getSprite(), 'r');
-		getMonsters().at(0)->setPosX(col + 1);
-	}
-
-	//	if there are only two spaces to the right of the smasher
-	else if (m_boss[row*BOSSCOLS + col + 4].top == UNBREAKABLE_WALL) {
-		// left two layers of smasher is set to spaces
-		for (i = col - 1; i < col + 1; i++) {
-			for (j = row - 1; j < row + 2; j++) {
-				m_boss[j*BOSSCOLS + i].upper = SPACE;
-				m_boss[j*BOSSCOLS + i].enemy = false;
-			}
-		}
-
-		//	smasher is pushed to right wall
-		for (i = col + 2; i < col + 4; i++) {
-			for (j = row - 1; j < row + 2; j++) {
-				//	if player is in the way, crush them
-				if (m_boss[j*BOSSCOLS + i].hero) {
-					player.at(0).setPosX(col + 3);
-					m_boss[j*BOSSCOLS + i].hero = false;
-					m_boss[player.at(0).getPosY()*BOSSCOLS + player.at(0).getPosX()].hero = true;
-					//queueMoveSprite(player.at(0).getSprite(), getRows(), player.at(0).getPosX(), player.at(0).getPosY(), .03);
-					getMonsters().at(0)->encounter(player.at(0), *(getMonsters().at(0)), dungeonText);
-				}
-				
-				// if there are any monsters in the way, crush them
-				if (m_boss[j*BOSSCOLS + i].enemy && m_boss[j*BOSSCOLS + i].upper != SMASHER) {
-					// crush the monster
-					int pos = findMonster(i, j);
-					getMonsters().at(0)->encounter(*(getMonsters().at(0)), *(getMonsters().at(pos)));
-					
-					// if there are two enemies stacked, then kill the second enemy first.
-					// :::: This is for the purpose of looking more natural on screen.
-					if (i != col + 3 && m_boss[j*BOSSCOLS + (i + 1)].enemy) {
-						int n = findMonster(i + 1, j);
-						
-						monsterDeath(n);
-					}
-
-					// move the sprite
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, i, j, 'X', getMonsters(), col + 3, 0);
-
-					// check if monster died (should be dead)
-					if (getMonsters().at(pos)->getHP() <= 0) {
-						monsterDeath(pos);
-					}
-				}
-
-				m_boss[j*BOSSCOLS + i].upper = SMASHER;
-				m_boss[j*BOSSCOLS + i].enemy = true;
-
-			}
-		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-
-		queueMoveSprite(getMonsters().at(0)->getSprite(), 'R');
-		getMonsters().at(0)->setPosX(col + 2);
-	}
-
-	//	if there are at least 3 spaces to right of the smasher
-	else if (m_boss[row*BOSSCOLS + col + 4].top != UNBREAKABLE_WALL) {
-		// left two layers of smasher is set to spaces
-		for (i = col - 1; i < col + 1; i++) {
-			for (j = row - 1; j < row + 2; j++) {
-				m_boss[j*BOSSCOLS + i].upper = SPACE;
-				m_boss[j*BOSSCOLS + i].enemy = false;
-			}
-		}
-
-		//	right two layers set to smasher
-		for (i = col + 2; i < col + 4; i++) {
-			for (j = row - 1; j < row + 2; j++) {
-				// if player is in the way, move them to the side
-				if (m_boss[j*BOSSCOLS + i].hero) {
-					// if there's another enemy, push them
-					if (m_boss[j*BOSSCOLS + i + 1].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, i + 1, j, 'r', getMonsters());
-					}
-					if (m_boss[j*BOSSCOLS + i + 2].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, i + 2, j, 'r', getMonsters());
-					}
-
-					player.at(0).setPosX(col + 4);
-					m_boss[j*BOSSCOLS + i].hero = false;
-					m_boss[player.at(0).getPosY()*BOSSCOLS + player.at(0).getPosX()].hero = true;
-					//queueMoveSprite(player.at(0).getSprite(), getRows(), player.at(0).getPosX(), player.at(0).getPosY(), .03);
-				}
-				
-				// if there are any monsters in the way, move them
-				if (m_boss[j*BOSSCOLS + i].enemy && m_boss[j*BOSSCOLS + i].upper != SMASHER) {
-					// if player is in the way, push them
-					if (m_boss[j*BOSSCOLS + i + 1].hero || m_boss[j*BOSSCOLS + i + 2].hero) {
-						pushPlayer(m_boss, BOSSROWS, BOSSCOLS, 'r');
-					}
-					// if there's another enemy, push them
-					if (m_boss[j*BOSSCOLS + i + 1].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, i + 1, j, 'r', getMonsters());
-					}
-					if (i != col + 3 && m_boss[j*BOSSCOLS + i + 2].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, i + 2, j, 'r', getMonsters());
-					}
-					
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, i, j, 'X', getMonsters(), col + 4, 0);
-				}
-
-				m_boss[j*BOSSCOLS + i].upper = SMASHER;
-				m_boss[j*BOSSCOLS + i].enemy = true;
-			}
-		}
-		
-		queueMoveSprite(getMonsters().at(0)->getSprite(), 'R');
-		getMonsters().at(0)->setPosX(col + 2);
-	}
-
-	//smasher.reset();
-}
-void FirstBoss::moveSmasherU() {
-	//shared_ptr<Smasher> smasher = dynamic_pointer_cast<Smasher>(getMonsters().at(0));
-	int col = getMonsters().at(0)->getPosX();
-	int row = getMonsters().at(0)->getPosY();
-	int i, j;
-
-	//	if wall immediately above smasher is an unbreakable wall, do nothing
-	if (m_boss[(row - 2)*BOSSCOLS + col].top == UNBREAKABLE_WALL) {
-		//smasher.reset();
-		return;
-	}
-
-	//  if there is only one space above the smasher
-	else if (m_boss[(row - 3)*BOSSCOLS + col].top == UNBREAKABLE_WALL) {
-		// bottom layer of smasher is set to spaces
-		for (i = row + 1, j = col - 1; j < col + 2; j++) {
-			m_boss[i*BOSSCOLS + j].upper = SPACE;
-			m_boss[i*BOSSCOLS + j].enemy = false;
-		}
-
-		//	smasher is pushed to upper layer
-		for (i = row - 2, j = col - 1; j < col + 2; j++) {
-			//	if player is in the way, crush them
-			if (m_boss[i*BOSSCOLS + j].hero) {
-				getMonsters().at(0)->encounter(player.at(0), *(getMonsters().at(0)), dungeonText);
-			}
-			// if there are any monsters in the way, crush them
-			if (m_boss[i*BOSSCOLS + j].enemy && m_boss[i*BOSSCOLS + j].upper != SMASHER) {
-				// find and crush the monster
-				int pos = findMonster(j, i);
-				getMonsters().at(0)->encounter(*(getMonsters().at(0)), *(getMonsters().at(pos)));
-
-				// check if monster died
-				if (getMonsters().at(pos)->getHP() <= 0) {
-					monsterDeath(pos);
-				}
-			}
-
-			m_boss[i*BOSSCOLS + j].upper = SMASHER;
-			m_boss[i*BOSSCOLS + j].enemy = true;
-		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-		//moveSprite(monster_sprites, BOSSROWS, col, row, 'u');
-		queueMoveSprite(getMonsters().at(0)->getSprite(), 'u');
-		getMonsters().at(0)->setPosY(row - 1);
-	}
-
-	//	if there are only two spaces above the smasher
-	else if (m_boss[(row - 4)*BOSSCOLS + col].top == UNBREAKABLE_WALL) {
-		// bottom 2 layers of smasher is set to spaces
-		for (i = row + 1; i > row - 1; i--) {
-			for (j = col - 1; j < col + 2; j++) {
-				m_boss[i*BOSSCOLS + j].upper = SPACE;
-				m_boss[i*BOSSCOLS + j].enemy = false;
-			}
-		}
-
-		//	smasher is pushed to ceiling
-		for (i = row - 2; i > row - 4; i--) {
-			for (j = col - 1; j < col + 2; j++) {
-				//	if player is in the way, crush them
-				if (m_boss[i*BOSSCOLS + j].hero) {
-					player.at(0).setPosY(row - 3);
-					m_boss[i*BOSSCOLS + j].hero = false;
-					m_boss[player.at(0).getPosY()*BOSSCOLS + player.at(0).getPosX()].hero = true;
-					//queueMoveSprite(player.at(0).getSprite(), getRows(), player.at(0).getPosX(), player.at(0).getPosY(), .03);
-					getMonsters().at(0)->encounter(player.at(0), *(getMonsters().at(0)), dungeonText);
-				}
-				
-				// if there are any monsters in the way, crush them
-				if (m_boss[i*BOSSCOLS + j].enemy && m_boss[i*BOSSCOLS + j].upper != SMASHER) {
-					// find and crush the monster
-					int pos = findMonster(j, i);
-					getMonsters().at(0)->encounter(*(getMonsters().at(0)), *(getMonsters().at(pos)));
-
-					// if there are two enemies stacked, then kill the enemy closest to the wall first
-					// :::: This is for the purpose of looking more natural on screen.
-					if (i != 1 && m_boss[(i - 1)*BOSSCOLS + j].enemy) {
-						int n = findMonster(j, i - 1);
-						
-						monsterDeath(n);
-					}
-
-					// move the monster
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i, 'Y', getMonsters(), 0, row - 3);
-
-					// check if monster died
-					if (getMonsters().at(pos)->getHP() <= 0) {
-						monsterDeath(pos);
-					}
-					
-				}
-
-				m_boss[i*BOSSCOLS + j].upper = SMASHER;
-				m_boss[i*BOSSCOLS + j].enemy = true;
-
-			}
-		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-		//moveSprite(monster_sprites, BOSSROWS, col, row, 'U');
-		queueMoveSprite(getMonsters().at(0)->getSprite(), 'U');
-		getMonsters().at(0)->setPosY(row - 2);
-	}
-
-	//	if there are at least 3 spaces above the smasher
-	else if (m_boss[(row - 4)*BOSSCOLS + col].top != UNBREAKABLE_WALL) {
-		// bottom 2 layers of smasher is set to spaces
-		for (i = row + 1; i > row - 1; i--) {
-			for (j = col - 1; j < col + 2; j++) {
-				m_boss[i*BOSSCOLS + j].upper = SPACE;
-				m_boss[i*BOSSCOLS + j].enemy = false;
-			}
-		}
-
-		//	top two layers above smasher set to smasher
-		for (i = row - 2; i > row - 4; i--) {
-			for (j = col - 1; j < col + 2; j++) {
-				// if player is in the way, move them above
-				if (m_boss[i*BOSSCOLS + j].hero) {
-					// if there's another enemy, push them
-					if (m_boss[(i-1)*BOSSCOLS + j].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i-1, 'u', getMonsters());
-					}
-					if (m_boss[(i - 2)*BOSSCOLS + j].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i - 2, 'u', getMonsters());
-					}
-
-					player.at(0).setPosY(row - 4);
-					m_boss[i*BOSSCOLS + j].hero = false;
-					m_boss[player.at(0).getPosY()*BOSSCOLS + player.at(0).getPosX()].hero = true;
-					//queueMoveSprite(player.at(0).getSprite(), getRows(), player.at(0).getPosX(), player.at(0).getPosY(), .03);
-				}
-				
-				// if there are any monsters in the way, move them
-				if (m_boss[i*BOSSCOLS + j].enemy && m_boss[i*BOSSCOLS + j].upper != SMASHER) {					
-					// if player is in the way, push them
-					if (m_boss[(i - 1)*BOSSCOLS + j].hero || m_boss[(i - 2)*BOSSCOLS + j].hero) {
-						pushPlayer(m_boss, BOSSROWS, BOSSCOLS, 'u');
-					}
-					// if there's another enemy, push them
-					if (m_boss[(i - 1)*BOSSCOLS + j].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i - 1, 'u', getMonsters());
-					}
-					if (i != 1 && m_boss[(i - 2)*BOSSCOLS + j].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i - 2, 'u', getMonsters());
-					}
-					
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i, 'Y', getMonsters(), 0, row - 4);
-				}
-
-				m_boss[i*BOSSCOLS + j].upper = SMASHER;
-				m_boss[i*BOSSCOLS + j].enemy = true;
-			}
-		}
-		queueMoveSprite(getMonsters().at(0)->getSprite(), 'U');
-		getMonsters().at(0)->setPosY(row - 2);
-	}
-	
-	//smasher.reset();
-}
-void FirstBoss::moveSmasherD() {
-	//shared_ptr<Smasher> smasher = dynamic_pointer_cast<Smasher>(getMonsters().at(0));
-	int col = getMonsters().at(0)->getPosX();
-	int row = getMonsters().at(0)->getPosY();
-	int i, j;
-
-	//	if wall immediately beneath smasher is an unbreakable wall, do nothing
-	if (m_boss[(row + 2)*BOSSCOLS + col].top == UNBREAKABLE_WALL) {
-		//smasher.reset();
-		return;
-	}
-
-	// if there is only one space underneath the smasher
-	else if (m_boss[(row + 3)*BOSSCOLS + col].top == UNBREAKABLE_WALL) {
-		// top layer of smasher is set to spaces
-		for (i = row - 1, j = col - 1; j < col + 2; j++) {
-			m_boss[i*BOSSCOLS + j].upper = SPACE;
-			m_boss[i*BOSSCOLS + j].enemy = false;
-		}
-
-		//	smasher is pushed to bottom layer
-		for (i = row + 2, j = col - 1; j < col + 2; j++) {
-			//	if player is in the way, crush them
-			if (m_boss[i*BOSSCOLS + j].hero) {
-				getMonsters().at(0)->encounter(player.at(0), *(getMonsters().at(0)), dungeonText);
-			}
-			
-			// if there are any monsters in the way, crush them
-			if (m_boss[i*BOSSCOLS + j].enemy && m_boss[i*BOSSCOLS + j].upper != SMASHER) {
-
-				int pos = findMonster(j, i);
-				getMonsters().at(0)->encounter(*(getMonsters().at(0)), *(getMonsters().at(pos)));
-					
-				// check if monster died
-				if (getMonsters().at(pos)->getHP() <= 0) {
-					monsterDeath(pos);
-				}
-			}
-
-			m_boss[i*BOSSCOLS + j].upper = SMASHER;
-			m_boss[i*BOSSCOLS + j].enemy = true;
-		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-		
-		queueMoveSprite(getMonsters().at(0)->getSprite(), 'd');
-		getMonsters().at(0)->setPosY(row + 1);
-	}
-
-	//	if there are only two spaces underneath the smasher
-	else if (m_boss[(row + 4)*BOSSCOLS + col].top == UNBREAKABLE_WALL) {
-		// top 2 layers of smasher is set to spaces
-		for (i = row - 1; i < row + 1; i++) {
-			for (j = col - 1; j < col + 2; j++) {
-				m_boss[i*BOSSCOLS + j].upper = SPACE;
-				m_boss[i*BOSSCOLS + j].enemy = false;
-			}
-		}
-
-		//	smasher is pushed to bottom layer
-		for (i = row + 2; i < row + 4; i++) {
-			for (j = col - 1; j < col + 2; j++) {
-				//	if player is in the way, crush them
-				if (m_boss[i*BOSSCOLS + j].hero) {
-					player.at(0).setPosY(BOSSROWS - 2);
-					m_boss[i*BOSSCOLS + j].hero = false;
-					m_boss[player.at(0).getPosY()*BOSSCOLS + player.at(0).getPosX()].hero = true;
-					//queueMoveSprite(player.at(0).getSprite(), getRows(), player.at(0).getPosX(), player.at(0).getPosY(), .03);
-					getMonsters().at(0)->encounter(player.at(0), *(getMonsters().at(0)), dungeonText);
-				}
-				
-				// if there are any monsters in the way, crush them dead
-				if (m_boss[i*BOSSCOLS + j].enemy && m_boss[i*BOSSCOLS + j].upper != SMASHER) {
-					// smasher attacking a monster is a formality at this point
-					int pos = findMonster(j, i);
-					getMonsters().at(0)->encounter(*(getMonsters().at(0)), *(getMonsters().at(pos)));
-					
-					// if there are two enemies stacked, then kill the second enemy first.
-					// :::: This is for the purpose of looking more natural on screen.
-					if (i != row + 3 && m_boss[(i + 1)*BOSSCOLS + j].enemy) {
-						int n = findMonster(j, i + 1);
-						
-						monsterDeath(n);
-					}
-
-					// NOTE: this must be after the attack, otherwise pos is then incorrect
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i, 'Y', getMonsters(), 0, BOSSROWS - 2);
-
-					// check if monster died (monster will be dead)
-					if (getMonsters().at(pos)->getHP() <= 0) {
-						monsterDeath(pos);
-					}
-
-				}
-
-				m_boss[i*BOSSCOLS + j].upper = SMASHER;
-				m_boss[i*BOSSCOLS + j].enemy = true;
-			}
-		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-		
-		queueMoveSprite(getMonsters().at(0)->getSprite(), 'D');
-		getMonsters().at(0)->setPosY(row + 2);
-	}
-
-	//	if there are at least 3 spaces underneath the smasher
-	else if (m_boss[(row + 4)*BOSSCOLS + col].top != UNBREAKABLE_WALL) {
-		// top 2 layers of smasher is set to spaces
-		for (i = row - 1; i < row + 1; i++) {
-			for (j = col - 1; j < col + 2; j++) {
-				m_boss[i*BOSSCOLS + j].upper = SPACE;
-				m_boss[i*BOSSCOLS + j].enemy = false;
-			}
-		}
-
-		//	bottom two beneath smasher set to smasher
-		for (i = row + 2; i < row + 4; i++) {
-			for (j = col - 1; j < col + 2; j++) {
-				// if player is in the way, move them below
-				if (m_boss[i*BOSSCOLS + j].hero) {
-					// if there's another enemy, push them
-					if (m_boss[(i + 1)*BOSSCOLS + j].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i + 1, 'd', getMonsters());
-					}
-					if (m_boss[(i + 2)*BOSSCOLS + j].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i + 2, 'd', getMonsters());
-					}
-
-					player.at(0).setPosY(row + 4);
-					m_boss[i*BOSSCOLS + j].hero = false;
-					m_boss[player.at(0).getPosY()*BOSSCOLS + player.at(0).getPosX()].hero = true;
-					//queueMoveSprite(player.at(0).getSprite(), getRows(), player.at(0).getPosX(), player.at(0).getPosY(), .05);
-				}
-
-				// if there are any monsters in the way, move them
-				if (m_boss[i*BOSSCOLS + j].enemy){// && m_boss[i*BOSSCOLS + j].upper != SMASHER) {
-					// if player is in the way, push them
-					if (m_boss[(i + 1)*BOSSCOLS + j].hero || m_boss[(i + 2)*BOSSCOLS + j].hero) {
-						pushPlayer(m_boss, BOSSROWS, BOSSCOLS, 'd');
-					}
-					
-					// if there's another enemy, push them
-					if (m_boss[(i + 1)*BOSSCOLS + j].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i + 1, 'd', getMonsters());
-					}
-					if (i != row + 3 && m_boss[(i + 2)*BOSSCOLS + j].enemy) {
-						pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i + 2, 'd', getMonsters());
-					}
-					
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i, 'Y', getMonsters(), 0, row + 4);
-				}
-
-				m_boss[i*BOSSCOLS + j].upper = SMASHER;
-				m_boss[i*BOSSCOLS + j].enemy = true;
-			}
-		}
-		
-		queueMoveSprite(getMonsters().at(0)->getSprite(), 'D');
-		getMonsters().at(0)->setPosY(row + 2);
-	}
-	
-	//smasher.reset();
-}
-
-void FirstBoss::resetLeftward() {
-	shared_ptr<Smasher> smasher = dynamic_pointer_cast<Smasher>(getMonsters().at(0));
-	int col = getMonsters().at(0)->getPosX();
-	int row = getMonsters().at(0)->getPosY();
-	int i, j;
-	int rand = randInt(3);
-
-	//	if smasher has reset far enough to the left, end cooldown
-	if (col < BOSSCOLS / 1.5 - rand) {
-		smasher->setEnded(true);
-		getMonsters().at(0) = smasher;
-		smasher.reset();
-		move = '0';
-
-		return;
-	}
-
-	moveSmasherL();
-	smasher.reset();
-}
-void FirstBoss::resetRightward() {
-	shared_ptr<Smasher> smasher = dynamic_pointer_cast<Smasher>(getMonsters().at(0));
-	int col = getMonsters().at(0)->getPosX();
-	int row = getMonsters().at(0)->getPosY();
-	int i, j;
-	int rand = randInt(3);
-
-	//	if smasher has reset far enough to the right, end cooldown
-	if (col > BOSSCOLS / 3 + rand) {
-		smasher->setEnded(true);
-		getMonsters().at(0) = smasher;
-		smasher.reset();
-		move = '0';
-
-		return;
-	}
-
-	moveSmasherR();
-	smasher.reset();
-}
-void FirstBoss::resetUpward() {
-	shared_ptr<Smasher> smasher = dynamic_pointer_cast<Smasher>(getMonsters().at(0));
-	int col = getMonsters().at(0)->getPosX();
-	int row = getMonsters().at(0)->getPosY();
-	int i, j;
-	int rand = randInt(3);
-
-	if (row < 6 + rand) {
-		smasher->setEnded(true);
-		getMonsters().at(0) = smasher;
-		smasher.reset();
-
-		return;
-	}
-
-	//	bottom 3 layers set to space
-	for (i = row + 1; i > row - 2; i--) {
-		for (j = col - 1; j < col + 2; j++) {
-			m_boss[i*BOSSCOLS + j].upper = SPACE;			
-			m_boss[i*BOSSCOLS + j].enemy = false;
-		}
-	}
-	
-	//  three layers above smasher set to smasher
-	for (i = row - 2; i > row - 5; i--) {
-		for (j = col - 1; j < col + 2; j++) {
-			// if player is in the way, move them above
-			if (m_boss[i*BOSSCOLS + j].hero) {
-				// if there's another enemy, push them
-				if (m_boss[(i - 1)*BOSSCOLS + j].enemy) {
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i - 1, 'u', getMonsters());
-				}
-				if (m_boss[(std::max(i - 2, 1))*BOSSCOLS + j].enemy) {
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i - 2, 'u', getMonsters());
-				}
-				if (m_boss[(std::max(i - 3, 1))*BOSSCOLS + j].enemy) {
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i - 3, 'u', getMonsters());
-				}
-				
-				player.at(0).setPosY(row - 5);
-				m_boss[i*BOSSCOLS + j].hero = false;
-				m_boss[player.at(0).getPosY()*BOSSCOLS + player.at(0).getPosX()].hero = true;
-				//queueMoveSprite(player.at(0).getSprite(), getRows(), player.at(0).getPosX(), player.at(0).getPosY(), .05);
-			}
-			// if there are any monsters in the way, move them
-			if (m_boss[i*BOSSCOLS + j].enemy && m_boss[i*BOSSCOLS + j].upper != SMASHER) {
-				// if player is in the way, push them
-				if (m_boss[(i - 1)*BOSSCOLS + j].hero || m_boss[(i - 2)*BOSSCOLS + j].hero) {
-					pushPlayer(m_boss, BOSSROWS, BOSSCOLS, 'd');
-				}
-				// if there's another enemy, push them
-				if (m_boss[(i - 1)*BOSSCOLS + j].enemy) {
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i - 1, 'u', getMonsters());
-				}
-				if (m_boss[(std::max(i - 2, 1))*BOSSCOLS + j].enemy) {
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i - 2, 'u', getMonsters());
-				}
-				if (m_boss[(std::max(i - 3, 1))*BOSSCOLS + j].enemy) {
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i - 3, 'u', getMonsters());
-				}
-				
-				pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i, 'Y', getMonsters(), 0, row - 5);				
-			}
-
-			m_boss[i*BOSSCOLS + j].upper = SMASHER;
-			m_boss[i*BOSSCOLS + j].enemy = true;
-		}
-	}
-
-	queueMoveSprite(getMonsters().at(0)->getSprite(), '^');
-	getMonsters().at(0)->setPosY(row - 3);
-	smasher.reset();
-}
-void FirstBoss::resetDownward() {
-	shared_ptr<Smasher> smasher = dynamic_pointer_cast<Smasher>(getMonsters().at(0));
-	int col = getMonsters().at(0)->getPosX();
-	int row = getMonsters().at(0)->getPosY();
-	int i, j;
-	int rand = randInt(3);
-
-	if (row > 6 + rand) {
-		smasher->setEnded(true);
-		getMonsters().at(0) = smasher;
-		smasher.reset();
-		move = '0';
-
-		return;
-	}
-
-	//	top 2 layers set to space
-	for (i = row - 1; i < row + 1; i++) {
-		for (j = col - 1; j < col + 2; j++) {
-			m_boss[i*BOSSCOLS + j].upper = SPACE;
-			m_boss[i*BOSSCOLS + j].enemy = false;
-		}
-	}
-
-	moveSmasherD();
-	smasher.reset();
-
-	/*
-	//  two layers below smasher set to smasher
-	for (i = row + 2; i < row + 4; i++) {
-		for (j = col - 1; j < col + 2; j++) {
-			// if player is in the way, move them above
-			if (m_boss[i*BOSSCOLS + j].hero) {
-				// if there's another enemy, push them
-				if (m_boss[(i + 1)*BOSSCOLS + j].enemy) {
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i + 1, 'd', m_firstbossMonsters);
-				}
-				if (m_boss[(std::min(i + 2, BOSSROWS-1))*BOSSCOLS + j].enemy) {
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i + 2, 'd', m_firstbossMonsters);
-				}
-				
-				player.at(0).setPosY(row + 4);
-				m_boss[i*BOSSCOLS + j].hero = false;
-				m_boss[player.at(0).getPosY()*BOSSCOLS + player.at(0).getPosX()].hero = true;
-				queueMoveSprite(player.at(0).getSprite(), getRows(), player.at(0).getPosX(), player.at(0).getPosY(), .03);
-			}
-			// if there are any monsters in the way, move them
-			if (m_boss[i*BOSSCOLS + j].enemy && m_boss[i*BOSSCOLS + j].upper != SMASHER) {
-				// if player is in the way, push them
-				if (m_boss[(i + 1)*BOSSCOLS + j].hero || m_boss[(i + 2)*BOSSCOLS + j].hero) {
-					pushPlayer(m_boss, BOSSROWS, BOSSCOLS, 'd');
-				}
-				// if there's another enemy, push them
-				if (m_boss[(i + 1)*BOSSCOLS + j].enemy) {
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i + 1, 'd', m_firstbossMonsters);
-				}
-				if (m_boss[(std::min(i + 2, BOSSROWS - 1))*BOSSCOLS + j].enemy) {
-					pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i + 2, 'd', m_firstbossMonsters);
-				}
-				
-				pushMonster(m_boss, BOSSROWS, BOSSCOLS, j, i, 'Y', m_firstbossMonsters, 0, row + 4);
-			}
-
-			m_boss[i*BOSSCOLS + j].upper = SMASHER;
-			m_boss[i*BOSSCOLS + j].enemy = true;
-		}
-	}
-	
-	queueMoveSprite(getMonsters().at(0), 'D');
-	m_firstbossMonsters.at(0)->setPosY(row + 2);
-	smasher.reset();
-	*/
-}
-
-bool FirstBoss::monsterHash(int &x, int &y, bool &switched, char move) {
-	// let starting x and y be the monster's initial position
-	
-	bool enemy = m_boss[y*BOSSCOLS + x].enemy;
-	bool wall = m_boss[y*BOSSCOLS + x].wall;
-	bool hero = m_boss[y*BOSSCOLS + x].hero;
-
-	// if current tile is valid, return to set monster here
-	if (!(wall || enemy || hero)) {
-		return true;
-	}
-
-	switch (move) {
-		// 1. if next tile is a wall then switch direction (one time)
-
-		// 2. else if a switch has already been made and a wall is hit, return false
-
-		// 3. otherwise keep looking in the same path
-
-	case 'l':
-		if (m_boss[y*BOSSCOLS + x - 1].wall && !switched) {
-			move = (randInt(2) == 0 ? 'u' : 'd');
-			switched = true;
-		}
-		else if (m_boss[y*BOSSCOLS + x - 1].wall && switched) {
-			return false;
-		}
-		break;
-	case 'r':
-		if (m_boss[y*BOSSCOLS + x + 1].wall && !switched) {
-			move = (randInt(2) == 0 ? 'u' : 'd');
-			switched = true;
-		}
-		else if (m_boss[y*BOSSCOLS + x + 1].wall && switched) {
-			return false;
-		}
-		break;
-	case 'u':
-		if (m_boss[(y - 1)*BOSSCOLS + x].wall && !switched) {
-			move = (randInt(2) == 0 ? 'l' : 'r');
-			switched = true;
-		}
-		else if (m_boss[(y - 1)*BOSSCOLS + x].wall && switched) {
-			return false;
-		}
-		break;
-	case 'd':
-		if (m_boss[(y + 1)*BOSSCOLS + x].wall && !switched) {
-			move = (randInt(2) == 0 ? 'l' : 'r');
-			switched = true;
-		}
-		else if (m_boss[(y + 1)*BOSSCOLS + x].wall && switched) {
-			return false;
-		}
-		break;
-	}
-	
-	if (move == 'l') return monsterHash(--x, y, switched, move);
-	if (move == 'r') return monsterHash(++x, y, switched, move);
-	if (move == 'u') return monsterHash(x, --y, switched, move);
-	if (move == 'd') return monsterHash(x, ++y, switched, move);
-
-	return false;
-}
-void FirstBoss::pushMonster(std::vector<_Tile> &dungeon, int maxrows, int maxcols, int mx, int my, char move, std::vector<std::shared_ptr<Monster>> &monsters, int cx, int cy) {
-	bool b = false;
-	int ox = mx;
-	int oy = my;
-	for (int i = 0; i < monsters.size(); i++) {
-		if (monsters.at(i)->getPosX() == mx && monsters.at(i)->getPosY() == my) {
-			switch (move) {
-			case 'l': 
-			case 'r':
-			case 'u':
-			case 'd': {
-				if (monsterHash(mx, my, b, move)) {
-					dungeon[oy*maxcols + ox].top = SPACE;
-					dungeon[oy*maxcols + ox].enemy = false;
-					dungeon[my*maxcols + mx].top = c_ARCHER;
-					dungeon[my*maxcols + mx].enemy = true;
-					monsters[i]->setPosX(mx);
-					monsters[i]->setPosY(my);
-
-
-					queueMoveSprite(monsters.at(i)->getSprite(), mx, my);
-				}
-				else {
-					monsterDeath(i);
-				}
+			//	if player is dead then break
+			if (player.at(0)->getHP() <= 0) {
+				player.at(0)->setDeath(m_monsters.at(i)->getName());
 				break;
 			}
-				//	CUSTOM MOVEMENT CASE in X direction
-			case 'X': {
-				dungeon[my*maxcols + mx].top = SPACE;
-				dungeon[my*maxcols + mx].enemy = false;
-
-				dungeon[my*maxcols + cx].top = c_ARCHER;
-				dungeon[my*maxcols + cx].enemy = true;
-				
-				monsters[i]->setPosX(cx);
-				queueMoveSprite(monsters.at(i)->getSprite(), cx, my);
-				break;
-			}
-				//	CUSTOM MOVEMENT CASE in Y direction
-			case 'Y': {
-				dungeon[my*maxcols + mx].top = SPACE;
-				dungeon[my*maxcols + mx].enemy = false;
-
-				dungeon[(cy)*maxcols + mx].top = c_ARCHER;
-				dungeon[(cy)*maxcols + mx].enemy = true;
-				
-				monsters[i]->setPosY(cy);
-				queueMoveSprite(monsters.at(i)->getSprite(), mx, cy);
-				break;
-			}
-			}
-			return;
 		}
 	}
-}
-void FirstBoss::pushPlayer(std::vector<_Tile> &dungeon, int maxrows, int maxcols, char move) {
-	int px = player.at(0).getPosX();
-	int py = player.at(0).getPosY();
-	bool b = false;
-	int ox = px;
-	int oy = py;
 
-	//dungeon[py*maxcols + px].hero = false;
-	if (monsterHash(px, py, b, move)) {
-		dungeon[oy*maxcols + ox].hero = false;
-		dungeon[py*maxcols + px].hero = true;
-		player.at(0).setPosX(px);
-		player.at(0).setPosY(py);
+	// Smasher moves after the other monsters
+	m_monsters[0]->move(*this);
 
-		// queue player move
-		queueMoveSprite(player.at(0).getSprite(), player.at(0).getPosX(), player.at(0).getPosY());
-	}
-	else {
-		getMonsters().at(0)->encounter(player.at(0), *(getMonsters().at(0)), dungeonText);
-	}
+	// check monsters on traps
+	monsterTrapEncounter();
 }
 
 void FirstBoss::fight(int x, int y) { // monster's coordinates
-	
+
 	// Check if monster encountered was smasher
-	if (m_boss[y*BOSSCOLS + x].upper == SMASHER) {
-		//player.at(0).attack(getMonsters(), m_firstbossActives, 0, dungeonText);
-		player.at(0).attack(*this, *getMonsters().at(0));
+	if (m_maze[y*BOSSCOLS + x].upper == SMASHER) {
+		player.at(0)->attack(*this, *getMonsters().at(0));
 
 		if (getMonsters().at(0)->getHP() <= 0)
 			monsterDeath(0);
@@ -10276,9 +8729,8 @@ void FirstBoss::fight(int x, int y) { // monster's coordinates
 	// if monster wasn't found, return
 	if (i == -1)
 		return;
-	
-	//player.at(0).attack(getMonsters(), m_firstbossActives, i, dungeonText);
-	player.at(0).attack(*this, *getMonsters().at(i));
+
+	player.at(0)->attack(*this, *getMonsters().at(i));
 
 	if (getMonsters().at(i)->getHP() <= 0) {
 		monsterDeath(i);
@@ -10286,7 +8738,7 @@ void FirstBoss::fight(int x, int y) { // monster's coordinates
 }
 void FirstBoss::monsterDeath(int pos) {
 	if (pos != 0) {
-		getMonsters().at(pos)->death(*getMonsters().at(pos), *this);
+		getMonsters().at(pos)->death(*this);
 
 		// remove them from the monster vector
 		getMonsters().erase(getMonsters().begin() + pos);
@@ -10310,100 +8762,163 @@ void FirstBoss::monsterDeath(int pos) {
 		cocos2d::experimental::AudioEngine::resumeAll();
 	});
 
-	removeSprite(monster_sprites, BOSSROWS, x, y);
+
+	queueRemoveSprite(getMonsters()[pos]->getSprite());
 
 	string boss = getMonsters().at(pos)->getName();
-	//dungeonText.push_back(boss + " was slain!\n");
-	//dungeonText.push_back("Well done!\n");
 
 	Idol idol;
 	idol.setPosX(cols / 2);
 	idol.setPosY(3);
-	m_boss[idol.getPosY()*cols + idol.getPosX()].bottom = IDOL;
-	m_boss[idol.getPosY()*cols + idol.getPosX()].item = true;
+	m_maze[idol.getPosY()*cols + idol.getPosX()].bottom = IDOL;
+	m_maze[idol.getPosY()*cols + idol.getPosX()].item = true;
 
 	// sprite for idol
-	addSprite(item_sprites, BOSSROWS, idol.getPosX(), idol.getPosY(), -1, "Freeze_Spell_48x48.png");
+	addSprite(item_sprites, idol.getPosX(), idol.getPosY(), -1, "Freeze_Spell_48x48.png");
 
 	for (int i = y - 1; i < y + 2; i++) {
 		for (int j = x - 1; j < x + 2; j++) {
-			m_boss[i*cols + j].upper = SPACE;
-			m_boss[i*cols + j].enemy = false;
+			m_maze[i*cols + j].upper = SPACE;
+			m_maze[i*cols + j].enemy = false;
 		}
 	}
 
 	getMonsters().erase(getMonsters().begin() + pos);
 }
+bool FirstBoss::monsterHash(int &x, int &y, bool &switched, char move) {
+	// let starting x and y be the monster's initial position
+	
+	bool enemy = m_maze[y*BOSSCOLS + x].enemy;
+	bool wall = m_maze[y*BOSSCOLS + x].wall;
+	bool hero = m_maze[y*BOSSCOLS + x].hero;
 
-std::vector<_Tile>& FirstBoss::getDungeon() {
-	return m_boss;
+	// if current tile is valid, return to set monster here
+	if (!(wall || enemy || hero)) {
+		return true;
+	}
+
+	switch (move) {
+		// 1. if next tile is a wall then switch direction (one time)
+
+		// 2. else if a switch has already been made and a wall is hit, return false
+
+		// 3. otherwise keep looking in the same path
+
+	case 'l':
+		if (m_maze[y*BOSSCOLS + x - 1].wall && !switched) {
+			move = (randInt(2) == 0 ? 'u' : 'd');
+			switched = true;
+		}
+		else if (m_maze[y*BOSSCOLS + x - 1].wall && switched) {
+			return false;
+		}
+		break;
+	case 'r':
+		if (m_maze[y*BOSSCOLS + x + 1].wall && !switched) {
+			move = (randInt(2) == 0 ? 'u' : 'd');
+			switched = true;
+		}
+		else if (m_maze[y*BOSSCOLS + x + 1].wall && switched) {
+			return false;
+		}
+		break;
+	case 'u':
+		if (m_maze[(y - 1)*BOSSCOLS + x].wall && !switched) {
+			move = (randInt(2) == 0 ? 'l' : 'r');
+			switched = true;
+		}
+		else if (m_maze[(y - 1)*BOSSCOLS + x].wall && switched) {
+			return false;
+		}
+		break;
+	case 'd':
+		if (m_maze[(y + 1)*BOSSCOLS + x].wall && !switched) {
+			move = (randInt(2) == 0 ? 'l' : 'r');
+			switched = true;
+		}
+		else if (m_maze[(y + 1)*BOSSCOLS + x].wall && switched) {
+			return false;
+		}
+		break;
+	}
+	
+	if (move == 'l') return monsterHash(--x, y, switched, move);
+	if (move == 'r') return monsterHash(++x, y, switched, move);
+	if (move == 'u') return monsterHash(x, --y, switched, move);
+	if (move == 'd') return monsterHash(x, ++y, switched, move);
+
+	return false;
 }
-int FirstBoss::getRows() const {
-	return m_rows;
-}
-int FirstBoss::getCols() const {
-	return m_cols;
-}
+void FirstBoss::pushMonster(std::vector<_Tile> &dungeon, int mx, int my, char move, int cx, int cy) {
+	int cols = getCols();
+	bool b = false;
+	int ox = mx;
+	int oy = my;
+	for (int i = 0; i < (int)m_monsters.size(); i++) {
+		if (m_monsters.at(i)->getPosX() == mx && m_monsters.at(i)->getPosY() == my) {
+			switch (move) {
+			case 'l': 
+			case 'r':
+			case 'u':
+			case 'd': {
+				if (monsterHash(mx, my, b, move)) {
+					dungeon[oy*cols + ox].enemy = false;
+					dungeon[my*cols + mx].enemy = true;
+					m_monsters[i]->setPosX(mx);
+					m_monsters[i]->setPosY(my);
 
 
-void FirstBoss::finishActions() {
-	// if there are any lingering actions, finish them
-	auto actions = m_scene->getActionManager();
-	while (actions->getNumberOfRunningActions() > 0) { // > 0 because sprite::follow is not used right now
-		actions->update(1.0);
+					queueMoveSprite(m_monsters.at(i)->getSprite(), mx, my);
+				}
+				else {
+					monsterDeath(i);
+				}
+				break;
+			}
+				//	CUSTOM MOVEMENT CASE in X direction
+			case 'X': {
+				dungeon[my*cols + mx].enemy = false;
+
+				dungeon[my*cols + cx].enemy = true;
+				
+				m_monsters[i]->setPosX(cx);
+				queueMoveSprite(m_monsters.at(i)->getSprite(), cx, my);
+				break;
+			}
+				//	CUSTOM MOVEMENT CASE in Y direction
+			case 'Y': {
+				dungeon[my*cols + mx].enemy = false;
+
+				dungeon[(cy)*cols + mx].enemy = true;
+				
+				m_monsters[i]->setPosY(cy);
+				queueMoveSprite(m_monsters.at(i)->getSprite(), mx, cy);
+				break;
+			}
+			}
+			return;
+		}
+	}
+}
+void FirstBoss::pushPlayer(char move) {
+	int cols = getCols();
+	int px = player.at(0)->getPosX();
+	int py = player.at(0)->getPosY();
+	bool b = false;
+	int ox = px;
+	int oy = py;
+
+	if (monsterHash(px, py, b, move)) {
+		getDungeon()[oy*cols + ox].hero = false;
+		getDungeon()[py*cols + px].hero = true;
+		player.at(0)->setPosX(px);
+		player.at(0)->setPosY(py);
+
+		// queue player move
+		queueMoveSprite(player.at(0)->getSprite(), player.at(0)->getPosX(), player.at(0)->getPosY());
+	}
+	else {
+		getMonsters().at(0)->attack(*this, *player.at(0));
 	}
 }
 
-
-//		SOUND EFFECTS
-void playMonsterDeathByPit(Player p, Monster m) {
-	int px = p.getPosX();
-	int py = p.getPosY();
-
-	int mx = m.getPosX();
-	int my = m.getPosY();
-
-	std::string monster = m.getName();
-	if (monster == "goblin") {
-		cocos2d::experimental::AudioEngine::play2d("Goblin_Falling.mp3", false, (float)exp(-(abs(px - mx) + abs(py - my)) / 2));
-	}
-	else if (monster == "mounted knight") {
-		cocos2d::experimental::AudioEngine::play2d("Knight_Falling.mp3", false, (float)exp(-(abs(px - mx) + abs(py - my)) / 2));
-	}
-
-	cocos2d::experimental::AudioEngine::play2d("Falling_In_A_Hole.mp3", false, (float)exp(-(abs(px - mx) + abs(py - my)) / 2));
-}
-void playArcherDaggerSwipe() {
-	std::string sound;
-	int n = randInt(6) + 1;
-
-	switch (n) {
-	case 1: sound = "Dagger_Swipe1.mp3"; break;
-	case 2: sound = "Dagger_Swipe2.mp3"; break;
-	case 3: sound = "Dagger_Swipe3.mp3"; break;
-	}
-	cocos2d::experimental::AudioEngine::play2d(sound, false, 0.6f);
-}
-
-//		SPRITE EFFECTS
-void runPlayerDamage(cocos2d::Sprite* sprite) {
-	auto tintRed = cocos2d::TintTo::create(0.1f, cocos2d::Color3B(255, 70, 70));
-	auto tintNormal = cocos2d::TintTo::create(0.1f, cocos2d::Color3B(255, 255, 255));
-	sprite->runAction(cocos2d::Blink::create(0.2f, 4));
-	sprite->runAction(cocos2d::Sequence::createWithTwoActions(tintRed, tintNormal));
-}
-void runMonsterDamage(cocos2d::Sprite* sprite) {
-	auto tintRed = cocos2d::TintTo::create(0.1f, cocos2d::Color3B(255, 60, 60));
-	auto tintNormal = cocos2d::TintTo::create(0.1f, cocos2d::Color3B(255, 255, 255));
-	sprite->runAction(cocos2d::Blink::create(0.2f, 5));
-	sprite->runAction(cocos2d::Sequence::createWithTwoActions(tintRed, tintNormal));
-}
-void runMonsterDamageBlink(cocos2d::Sprite* sprite) {
-	sprite->runAction(cocos2d::Blink::create(0.08f, 1));
-}
-void deathFade(cocos2d::Sprite* sprite) {
-	auto scale = cocos2d::ScaleTo::create(0.5, 0);
-	auto fade = cocos2d::FadeOut::create(0.5);
-	sprite->runAction(scale);
-	sprite->runAction(fade);
-}

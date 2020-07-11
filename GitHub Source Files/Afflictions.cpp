@@ -1,8 +1,9 @@
 #include "cocos2d.h"
+#include "global.h"
 #include "AudioEngine.h"
 #include "Afflictions.h"
+#include "FX.h"
 #include "Actors.h"
-#include "utilities.h"
 #include <memory>
 
 
@@ -48,14 +49,10 @@ void Afflictions::setExhaustion(bool exhausted) {
 	m_exhausted = exhausted;
 }
 
-void Afflictions::afflict(Afflictions &affliction, Actors &a) {
-	affliction.afflict(a);
-}
-
 					// Afflictions(turns, wait, name)
 
 //		BURN
-Burn::Burn(int turns) : Afflictions(turns, 0, "burn") {
+Burn::Burn(int turns) : Afflictions(turns, 0, BURN) {
 
 }
 
@@ -66,7 +63,7 @@ void Burn::afflict(Actors &a) {
 
 	if (getTurnsLeft() > 0) {
 		// play burn sound effect
-		cocos2d::experimental::AudioEngine::play2d("On_Fire1.mp3", false, 1.0f);
+		playSound("On_Fire1.mp3");
 
 		a.setHP(a.getHP() - 1);
 		setTurnsLeft(getTurnsLeft() - 1);
@@ -83,7 +80,7 @@ void Burn::afflict(Actors &a) {
 
 
 //		HEAL
-HealOverTime::HealOverTime(int turns) : Afflictions(turns, 0, "heal") {
+HealOverTime::HealOverTime(int turns) : Afflictions(turns, 0, HEAL_OVER_TIME) {
 
 }
 
@@ -104,7 +101,7 @@ void HealOverTime::afflict(Actors &a) {
 
 
 //		BLEED
-Bleed::Bleed(int turns) : Afflictions(turns, 3, "bleed") {
+Bleed::Bleed(int turns) : Afflictions(turns, 3, BLEED) {
 
 }
 
@@ -142,7 +139,7 @@ void Bleed::afflict(Actors &a) {
 
 
 //		STUN
-Stun::Stun(int turns) : Afflictions(turns, 0, "stun") {
+Stun::Stun(int turns) : Afflictions(turns, 0, STUN) {
 
 }
 
@@ -167,7 +164,7 @@ void Stun::afflict(Actors &a) {
 
 
 //		FREEZE
-Freeze::Freeze(int turns) : Afflictions(turns, 0, "freeze") {
+Freeze::Freeze(int turns) : Afflictions(turns, 0, FREEZE) {
 
 }
 
@@ -192,7 +189,7 @@ void Freeze::afflict(Actors &a) {
 
 
 //		POISON
-Poison::Poison(int turns, int wait, int str, int dex) : Afflictions(turns, wait, "poison"), m_str(str), m_dex(dex) {
+Poison::Poison(int turns, int wait, int str, int dex) : Afflictions(turns, wait, POISON), m_str(str), m_dex(dex) {
 
 }
 
@@ -200,8 +197,8 @@ void Poison::afflict(Actors &a) {
 	// if poison flag hasn't been set yet, set it
 	if (!a.isPoisoned() && getTurnsLeft() != 0) {
 		a.setPoisoned(true);
-		a.setStr(a.getStr() - m_str);
-		a.setDex(a.getDex() - m_dex);
+		a.setStr(std::max(0, a.getStr() - m_str));
+		a.setDex(std::max(0, a.getDex() - m_dex));
 	}
 
 	if (getWaitTime() == 0 && getTurnsLeft() > 0) {
@@ -222,7 +219,7 @@ void Poison::afflict(Actors &a) {
 		// resets wait time
 		setWaitTime(getMaxWait());
 	}
-	// else if wait time is not over and there's still bleeding left
+	// else if wait time is not over and there's still poison left
 	else if (getWaitTime() > 0 && getTurnsLeft() > 0) {
 		setWaitTime(getWaitTime() - 1);
 	}
@@ -237,7 +234,7 @@ void Poison::afflict(Actors &a) {
 
 
 //		INVISIBILITY
-Invisibility::Invisibility(int turns) : Afflictions(turns, 0, "invisibility") {
+Invisibility::Invisibility(int turns) : Afflictions(turns, 0, INVISIBILITY) {
 
 }
 
@@ -268,7 +265,7 @@ void Invisibility::afflict(Actors &a) {
 
 
 //		ETHEREALITY
-Ethereality::Ethereality(int turns) : Afflictions(turns, 0, "ethereality") {
+Ethereality::Ethereality(int turns) : Afflictions(turns, 0, ETHEREALITY) {
 
 }
 
@@ -302,7 +299,7 @@ void Ethereality::afflict(Actors &a) {
 
 
 //		CONFUSION
-Confusion::Confusion(int turns) : Afflictions(turns, 0, "confusion") {
+Confusion::Confusion(int turns, int bonus) : Afflictions(turns, 0, CONFUSION), m_bonus(bonus) {
 
 }
 
@@ -312,7 +309,7 @@ void Confusion::afflict(Actors &a) {
 		a.setConfused(true);
 
 		// dex boost
-		a.setDex(a.getDex() + 3);
+		a.setDex(a.getDex() + m_bonus);
 	}
 
 	if (getTurnsLeft() > 0) {
@@ -341,7 +338,7 @@ void Confusion::afflict(Actors &a) {
 
 
 //		BUFF STATS
-Buff::Buff(int turns, int str, int dex, int intellect) : Afflictions(turns, 0, "buff"), m_str(str), m_dex(dex), m_int(intellect) {
+Buff::Buff(int turns, int str, int dex, int intellect) : Afflictions(turns, 0, BUFF), m_str(str), m_dex(dex), m_int(intellect) {
 
 }
 
@@ -374,7 +371,7 @@ void Buff::afflict(Actors &a) {
 
 
 //		INVULNERABILITY
-Invulnerability::Invulnerability(int turns) : Afflictions(turns, 0, "invulnerable") {
+Invulnerability::Invulnerability(int turns) : Afflictions(turns, 0, INVULNERABILITY) {
 
 }
 
@@ -399,7 +396,7 @@ void Invulnerability::afflict(Actors &a) {
 
 
 //		STUCK
-Stuck::Stuck(int turns) : Afflictions(turns, 0, "stuck") {
+Stuck::Stuck(int turns) : Afflictions(turns, 0, STUCK) {
 
 }
 
@@ -423,88 +420,64 @@ void Stuck::afflict(Actors &a) {
 }
 
 
+//		POSSESSION
+Possessed::Possessed(int turns) : Afflictions(turns, 0, POSSESSED) {
 
-//		SOUND EFFECTS
-void playBleed(float volume) {
-	std::string sound;
-	switch (1 + randInt(4)) {
-	case 1: sound = "Water_Drip1.mp3"; break;
-	case 2: sound = "Water_Drip2.mp3"; break;
-	case 3: sound = "Water_Drip3.mp3"; break;
-	case 4: sound = "Water_Drip4.mp3"; break;
-	}
-	cocos2d::experimental::AudioEngine::play2d(sound, false, volume);
-}
-void playPoison(float volume) {
-	std::string sound;
-	switch (1 + randInt(2)) {
-	case 1: sound = "Poison_Damage1.mp3"; break;
-	case 2: sound = "Poison_Damage2.mp3"; break;
-	}
-	cocos2d::experimental::AudioEngine::play2d(sound, false, volume);
-}
-void playBirdSound(float volume) {
-	std::string sound;
-	switch (1 + randInt(3)) {
-	case 1: sound = "Bird1.mp3"; break;
-	case 2: sound = "Bird2.mp3"; break;
-	case 3: sound = "Bird3.mp3"; break;
-	case 4: sound = "Crow1.mp3"; break;
-	case 5: sound = "Crow2.mp3"; break;
-	case 6: sound = "Crow3.mp3"; break;
-	case 7: sound = "Crow4.mp3"; break;
-	}
-	cocos2d::experimental::AudioEngine::play2d(sound, false, volume);
-}
-void playCrowSound(float volume) {
-	std::string sound;
-	switch (1 + randInt(4)) {
-	case 1: sound = "Crow1.mp3"; break;
-	case 2: sound = "Crow2.mp3"; break;
-	case 3: sound = "Crow3.mp3"; break;
-	case 4: sound = "Crow4.mp3"; break;
-	}
-	cocos2d::experimental::AudioEngine::play2d(sound, false, volume);
 }
 
-void tintFrozen(cocos2d::Sprite* sprite) {
-	auto tintBlue = cocos2d::TintTo::create(0, cocos2d::Color3B(68, 85, 140));
-	sprite->runAction(tintBlue);
-	//auto tintNormal = cocos2d::TintTo::create(0.1, cocos2d::Color3B(255, 255, 255));
-	//sprite->runAction(cocos2d::Sequence::createWithTwoActions(tintBlue, tintNormal));
+void Possessed::afflict(Actors &a) {
+	// if possessed flag hasn't been set yet, set it
+	if (!a.isPossessed())
+		a.setPossessed(true);
+
+	if (getTurnsLeft() > 0) {
+		// possessed effect
+		//tintPoisoned(a.getSprite());
+
+		// decrease the count by 1
+		setTurnsLeft(getTurnsLeft() - 1);
+	}
+	// flag to remove affliction
+	else {
+		a.setPossessed(false);
+		setExhaustion(true);
+	}
 }
-void tintStunned(cocos2d::Sprite* sprite) {
-	auto tintGray = cocos2d::TintTo::create(0, cocos2d::Color3B(100, 100, 100));
-	sprite->runAction(tintGray);
-	//sprite->runAction(cocos2d::Blink::create(0.2, 3));
+
+
+//		CRIPPLE
+Cripple::Cripple(int turns) : Afflictions(turns, 1, CRIPPLE) {
+
 }
-void tintPoisoned(cocos2d::Sprite* sprite) {
-	auto tintGreen = cocos2d::TintTo::create(0, cocos2d::Color3B(173, 255, 47));
-	sprite->runAction(tintGreen);
-}
-void tintItemCast(cocos2d::Sprite* sprite) {
-	auto tintGold = cocos2d::TintTo::create(0, cocos2d::Color3B(255, 215, 0));
-	auto tint = cocos2d::TintTo::create(0.3, cocos2d::Color3B(255, 255, 255));
-	auto tinting = cocos2d::Sequence::createWithTwoActions(tintGold, tint);
-	sprite->runAction(tinting);
-}
-void tintStaffCast(cocos2d::Sprite* sprite) {
-	auto tintGold = cocos2d::TintTo::create(0.3, cocos2d::Color3B(148, 10, 200));
-	auto tint = cocos2d::TintTo::create(0.3, cocos2d::Color3B(255, 255, 255));
-	auto tinting = cocos2d::Sequence::createWithTwoActions(tintGold, tint);
-	sprite->runAction(tinting);
-}
-void untint(cocos2d::Sprite* sprite) {
-	auto tint = cocos2d::TintTo::create(0, cocos2d::Color3B(255, 255, 255));
-	sprite->runAction(tint);
-}
-void fadeTransparent(cocos2d::Sprite* sprite) {
-	auto fadeTransparent = cocos2d::FadeTo::create(.3, 40);
-	//auto fadeTransparentReverse = cocos2d::FadeTo::reverse(fadeTransparent);
-	sprite->runAction(fadeTransparent);
-	//sprite->runAction(cocos2d::Sequence::createWithTwoActions(tintBlue, tintNormal));
-}
-void fadeIn(cocos2d::Sprite* sprite) {
-	auto fadeIn = cocos2d::FadeTo::create(.3, 255);
-	sprite->runAction(fadeIn);
+
+void Cripple::afflict(Actors &a) {
+	// if flag hasn't been set yet, set it
+	if (!a.isCrippled() && getTurnsLeft() != 0)
+		a.setCrippled(true);
+
+	// if wait time is over and there's still turns left
+	if (getWaitTime() == 0 && getTurnsLeft() > 0) {
+		// Sound effect
+		// 
+
+		a.addAffliction(std::make_shared<Stun>(1));
+
+		setTurnsLeft(getTurnsLeft() - 1);
+
+		/// check to move this into the LAST else statement later
+		if (getTurnsLeft() == 0) {
+			a.setCrippled(false);
+		}
+
+		// resets wait time
+		setWaitTime(getMaxWait());
+	}
+	// else if wait time is not over and there are still turns left
+	else if (getWaitTime() > 0 && getTurnsLeft() > 0) {
+		setWaitTime(getWaitTime() - 1);
+	}
+	// else there are no turns left
+	else {
+		setExhaustion(true);
+	}
 }

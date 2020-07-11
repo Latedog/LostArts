@@ -3,19 +3,6 @@
 
 #include <string>
 
-void playBleed(float volume = 1.0f);
-void playPoison(float volume = 1.0f);
-void playBirdSound(float volume = 1.0f);
-void playCrowSound(float volume = 1.0f);
-void tintFrozen(cocos2d::Sprite* sprite);
-void tintStunned(cocos2d::Sprite* sprite);
-void tintPoisoned(cocos2d::Sprite* sprite);
-void tintItemCast(cocos2d::Sprite* sprite);
-void tintStaffCast(cocos2d::Sprite* sprite);
-void untint(cocos2d::Sprite* sprite);
-void fadeTransparent(cocos2d::Sprite* sprite);
-void fadeIn(cocos2d::Sprite* sprite);
-
 class Actors;
 
 class Afflictions {
@@ -33,12 +20,13 @@ public:
 	bool isExhausted() const;
 	void setExhaustion(bool exhausted);
 
+	virtual void afflict(Actors &a) = 0;
+
+protected:
 	int getMaxWait() const;
 	int getWaitTime() const;
 	void setWaitTime(int wait);
 
-	virtual void afflict(Afflictions &affliction, Actors &a);
-	virtual void afflict(Actors &a) = 0;
 private:
 	std::string m_name;
 
@@ -125,9 +113,12 @@ public:
 class Confusion : public Afflictions {
 public:
 	// Reverses player movement, but increases their dodgeability (+dex)
-	Confusion(int turns = 10);
+	Confusion(int turns = 10, int bonus = 3);
 
 	void afflict(Actors &a);
+
+private:
+	int m_bonus;
 };
 
 class Buff : public Afflictions {
@@ -151,7 +142,24 @@ public:
 
 class Stuck : public Afflictions {
 public:
+	// Stuck means they're stuck in place, but can still perform an action
 	Stuck(int turns);
+
+	void afflict(Actors &a);
+};
+
+class Possessed : public Afflictions {
+public:
+	// If the player is possessed, they are no longer in control of their actions
+	Possessed(int turns);
+
+	void afflict(Actors &a);
+};
+
+class Cripple : public Afflictions {
+public:
+	// Adds a stun every other turn
+	Cripple(int turns);
 
 	void afflict(Actors &a);
 };
