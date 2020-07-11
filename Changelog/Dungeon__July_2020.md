@@ -146,3 +146,5 @@
 7/11:
 
 - Updated Active Item HUD functions to allow the display of the Spelunker's Rock count. The Spelunker has a getRockCount function for this.
+- Redid some shop/chest/dungeon item generation and monster generation
+- Finally added an attack animation
