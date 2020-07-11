@@ -150,3 +150,4 @@
 - Finally added an attack animation
 - Added some new character sprites and redid more monster generation for the SecondFloor.
 - Fixed bug where sprite blinking would cause a sprite to become invisible
+- Bombs are now stackable
