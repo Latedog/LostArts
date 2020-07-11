@@ -141,4 +141,8 @@
 - Added new queueMoveSprite function which accepts float coordinates (For positioning the fire on Braziers currently)
 - Matches now leave an Ember if the space was free (No wall or enemy)
 - The HUD and item menu will now display the count of stackable items
+- Moved tile initialization into a function called initializeTiles() which is called when the Dungeon constructor is called.
+
+7/11:
+
 - Updated Active Item HUD functions to allow the display of the Spelunker's Rock count. The Spelunker has a getRockCount function for this.
