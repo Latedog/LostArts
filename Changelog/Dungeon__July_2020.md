@@ -135,3 +135,5 @@
 - Redid the awful activeTrapFunction for FallingSpikes. Finally removed the const char global c_spike.
 - Cleaned up a few Smasher functions
 - The FirstBoss peekDungeon() function has been updated to reflect the updated changes in the Dungeon
+- Webs now leave behind an Ember for a short time if it is ignited
+- RockSummon can now tip over lit Braziers
