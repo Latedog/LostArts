@@ -133,3 +133,4 @@
 - Adjusted FreezeSpell to only work within a limited radius.
 - Removed all instances of insertTrapForRemoval that were not within the Dungeon class
 - Redid the awful activeTrapFunction for FallingSpikes. Finally removed the const char global c_spike.
+- Cleaned up a few Smasher functions
