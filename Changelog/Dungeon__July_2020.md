@@ -139,3 +139,4 @@
 - RockSummon can now tip over lit Braziers
 - Embers now have animated flames
 - Added new queueMoveSprite function which accepts float coordinates (For positioning the fire on Braziers currently)
+- Matches now leave an Ember if the space was free (No wall or enemy)
