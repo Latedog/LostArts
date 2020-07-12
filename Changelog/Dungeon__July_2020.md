@@ -151,3 +151,5 @@
 - Added some new character sprites and redid more monster generation for the SecondFloor.
 - Fixed bug where sprite blinking would cause a sprite to become invisible
 - Bombs are now stackable
+- Added show and hideHUD() to the HUDLayer for use with the Memorizer NPC
+- Fixed a bug where the Spelunker could throw rocks on top of Walls, making them irretrievable.
