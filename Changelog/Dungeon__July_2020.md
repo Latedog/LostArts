@@ -159,3 +159,5 @@
 - Items and gold now fall down pits (added activeTrapAction to Pits)
 - The Spelunker now auto picks up Rocks
 - Added Dungeon sprite functions that allow for removing sprites with additional actions. e.g. Money and items can now appear to fall down pits before being removed.
+- Implemeneted Acrobat character which has a dodge rolling/evasive active ability.
+- Added superDead flag which indicates that a character cannot regain HP even if they were invulnerable (used for Pits).
