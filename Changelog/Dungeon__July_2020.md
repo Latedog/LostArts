@@ -155,3 +155,4 @@
 - Fixed a bug where the Spelunker could throw rocks on top of Walls, making them irretrievable.
 - Items and gold now fall down pits (added activeTrapAction to Pits)
 - The Spelunker now auto picks up Rocks
+- Added Dungeon sprite functions that allow for removing sprites with additional actions. e.g. Money and items can now appear to fall down pits before being removed.
