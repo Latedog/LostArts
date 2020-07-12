@@ -153,3 +153,4 @@
 - Bombs are now stackable
 - Added show and hideHUD() to the HUDLayer for use with the Memorizer NPC
 - Fixed a bug where the Spelunker could throw rocks on top of Walls, making them irretrievable.
+- Items and gold now fall down pits (added activeTrapAction to Pits)
