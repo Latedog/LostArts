@@ -163,3 +163,4 @@
 - Added superDead flag which indicates that a character cannot regain HP even if they were invulnerable (used for Pits).
 - Removed unused weaponMenu functions in HUDLayer
 - Added destructors for Dungeon, MenuScene, HUDLayer, and PauseMenuScene
+- Added 'Scene' parameter to the constructors of all Dungeons. This allows a lot more flexibility in creating sprites early.
