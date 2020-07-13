@@ -180,3 +180,5 @@
 - Removed the code used for adding sprites for Spinners, Zappers, Firebars, and Spikes from the renderDungeon function in GUI
 - Added Destructors for the SpikeTraps and TriggerSpikes
 - Removed seemingly used line of code in SpikeTrap activeTrapAction about reassigning itself to the trap vector for lighting purposes
+- Inlined the set and get functions in the GameObjects and Actor class
+- Removed unused addWeapon and wield functions from the Player class
