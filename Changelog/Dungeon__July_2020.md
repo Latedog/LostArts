@@ -176,3 +176,5 @@
 - Fixed bug where Spinner fire sprites would become detached after being pushed by Puffs. To achieve this, the Spinner's member variables for the inner and outer fire sprites were removed and merged into the fire Object variables. We can do this now since the Dungeon now has the scene to work with, so adding the sprites are handled in the constructor.
 - Firebars were given the same treatment as Spinners
 - Zappers also changed to accept a Dungeon and add the sprites right away
+- Auto spikes and Trigger spikes constructors now accept a Dungeon for the same reasons as above.
+- Removed the code used for adding sprites for Spinners, Zappers, Firebars, and Spikes from the renderDungeon function in GUI
