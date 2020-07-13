@@ -174,3 +174,5 @@
 - The Braziers in the Shrine are now lit when the player walks close enough
 - Removed the Shop's specialAction() function and added the light source in the constructor. This has the added benefit of updating the lighting right away.
 - Fixed bug where Spinner fire sprites would become detached after being pushed by Puffs. To achieve this, the Spinner's member variables for the inner and outer fire sprites were removed and merged into the fire Object variables. We can do this now since the Dungeon now has the scene to work with, so adding the sprites are handled in the constructor.
+- Firebars were given the same treatment as Spinners
+- Zappers also changed to accept a Dungeon and add the sprites right away
