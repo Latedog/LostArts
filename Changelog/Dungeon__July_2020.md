@@ -166,3 +166,8 @@
 - Added 'Scene' parameter to the constructors of all Dungeons. This allows a lot more flexibility in creating sprites early.
 - Added globals for the level numbers
 - Added Shrine class. Chests are implemented and Health recovery is partially implemented. Trinkets are not implemented.
+
+7/13:
+
+- Fixed Major bug involving the Serpent. Upon death, it called the monsterDeath function for the tail, which was causing problems later when monsters were being removed. Instead, we set the tail to be destroyed as it should have been.
+- The Serpent now has a moveTo function that so that its tail is moved around correctly when the Serpent is pushed.
