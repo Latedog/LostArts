@@ -179,3 +179,4 @@
 - Auto spikes and Trigger spikes constructors now accept a Dungeon for the same reasons as above.
 - Removed the code used for adding sprites for Spinners, Zappers, Firebars, and Spikes from the renderDungeon function in GUI
 - Added Destructors for the SpikeTraps and TriggerSpikes
+- Removed seemingly used line of code in SpikeTrap activeTrapAction about reassigning itself to the trap vector for lighting purposes
