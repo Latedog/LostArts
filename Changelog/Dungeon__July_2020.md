@@ -179,6 +179,10 @@
 - Auto spikes and Trigger spikes constructors now accept a Dungeon for the same reasons as above.
 - Removed the code used for adding sprites for Spinners, Zappers, Firebars, and Spikes from the renderDungeon function in GUI
 - Added Destructors for the SpikeTraps and TriggerSpikes
-- Removed seemingly used line of code in SpikeTrap activeTrapAction about reassigning itself to the trap vector for lighting purposes
+- Removed seemingly unused line of code in SpikeTrap activeTrapAction about reassigning itself to the trap vector for lighting purposes
 - Inlined the set and get functions in the GameObjects and Actor class
 - Removed unused addWeapon and wield functions from the Player class
+
+7/14:
+
+- Weapons now have a sharpness stat which is used when the player increases their weapon's damage. After N hits, the weapon reduces in sharpness, all the way to the base level.
