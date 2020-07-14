@@ -186,3 +186,5 @@
 7/14:
 
 - Weapons now have a sharpness stat which is used when the player increases their weapon's damage. After N hits, the weapon reduces in sharpness, all the way to the base level.
+- Removed dialogue and choice setter functions from the NPC class. Instead, the corresponding vectors are now protected.
+- Removed the dialogue vector parameter from the add dialogue and useResponse functions in the NPC class.
