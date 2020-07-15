@@ -194,5 +194,5 @@
 7/15:
 
 - Added Trader NPC
+- Functions for removing passives, single items, and trading weapons have been added to the Player class for use with the Trader.
 - You can now loop through the pause menu
-- 
