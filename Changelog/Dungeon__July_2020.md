@@ -190,3 +190,9 @@
 - Removed the dialogue vector parameter from the add dialogue and useResponse functions in the NPC class.
 - Partially implemented Enchanter NPC.
 - Weapons now have an Imbuement variable used for enchanting weapons. We can specify the type of Imbuement by using the ImbuementType enum.
+
+7/15:
+
+- Added Trader NPC
+- You can now loop through the pause menu
+- 
