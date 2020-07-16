@@ -201,3 +201,10 @@
 - Most traps now require a a Dungeon in its constructor so that the sprites can be created. Now almost all traps are no longer created in the renderDungeon funtion in GUI. This result fixes a bug where if spiders created Webs over the staircase, stepping over it would cause the staircase to vanish.
 - Spiders now wait one turn before trying to get primed again after priming.
 - Fixed bug where PouncingSpiders wouldn't jump
+
+7/16:
+
+- Removed deprecated Trinkets and redid old ones to be upgradeable. There are now 6 different trinkets that can be upgraded.
+- Implemented upgrade and change trinket functionality in Shrines.
+- Tons of new player abilities have been added as a result of adding the new Trinkets (Relics). Among them: most items and spells that inflict burning, poison or freeze are now affected by harshAfflictions and afflictionOverride attributes. The Dungeon can now sometimes stop briefly through MatrixVision. The level timer can now be affected.
+- Implemented weapon sacrifice for Shrines. equipWeapon and removeStoredWeapon were added to Player class for this purpose. Shrine functionality is now mostly complete.
