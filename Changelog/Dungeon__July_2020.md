@@ -198,4 +198,4 @@
 - You can now loop through the pause menu
 - Added TreasureChest which contains money
 - Added spriteCleanup functions to the Monster and Traps class to properly remove any additional sprites they may have. Removed the destructors for Spinners, Zappers, Embers, and Firebars as a result. This should, hopefully, prevent any crashes related to the sequence vector trying to access sprites already removed.
-- Most traps now require a a Dungeon in its constructor so that the sprites can be created. Now almost all traps are no longer created in the renderDungeon funtion in GUI.
+- Most traps now require a a Dungeon in its constructor so that the sprites can be created. Now almost all traps are no longer created in the renderDungeon funtion in GUI. This result fixes a bug where if spiders created Webs over the staircase, stepping over it would cause the staircase to vanish.
