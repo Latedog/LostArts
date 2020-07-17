@@ -208,3 +208,5 @@
 - Implemented upgrade and change trinket functionality in Shrines.
 - Tons of new player abilities have been added as a result of adding the new Trinkets (Relics). Among them: most items and spells that inflict burning, poison or freeze are now affected by harshAfflictions and afflictionOverride attributes. The Dungeon can now sometimes stop briefly through MatrixVision. The level timer can now be affected.
 - Implemented weapon sacrifice for Shrines. equipWeapon and removeStoredWeapon were added to Player class for this purpose. Shrine functionality is now mostly complete.
+- Moved Stackable functions and member variable into the Drops class. This is because a new passive was added that lets all items stack.
+- Updated HUD functions to reflect this new passive's abilities.
