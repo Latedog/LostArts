@@ -210,3 +210,6 @@
 - Implemented weapon sacrifice for Shrines. equipWeapon and removeStoredWeapon were added to Player class for this purpose. Shrine functionality is now mostly complete.
 - Moved Stackable functions and member variable into the Drops class. This is because a new passive was added that lets all items stack.
 - Updated HUD functions to reflect this new passive's abilities.
+- New affliction added: Fragile. Actors with this affliction die instantly if hit.
+- Added 7th Trinket: Protection. Grants bonus affliction save rolls and chance to inflict new Affliction 'Fragile'.
+- Fixed bug where hp would become negative upon death.
