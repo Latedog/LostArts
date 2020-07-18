@@ -213,3 +213,7 @@
 - New affliction added: Fragile. Actors with this affliction die instantly if hit.
 - Added 7th Trinket: Protection. Grants bonus affliction save rolls and chance to inflict new Affliction 'Fragile'.
 - Fixed bug where hp would become negative upon death.
+
+7/17:
+
+- Added a temporary working fade transition. Currently there's a noticeable camera "jerk" once the transition completes, but it works. Fix will likely do with no repositioning the scenes and adjust all sprite placements accordingly (which will take some time to redo).
