@@ -233,3 +233,4 @@
 - Removed queueMoveSprite and moveSprite functions that used a char parameter, as these were unnecessary.
 - Added coordinate transformation functions to convert between sprite and dungeon coordinates. This consolidates all instances of these transformations into one place so that they can be changed easily.
 - Fixed bug on "Third" floor where the unbreakable walls would be invisible--helped in part by this transition to transformation functions.
+- Fixed bug where the ThunderCloud would not move vertically
