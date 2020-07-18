@@ -2,6 +2,7 @@
 #include "global.h"
 #include "AudioEngine.h"
 #include "Afflictions.h"
+#include "GameObjects.h" // Needed for enum class ImbuementType
 #include "FX.h"
 #include "Actors.h"
 #include <memory>
@@ -284,7 +285,7 @@ void Ethereality::afflict(Actors &a) {
 	// flag to remove affliction
 	else {
 		// uninvisible sound effect
-		cocos2d::experimental::AudioEngine::play2d("Uninvisible.mp3", false, 0.8f);
+		playSound("Uninvisible.mp3");
 
 		a.setEthereal(false);
 		setExhaustion(true);
@@ -478,6 +479,31 @@ void Cripple::afflict(Actors &a) {
 	}
 	// else there are no turns left
 	else {
+		setExhaustion(true);
+	}
+}
+
+
+//		FRAGILE
+Fragile::Fragile(int turns) : Afflictions(turns, 0, FRAGILE) {
+
+}
+
+void Fragile::afflict(Actors &a) {
+	// ifflag hasn't been set yet, set it
+	if (!a.isFragile())
+		a.setFragile(true);
+
+	if (getTurnsLeft() > 0) {
+		// 
+		tintStunned(a.getSprite());
+
+		// Decrease the count by 1
+		setTurnsLeft(getTurnsLeft() - 1);
+	}
+	// flag to remove affliction
+	else {
+		a.setFragile(false);
 		setExhaustion(true);
 	}
 }

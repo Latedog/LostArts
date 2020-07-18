@@ -164,4 +164,12 @@ public:
 	void afflict(Actors &a);
 };
 
+class Fragile : public Afflictions {
+public:
+	// If an enemy is fragile, they die in instantly in one hit.
+	Fragile(int turns);
+
+	void afflict(Actors &a);
+};
+
 #endif

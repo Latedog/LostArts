@@ -35,74 +35,6 @@ Actors::~Actors() {
 	
 }
 
-void Actors::setPosX(int x) {
-	m_x = x;
-}
-void Actors::setPosY(int y) {
-	m_y = y;
-}
-void Actors::setrandPosX(int cols) {
-	m_x = randInt(cols - 2) + 1;
-}
-void Actors::setrandPosY(int rows) {
-	m_y = randInt(rows - 2) + 1;
-}
-void Actors::setMaxHP(int maxhp) {
-	m_maxhp = maxhp;
-}
-void Actors::setHP(int hp) {
-	m_hp = hp;
-
-	if (hp <= 0)
-		m_isDead = true;
-}
-void Actors::setArmor(int armor) {
-	m_armor = armor;
-}
-void Actors::setStr(int str) {
-	m_str = str;
-}
-void Actors::setDex(int dex) {
-	m_dex = dex;
-}
-void Actors::setInt(int intellect) {
-	m_int = intellect;
-}
-void Actors::setLuck(int luck) {
-	m_luck = luck;
-}
-void Actors::setWeapon(std::shared_ptr<Weapon> wep) {
-	m_wep = wep;
-}
-void Actors::setName(std::string name) {
-	m_name = name;
-}
-void Actors::setSprite(cocos2d::Sprite* sprite) {
-	m_sprite = sprite;
-}
-void Actors::setImageName(std::string image) {
-	m_image = image;
-}
-void Actors::setHasAnimation(bool hasAnimation) {
-	m_hasAnimation = hasAnimation;
-}
-void Actors::setAnimationFrames(std::string frames) {
-	m_frames = frames;
-}
-void Actors::setAnimationFrameCount(int count) {
-	m_frameCount = count;
-}
-void Actors::setFrameInterval(int interval) {
-	m_frameInterval = interval;
-}
-
-void Actors::setPlayerFlag(bool player) {
-	m_isPlayer = player;
-}
-void Actors::setMonsterFlag(bool monster) {
-	m_isMonster = monster;
-}
-
 void Actors::checkAfflictions() {
 	int pos;
 
@@ -131,6 +63,20 @@ int Actors::findAffliction(std::string name) {
 }
 void Actors::addAffliction(std::shared_ptr<Afflictions> affliction) {
 
+	if (isPlayer()) {
+
+		// If player has bonus roll, and it's a certain negative type, then try to save the roll
+		if (affliction->getName() == BURN || affliction->getName() == POISON || affliction->getName() == FREEZE || affliction->getName() == POSSESSED) {
+			Player &p = dynamic_cast<Player&>(*this);
+			if (p.hasBonusRoll() && 1 + randInt(100) + p.getLuck() > 60)
+				return;
+		}
+	}
+
+	// The Forgotten Spirit cannot incur any afflictions
+	if (isSpirit())
+		return;
+
 	int index = findAffliction(affliction->getName());
 
 	// if affliction wasn't found, then add new affliction
@@ -151,75 +97,6 @@ void Actors::removeAffliction(std::string name) {
 		return;
 
 	m_afflictions.at(pos)->setTurnsLeft(0); // set turns to zero and let the affliction do the rest
-}
-
-void Actors::setLavaImmunity(bool immune) {
-	m_lavaImmune = immune;
-}
-void Actors::setFlying(bool flying) {
-	m_flying = flying;
-}
-void Actors::setSturdy(bool sturdy) {
-	m_sturdy = sturdy;
-}
-void Actors::setBloodlust(bool lust) {
-	m_bloodlust = lust;
-}
-void Actors::setToxic(bool toxic) {
-	m_toxic = toxic;
-}
-
-void Actors::setCanBeStunned(bool stunnable) {
-	m_stunnable = stunnable;
-}
-void Actors::setCanBeBurned(bool burnable) {
-	m_burnable = burnable;
-}
-void Actors::setCanBeBled(bool bleedable) {
-	m_bleedable = bleedable;
-}
-void Actors::setCanBeHealed(bool healable) {
-	m_healable = healable;
-}
-void Actors::setCanBeFrozen(bool freezable) {
-	m_freezable = freezable;
-}
-void Actors::setCanBePoisoned(bool poisonable) {
-	m_poisonable = poisonable;
-}
-
-void Actors::setBurned(bool burned) {
-	m_burned = burned;
-}
-void Actors::setBleed(bool bled) {
-	m_bled = bled;
-}
-void Actors::setStunned(bool stun) {
-	m_stunned = stun;
-}
-void Actors::setFrozen(bool freeze) {
-	m_frozen = freeze;
-}
-void Actors::setPoisoned(bool poisoned) {
-	m_poisoned = poisoned;
-}
-void Actors::setInvisible(bool invisible) {
-	m_invisible = invisible;
-}
-void Actors::setEthereal(bool ethereal) {
-	m_ethereal = ethereal;
-}
-void Actors::setConfused(bool confused) {
-	m_confused = confused;
-}
-void Actors::setBuffed(bool buffed) {
-	m_buffed = buffed;
-}
-void Actors::setInvulnerable(bool invulnerable) {
-	m_invulnerable = invulnerable;
-}
-void Actors::setStuck(bool stuck) {
-	m_stuck = stuck;
 }
 
 
@@ -251,7 +128,7 @@ void Player::move(Dungeon &dungeon, char move) {
 	int x = getPosX();
 	int y = getPosY();
 
-	bool boundary, wall, item, trap, enemy, npc;
+	bool boundary, wall, item, trap, enemy, npc, spirit;
 	std::string wall_type;
 
 	// reset player's blocking stance
@@ -271,9 +148,8 @@ void Player::move(Dungeon &dungeon, char move) {
 	setAction(move);
 
 	// red tint if player has bloodlust
-	if (hasBloodlust()) {
+	if (hasBloodlust())
 		bloodlustTint(*this);
-	}
 
 	// check for any afflictions
 	checkAfflictions();
@@ -301,7 +177,7 @@ void Player::move(Dungeon &dungeon, char move) {
 
 	// if player was ethereal and is on top of a wall, they die instantly
 	if (!isEthereal() && dungeon[y * cols + x].wall && (dungeon[y*cols + x].wall_type != DOOR_HORIZONTAL_OPEN && dungeon[y*cols + x].wall_type != DOOR_VERTICAL_OPEN)) {
-		cocos2d::experimental::AudioEngine::play2d("Female_Falling_Scream_License.mp3", false, 1.0f);
+		playSound("Female_Falling_Scream_License.mp3");
 		deathFade(getSprite());
 		setHP(0);
 		return;
@@ -312,10 +188,10 @@ void Player::move(Dungeon &dungeon, char move) {
 
 		bool moveUsed = false;
 
-		// check for special weapon attack patterns
-		if (getWeapon()->hasAttackPattern()) {
+		// Check for special weapon attack patterns
+		if (getWeapon()->hasAttackPattern())
 			getWeapon()->usePattern(dungeon, moveUsed);
-		}
+		
 
 		if (!moveUsed) {
 
@@ -338,18 +214,50 @@ void Player::move(Dungeon &dungeon, char move) {
 				trap = dungeon[(y + m)*cols + (x + n)].trap;
 				enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 				npc = dungeon[(y + m)*cols + (x + n)].npc;
+				spirit = dungeon[(y + m)*cols + (x + n)].spirit;
 
 				if (npc) {
 					dungeon.interactWithNPC(x + n, y + m);
+				}
+				else if (spirit && !wall) {
+					playSound("Devils_Gift.mp3");
+
+					cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+					dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
+
+					moveTo(dungeon, x + n, y + m);
+
+					getSprite()->setVisible(false);
+					setSuperDead(true);
+					return;
 				}
 				else if (!(wall || enemy || boundary)) {
 					dungeon[y*cols + x].hero = false;
 					dungeon[(y + m)*cols + (x + n)].hero = true;
 					setPosX(x + n); setPosY(y + m);
 
-					// pick up any gold/money that was on the ground
+					// Pick up any gold/money that was on the ground
 					if (dungeon[getPosY()*cols + getPosX()].gold > 0) {
 						dungeon.goldPickup(getPosX(), getPosY());
+
+						if (hasGoldInvulnerability()) {
+							setInvulnerable(true);
+							addAffliction(std::make_shared<Invulnerability>(1));
+						}
+					}
+					
+					// For Spelunker
+					if (item && dungeon[(y + m)*cols + (x + n)].object->getName() == ROCKS && getName() == SPELUNKER) {
+						playSound(dungeon[(y + m)*cols + (x + n)].object->getSoundName());
+
+						equipActiveItem(dungeon, dungeon[(y + m)*cols + (x + n)].object);
+						dungeon[(y + m)*cols + (x + n)].object = nullptr;
+						dungeon[(y + m)*cols + (x + n)].item_name = EMPTY;
+						dungeon[(y + m)*cols + (x + n)].item = false;
+
+						dungeon.removeSprite(dungeon.item_sprites, x + n, y + m);
+
+						moveTo(dungeon, x + n, y + m);
 					}
 
 					if (trap) {
@@ -379,10 +287,10 @@ void Player::move(Dungeon &dungeon, char move) {
 						// If it's a chest, open it
 						if (dungeon[(y + m)*cols + (x + n)].object->isChest()) {
 							std::shared_ptr<Chests> chest = std::dynamic_pointer_cast<Chests>(dungeon[(y + m)*cols + (x + n)].object);					
-							chest->open(dungeon);
+							chest->attemptOpen(dungeon);
 							chest.reset();
 						}
-					}
+					}				
 
 					// Wall breaking ability
 					else if (wall_type == REG_WALL && canBreakWalls()) {
@@ -458,6 +366,11 @@ void Player::move(Dungeon &dungeon, char move) {
 	// Pick up any gold/money that was on the ground
 	if (dungeon[getPosY()*cols + getPosX()].gold > 0) {
 		dungeon.goldPickup(getPosX(), getPosY());
+
+		if (hasGoldInvulnerability()) {
+			setInvulnerable(true);
+			addAffliction(std::make_shared<Invulnerability>(1));
+		}
 	}
 
 }
@@ -470,10 +383,9 @@ void Player::attack(Dungeon &dungeon, Actors &a) {
 		return;
 
 	// if player is invisible, they lose invisibility when attacking
-	if (isInvisible()) {
+	if (isInvisible())
 		removeAffliction(INVISIBILITY);
-	}
-
+	
 	// if monster is frozen, attack is automatically successful albeit the ice increases the enemy's armor
 	if (a.isFrozen()) {
 		// play enemy hit
@@ -486,6 +398,9 @@ void Player::attack(Dungeon &dungeon, Actors &a) {
 		int weaponDamage = getWeapon()->getDmg() * (m_dualWield ? 2 : 1);
 		int damage = std::max(1, weaponDamage + (1 + randInt(std::max(1, getStr()))) - (2 * a.getArmor()));
 		//int damage = std::max(1, getStr() + getWeapon()->getDmg() - (2 * a.getArmor()));
+
+		// Sharpness bonus
+		damage += getWeapon()->getSharpnessBonus();
 
 		// bonus damage from bloodlust, if they have bloodlust
 		if (hasBloodlust()) {
@@ -500,9 +415,12 @@ void Player::attack(Dungeon &dungeon, Actors &a) {
 		a.setHP(a.getHP() - damage);
 
 		// :::: Check for affliction/ability of weapon ::::
-		if (getWeapon()->hasAbility()) {
+		if (getWeapon()->hasAbility())
 			getWeapon()->useAbility(dungeon, a);
-		}
+		
+		// Imbuements
+		if (getWeapon()->isImbued())
+			getWeapon()->useImbuement(dungeon, a);
 
 		// tint monster sprite red and flash
 		runMonsterDamageBlink(a.getSprite());
@@ -526,6 +444,9 @@ void Player::attack(Dungeon &dungeon, Actors &a) {
 		int damage = std::max(1, weaponDamage + (1 + randInt(std::max(1, getStr()))) - a.getArmor());
 		//int damage = std::max(1, getStr() + getWeapon()->getDmg() - (1 * a.getArmor()));
 
+		// Sharpness bonus
+		damage += getWeapon()->getSharpnessBonus();
+
 		// bonus damage from bloodlust, if they have bloodlust
 		if (hasBloodlust()) {
 			float percent = getHP() / (float)getMaxHP();
@@ -539,9 +460,12 @@ void Player::attack(Dungeon &dungeon, Actors &a) {
 		a.setHP(a.getHP() - damage);
 
 		// :::: Check for affliction/ability of weapon ::::
-		if (getWeapon()->hasAbility()) {
+		if (getWeapon()->hasAbility())
 			getWeapon()->useAbility(dungeon, a);
-		}
+		
+		// Imbuements
+		if (getWeapon()->isImbued())
+			getWeapon()->useImbuement(dungeon, a);
 
 		// tint monster sprite red and flash
 		runMonsterDamageBlink(a.getSprite());
@@ -558,20 +482,23 @@ void Player::attack(Dungeon &dungeon, Actors &a) {
 		std::string monster = a.getName();
 
 		// play hit sound effect
-		if (monster == "Smasher") {
-			playHitSmasher();
-		}
-		else {
+		if (monster == "Smasher")
+			playHitSmasher();		
+		else
 			playEnemyHit();
-		}
+		
 
 		// Check additional effects of attacking successfully
 		checkExtraAttackEffects(dungeon, a);
 
 		// Check for affliction/ability of weapon
-		if (getWeapon()->hasAbility()) {
+		if (getWeapon()->hasAbility())
 			getWeapon()->useAbility(dungeon, a);
-		}
+		
+		// Imbuements
+		if (getWeapon()->isImbued())
+			getWeapon()->useImbuement(dungeon, a);
+
 
 		/** Damage is calculated by the following:
 		* 
@@ -584,6 +511,9 @@ void Player::attack(Dungeon &dungeon, Actors &a) {
 		*/
 		int weaponDamage = getWeapon()->getDmg() * (m_dualWield ? 2 : 1);
 		int damage = std::max(1, weaponDamage + (1 + randInt(std::max(1, getStr()))) - a.getArmor());
+
+		// Sharpness bonus
+		damage += getWeapon()->getSharpnessBonus();
 
 		// bonus damage from bloodlust, if they have bloodlust
 		if (hasBloodlust()) {
@@ -636,30 +566,43 @@ void Player::checkExtraAttackEffects(Dungeon &dungeon, Actors &a) {
 	increaseMoneyBonus();
 
 	// Can lifesteal
-	if (canLifesteal()) {
+	if (canLifesteal())
 		rollHeal();
-	}
 
 	// Can poison enemies
-	if (hasPoisonTouch() && a.canBePoisoned()) {
+	if (hasPoisonTouch() && (a.canBePoisoned() || hasAfflictionOverride())) {
 		if (1 + randInt(100) + getLuck() > 95) {
-			a.addAffliction(std::make_shared<Poison>(5, 2, 1, 1));
+			int turns = 5 + (hasHarshAfflictions() ? 5 : 0);
+			a.addAffliction(std::make_shared<Poison>(turns, 2, 1, 1));
 		}
 	}
 
 	// Can ignite enemies
-	if (hasFireTouch() && a.canBeBurned()) {
+	if (hasFireTouch() && (a.canBeBurned() || hasAfflictionOverride())) {
 		if (1 + randInt(100) + getLuck() > 95) {
-			a.addAffliction(std::make_shared<Burn>());
+			int turns = 5 + (hasHarshAfflictions() ? 5 : 0);
+			a.addAffliction(std::make_shared<Burn>(turns));
 		}		
 	}
 
 	// Can freeze enemies
-	if (hasFrostTouch() && a.canBeFrozen()) {
+	if (hasFrostTouch() && (a.canBeFrozen() || hasAfflictionOverride())) {
 		if (1 + randInt(100) + getLuck() > 95) {
-			a.addAffliction(std::make_shared<Freeze>(5));
+			int turns = 5 + (hasHarshAfflictions() ? 5 : 0);
+			a.addAffliction(std::make_shared<Freeze>(turns));
 		}
 	}
+
+	// Crippling blows
+	if (hasCripplingBlows()) {
+		if (1 + randInt(100) + getLuck() > 95)
+			a.addAffliction(std::make_shared<Cripple>(8));
+	}
+
+	// Chain lightning
+	if (hasChainLightning() && 1 + randInt(100) + getLuck() > 95)
+		chainLightning(dungeon, a);
+	
 
 	// Check if weapon is metered
 	if (getWeapon()->hasMeter())
@@ -691,7 +634,7 @@ void Player::botchedAttack(Dungeon &dungeon, Actors &a) {
 			dungeon[(ay)*cols + (ax)].enemy = false;
 			dungeon[(ay + m)*cols + (ax + n)].enemy = true;
 			a.setPosX(ax + n); a.setPosY(ay + m);
-			dungeon.queueMoveSprite(a.getSprite(), facingDirection());
+			dungeon.queueMoveSprite(a.getSprite(), ax + n, ay + m);
 
 			// if knocking them back was successful, stun them for a turn
 			a.addAffliction(std::make_shared<Stun>(1));
@@ -769,23 +712,67 @@ void Player::knockbackDirection(int &x, int &y, int mx, int my) {
 		break;
 	}
 }
+void Player::chainLightning(Dungeon &dungeon, Actors &a) {
+	int ax, ay;
+	int cols = dungeon.getCols();
 
-void Player::addWeapon(std::shared_ptr<Weapon> weapon) {
-	m_weapons.push_back(weapon);
+	// Use dummy map so we don't have to unmark tiles at the end
+	std::vector<_Tile> dummyMap = dungeon.getDungeon();
+	
+	std::stack<std::shared_ptr<Actors>> st;
+	st.push(std::make_shared<Actors>(a));
+
+	while (!st.empty()) {
+		std::shared_ptr<Actors> actor = st.top();
+		st.pop();
+
+		ax = actor->getPosX();
+		ay = actor->getPosY();
+
+		for (int i = ax - 1; i < ax + 2; i++) {
+			for (int j = ay - 1; j < ay + 2; j++) {
+
+				if (dummyMap[j*cols + i].marked)
+					continue;
+
+				dummyMap[j*cols + i].marked = true;
+
+				// Add any adjacent enemies onto the stack
+				if (dungeon[j*cols + i].enemy) {
+					int pos = dungeon.findMonster(i, j);
+					if (pos != -1)
+						st.push(dungeon.getMonsters().at(pos));				
+				}
+			}
+		}
+
+		// Now damage the current actor
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+		dungeon.runSingleAnimation(frames, 120, ax, ay, 2);
+
+		actor->setHP(actor->getHP() - (a.getStr() + a.getInt()));
+	}
 }
-void Player::wield(int index) {
-	std::shared_ptr<Weapon> old = getWeapon();
+
+void Player::equipWeapon(std::shared_ptr<Weapon> weapon) {
+	// Remove dual wielding, if applicable
+	if (m_dualWield)
+		m_dualWield = false;
 
 	// Unapply any previous bonuses
-	if (old->hasBonus()) {
-		old->unapplyBonus(*this);
-	}
+	if (getWeapon()->hasBonus())
+		getWeapon()->unapplyBonus(*this);
 
-	setWeapon(m_weapons[index]);				// switch to new weapon
-	m_weapons.erase(m_weapons.begin() + index);		// remove item just equipped
-	m_weapons.push_back(old);					// push old weapon into inventory
+	getWeapon().reset();
+	setWeapon(weapon);
+
+	// Check for dual wielding capability
+	if (weapon->canDualWield() && getStoredWeapon() && weapon->getName() == getStoredWeapon()->getName())
+		m_dualWield = true;
+	
+	if (getWeapon()->hasBonus())
+		getWeapon()->applyBonus(*this);
 }
-
 void Player::storeWeapon(Dungeon &dungeon, std::shared_ptr<Weapon> weapon, bool shop) {
 
 	int cols = dungeon.getCols();
@@ -925,26 +912,32 @@ void Player::throwWeaponTo(Dungeon &dungeon, int x, int y) {
 		m_storedWeapon = nullptr;
 	}
 }
+void Player::tradeWeapon(std::shared_ptr<Weapon> weapon) {
+	getWeapon().reset();
+	setWeapon(weapon);
+}
+void Player::removeStoredWeapon() {
+	// Remove dual wielding, if applicable
+	if (m_dualWield)
+		m_dualWield = false;
+
+	m_storedWeapon.reset();
+	m_storedWeapon = nullptr;
+}
 
 void Player::addItem(std::shared_ptr<Drops> drop) {
 
-	if (m_items.size() == m_maxiteminv && !drop->canStack())
+	if (m_items.size() == m_maxiteminv && !(drop->canStack() || hasFatStacks()))
 		return;
 
 	// If this item is stackable, check if the player already has the same item
-	if (drop->canStack()) {
+	if (drop->canStack() || hasFatStacks()) {
 		for (unsigned int i = 0; i < m_items.size(); i++) {
 
 			// If they do, add the current drop's count to the existing count
 			if (m_items.at(i)->getName() == drop->getName()) {
 				playSound(drop->getSoundName());
-
-				std::shared_ptr<Stackable> newStackable = std::dynamic_pointer_cast<Stackable>(drop);
-				std::shared_ptr<Stackable> currentStackable = std::dynamic_pointer_cast<Stackable>(m_items.at(i));
-				currentStackable->increaseCountBy(newStackable->getCount());
-
-				newStackable.reset();
-				currentStackable.reset();
+				m_items.at(i)->increaseCountBy(drop->getCount());
 				return;
 			}
 		}
@@ -954,23 +947,18 @@ void Player::addItem(std::shared_ptr<Drops> drop) {
 		m_items.push_back(drop);
 }
 void Player::addItem(std::shared_ptr<Drops> drop, bool &itemAdded) {
-	if (m_items.size() == m_maxiteminv && !drop->canStack())
+	if (m_items.size() == m_maxiteminv && !(drop->canStack() || hasFatStacks()))
 		return;
 
 	// If this item is stackable, check if the player already has the same item
-	if (drop->canStack()) {
+	if (drop->canStack() || hasFatStacks()) {
 		for (unsigned int i = 0; i < m_items.size(); i++) {
 
 			// If they do, add the current drop's count to the existing count
 			if (m_items.at(i)->getName() == drop->getName()) {
 				playSound(drop->getSoundName());
+				m_items.at(i)->increaseCountBy(drop->getCount());
 
-				std::shared_ptr<Stackable> newStackable = std::dynamic_pointer_cast<Stackable>(drop);
-				std::shared_ptr<Stackable> currentStackable = std::dynamic_pointer_cast<Stackable>(m_items.at(i));
-				currentStackable->increaseCountBy(newStackable->getCount());
-
-				newStackable.reset();
-				currentStackable.reset();
 				itemAdded = true;
 				return;
 			}
@@ -985,13 +973,13 @@ void Player::addItem(std::shared_ptr<Drops> drop, bool &itemAdded) {
 }
 void Player::use(Dungeon &dungeon, int index) {
 	// if item is meant for player, do this
-	if (m_items.at(index)->forPlayer()) {
+	if (m_items.at(index)->forPlayer())
 		m_items.at(index)->useItem(*this);
-	}
+
 	// otherwise use it on the dungeon/surroundings
-	else {
+	else
 		m_items.at(index)->useItem(dungeon);
-	}
+	
 
 	if (m_items.at(index)->getName() != SKELETON_KEY) {
 
@@ -1001,23 +989,38 @@ void Player::use(Dungeon &dungeon, int index) {
 				return;
 		}
 
-		if (m_items.at(index)->canStack()) {
-			std::shared_ptr<Stackable> currentStackable = std::dynamic_pointer_cast<Stackable>(m_items.at(index));
+		if (m_items.at(index)->canStack() || hasFatStacks()) {
+			m_items.at(index)->decreaseCount();
+			//std::shared_ptr<Stackable> currentStackable = std::dynamic_pointer_cast<Stackable>(m_items.at(index));
 
-			if (currentStackable->getCount() == 0)
+			if (m_items.at(index)->getCount() == 0)
 				m_items.erase(m_items.begin() + index);
 
-			currentStackable.reset();
+			//currentStackable.reset();
 			return;
 		}
 
 		m_items.erase(m_items.begin() + index);	// remove item just used
 	}
 }
+void Player::removeItems() {
+	for (int i = m_items.size() - 1; i >= 0; i--) {
+		m_items.at(i).reset();
+		m_items.erase(m_items.begin() + i);
+	}
+}
+void Player::removeItem(int index) {
+	m_items.at(index).reset();
+	m_items.erase(m_items.begin() + index);
+}
 
 void Player::equipPassive(Dungeon &dungeon, std::shared_ptr<Passive> passive) {
 	m_passives.push_back(passive);
 	passive->activate(dungeon);
+}
+void Player::removePassive(int index) {
+	m_passives.at(index).reset();
+	m_passives.erase(m_passives.begin() + index);
 }
 
 void Player::equipTrinket(Dungeon &dungeon, std::shared_ptr<Trinket> trinket, bool shop) {
@@ -1068,11 +1071,70 @@ void Player::swapTrinket(Dungeon& dungeon, std::shared_ptr<Trinket> trinket, boo
 	m_trinket = trinket;
 	m_trinket->apply(dungeon, *this);
 }
+void Player::equipRelic(Dungeon &dungeon, std::shared_ptr<Trinket> relic) {
+	playSound("Potion_Pickup.mp3");
+
+	setTrinketFlag(true);
+	m_trinket = relic;
+	m_trinket->apply(dungeon, *this);
+}
+void Player::removeRelic(Dungeon &dungeon) {
+	getTrinket()->unapply(dungeon, *this);
+	m_trinket.reset();
+	m_trinket = nullptr;
+	setTrinketFlag(false);
+}
 
 void Player::setItemToFront(int index) {
 	std::shared_ptr<Drops> temp = getItems()[0];
 	getItems()[0] = getItems()[index];
 	getItems()[index] = temp;
+}
+
+void Player::increaseFavorBy(int favor) {
+
+	while (favor > 0 && m_favor < 20) {
+		m_favor++;
+
+		switch (m_favor) {
+		case -15: m_timerReduction += 0.10f; break; // Level timer is restored
+		case -11: 
+		case -7: 
+		case -3: 
+		case 0: 
+		case 4: setLuck(getLuck() + 5); break;
+		case 8: setVision(getVision() + 1); break;
+		case 12: // Free passive
+		case 16: setStr(getStr() + 1); setDex(getDex() + 1); setInt(getInt() + 1); setMaxHP(getMaxHP() * 1.05); break;
+		case 20: // Special item
+		default: break;
+		}
+
+		favor--;
+	}
+}
+void Player::decreaseFavorBy(int favor) {
+
+	while (favor > 0 && m_favor > -20) {
+		m_favor--;
+
+		switch (m_favor) {
+		case 19: 
+		case 15: setStr(getStr() - 1); setDex(getDex() - 1); setInt(getInt() - 1); setMaxHP(getMaxHP() / 1.05); break;
+		case 11: 
+		case 7: setVision(getVision() - 1); break;
+		case 3: setLuck(getLuck() - 5); break;
+		case 0: break;
+		case -4: break; // Chests more likely to be rigged
+		case -8: break; // Prices become more expensive
+		case -12: break; // NPCs less likely to spawn
+		case -16: m_timerReduction -= 0.10f; break; // Level timer becomes faster
+		case -20: m_spiritActive = true; break; // Evil spirit chases player permanently
+		default: break;
+		}
+
+		favor--;
+	}
 }
 
 bool Player::hasSkeletonKey() const {
@@ -1084,15 +1146,14 @@ bool Player::hasSkeletonKey() const {
 }
 void Player::checkKeyConditions() {
 	// if player hp is less than a specified threshold, and player was hit after picking up the key, break it
-	if (this->getHP() < 8 && this->getHP() < this->keyHP()) {
-		for (int i = 0; i < (int)m_items.size(); i++) {
+	if (getHP() < 8 && getHP() < keyHP()) {
+		for (unsigned int i = 0; i < m_items.size(); i++) {
 			if (m_items.at(i)->getName() ==	SKELETON_KEY) {
 				// play key broken sound effect
-				cocos2d::experimental::AudioEngine::play2d("Skeleton_Key_Broken.mp3", false, 1.0f);
+				playSound("Skeleton_Key_Broken.mp3");
 
-				//text.push_back("The mysterious trinket shatters.\n");
 				m_items.erase(m_items.begin() + i);	// remove the key
-				break;
+				return;
 			}
 		}
 	}
@@ -1109,12 +1170,14 @@ void Player::rollHeal() {
 
 
 Adventurer::Adventurer() : Player(100, std::make_shared<ShortSword>()) {
+	//setStr(1000);
 	setName(ADVENTURER);
 	setImageName("Player1_48x48.png");
 	
 	m_shield = std::make_shared<WoodShield>();
 	setHasActiveItem(true);
 	setActiveItem(m_shield);
+	addItem(std::make_shared<Bomb>());
 	addItem(std::make_shared<Matches>());
 
 	if (getWeapon()->hasBonus())
@@ -1445,6 +1508,34 @@ void Spelunker::equipActiveItem(Dungeon &dungeon, std::shared_ptr<Objects> activ
 }
 
 
+Acrobat::Acrobat() : Player(80, std::make_shared<Zweihander>()) {
+	m_stamina = 30;
+	m_maxStamina = m_stamina;
+
+	setHasActiveItem(true);
+	m_item = std::make_shared<Mobility>();
+	setActiveItem(m_item);
+
+	setName(ACROBAT);
+	setImageName("OutsideMan2.png");
+}
+
+void Acrobat::useActiveItem(Dungeon &dungeon) {
+	if (m_stamina > 4) {
+		m_item->useItem(dungeon);
+
+		m_stamina -= 4;
+	}
+}
+void Acrobat::equipActiveItem(Dungeon &dungeon, std::shared_ptr<Objects> active, bool shop) {
+	return;
+}
+void Acrobat::successfulAttack(Dungeon &dungeon, Actors &a) {
+	if (m_stamina < m_maxStamina)
+		m_stamina++;
+}
+
+
 TheMadman::TheMadman() : Player(50, std::make_shared<Hands>()) {
 	setStr(1);
 	setVision(9);
@@ -1475,6 +1566,7 @@ NPC::NPC(int x, int y, std::string name, std::string image) : Actors(x, y, 100, 
 void NPC::talk(Dungeon& dungeon) {
 	// if this is the first time the player has interacted with this NPC
 	if (!m_interacted) {
+		addInitialDialogue();
 		playDialogue(dungeon);
 		m_interacted = true;
 	}
@@ -1483,17 +1575,17 @@ void NPC::talk(Dungeon& dungeon) {
 		checkSatisfaction(dungeon);
 
 		if (!m_satisfied) {
-			addInteractedDialogue(m_dialogue);
+			addInteractedDialogue();
 			playDialogue(dungeon);
 		}
 		else if (m_satisfied && !m_rewardGiven) {
-			addSatisfiedDialogue(m_dialogue);
+			addSatisfiedDialogue();
 			playDialogue(dungeon);
 			reward(dungeon);
 			m_rewardGiven = true;
 		}
 		else if (m_satisfied && m_rewardGiven) {
-			addFinalDialogue(m_dialogue);
+			addFinalDialogue();
 			playDialogue(dungeon);
 		}
 	}
@@ -1505,16 +1597,13 @@ inline void NPC::playDialogue(Dungeon &dungeon) { dungeon.playNPCDialogue(*this,
 
 //		CREATURE LOVER (Lionel)
 CreatureLover::CreatureLover(int x, int y) : NPC(x, y, CREATURE_LOVER, "Dead_Mage_48x48.png") {
-	std::vector<std::string> dialogue;
-
 	m_wantedCreature = GOO_SACK;
 
-	dialogue.push_back("Oh... hello.");
-	dialogue.push_back("I love " + m_wantedCreature + "s.");
-	dialogue.push_back("Those " + m_wantedCreature + "s are just adorable little things!");
-	dialogue.push_back("Can you bring me one?");
+	addDialogue("Oh... hello.");
+	addDialogue("I love " + m_wantedCreature + "s.");
+	addDialogue("Those " + m_wantedCreature + "s are just adorable little things!");
+	addDialogue("Can you bring me one?");
 
-	setDialogue(dialogue);
 	setInteractionLimit(5);
 }
 
@@ -1533,11 +1622,11 @@ void CreatureLover::checkSatisfaction(Dungeon& dungeon) {
 					monsterName = dungeon.getMonsters()[pos]->getName();
 
 					if (monsterName == m_wantedCreature) {
-						cocos2d::experimental::AudioEngine::play2d("Creature_Lover_Talk.mp3", false, 1.0f);
+						playSound("Creature_Lover_Talk.mp3");
 
 						dungeon[y*cols + x].enemy = false;
 						m_creature = dungeon.getMonsters()[pos]; // give creature lover the monster
-						m_creature->getSprite()->setColor(cocos2d::Color3B(120, 120, 120));
+						dungeon.misc_sprites.push_back(m_creature->getSprite()); // Add to misc sprites for lighting purposes
 
 						dungeon.getMonsters().erase(dungeon.getMonsters().begin() + pos);
 						setSatisfaction(true);
@@ -1571,19 +1660,19 @@ void CreatureLover::reward(Dungeon& dungeon) {
 	dungeon.addSprite(dungeon.item_sprites, x, y, -1, dungeon[y*cols + x].object->getImageName());
 }
 
-void CreatureLover::addInteractedDialogue(std::vector<std::string> &dialogue) {
-	dialogue.clear();
+void CreatureLover::addInteractedDialogue() {
+	m_dialogue.clear();
 
 	switch (getInteractionStage()) {
-	case 1: dialogue.push_back(m_wantedCreature + "s, " + m_wantedCreature + "s, " + m_wantedCreature + "s!!!"); break;
-	case 2: dialogue.push_back("Please, bring me a " + m_wantedCreature + "."); break;
-	case 3: dialogue.push_back("Surely an adventurer like yourself must know what a " + m_wantedCreature + " is."); break;
+	case 1: addDialogue(m_wantedCreature + "s, " + m_wantedCreature + "s, " + m_wantedCreature + "s!!!"); break;
+	case 2: addDialogue("Please, bring me a " + m_wantedCreature + "."); break;
+	case 3: addDialogue("Surely an adventurer like yourself must know what a " + m_wantedCreature + " is."); break;
 	case 4: 
-		dialogue.push_back("I have other hobbies too.");
-		dialogue.push_back("...");
-		dialogue.push_back("I do.");
+		addDialogue("I have other hobbies too.");
+		addDialogue("...");
+		addDialogue("I do.");
 		break;
-	case 5: dialogue.push_back("Run along now, and don't forget to bring me what I asked."); break;
+	case 5: addDialogue("Run along now, and don't forget to bring me what I asked."); break;
 	}
 
 	// if npc still has new things to say, increment interaction stage
@@ -1591,28 +1680,27 @@ void CreatureLover::addInteractedDialogue(std::vector<std::string> &dialogue) {
 		incInteractionStage();
 	
 }
-void CreatureLover::addSatisfiedDialogue(std::vector<std::string> &dialogue) {
-	dialogue.clear();
+void CreatureLover::addSatisfiedDialogue() {
+	m_dialogue.clear();
 
-	dialogue.push_back("?!");
-	dialogue.push_back("A " + m_wantedCreature + "! " + "I can't believe it!");
-	dialogue.push_back("You deserve something for this.");
+	addDialogue("?!");
+	addDialogue("A " + m_wantedCreature + "! " + "I can't believe it!");
+	addDialogue("You deserve something for this.");
 }
-void CreatureLover::addFinalDialogue(std::vector<std::string> &dialogue) {
-	dialogue.clear();
+void CreatureLover::addFinalDialogue() {
+	m_dialogue.clear();
 
-	dialogue.push_back("...So adorable!");
+	addDialogue("...So adorable!");
 }
 
 //		MEMORIZER
-Memorizer::Memorizer(Dungeon *dungeon, int x, int y) : NPC(x, y, MEMORIZER, "Orc_48x48.png"), m_dungeon(dungeon) {
-	std::vector<std::string> dialogue;
+Memorizer::Memorizer(Dungeon *dungeon, int x, int y) : NPC(x, y, MEMORIZER, "Orc_48x48.png") {
+	m_dungeon = dungeon;
 
-	dialogue.push_back("HeHeHe");
-	dialogue.push_back("Wanna play a game?");
-	dialogue.push_back(NPC_PROMPT);
+	addDialogue("HeHeHe");
+	addDialogue("Wanna play a game?");
+	addDialogue(NPC_PROMPT);
 
-	setDialogue(dialogue);
 	setInteractionLimit(1);
 
 	switch (randInt(2)) {
@@ -1621,26 +1709,24 @@ Memorizer::Memorizer(Dungeon *dungeon, int x, int y) : NPC(x, y, MEMORIZER, "Orc
 	}
 
 	// Choices for the player when prompted
-	std::vector<std::string> choices;
-
-	choices.push_back("Why not.");
-	choices.push_back("No thanks.");
-	setChoices(choices);
+	addChoice("Why not.");
+	addChoice("No thanks.");
 }
 
-void Memorizer::useResponse(std::vector<std::string> &dialogue, int index) {
-	dialogue.clear();
+void Memorizer::useResponse(int index) {
+	m_dialogue.clear();
 
 	switch (m_promptStage) {
 	case 1:
 		switch (index) {
 			// Yes
 		case 0: {
-			dialogue.push_back("Hope you've been keeping track.");
-			dialogue.push_back("How much " + m_topic + " do you currently have?");
-			dialogue.push_back(NPC_PROMPT);
+			m_promptChoices.clear();
 
-			std::vector<std::string> choices;
+			addDialogue("Hope you've been keeping track.");
+			addDialogue("How much " + m_topic + " do you currently have?");
+			addDialogue(NPC_PROMPT);
+
 			std::string count1, count2;
 			if (m_topic == "Gold") {
 				m_correctChoice = std::to_string(m_dungeon->getPlayer()->getMoney());
@@ -1669,32 +1755,32 @@ void Memorizer::useResponse(std::vector<std::string> &dialogue, int index) {
 				}
 				
 			}
-			choices.push_back(count1);
-			choices.push_back(count2);
-			setChoices(choices);
+			addChoice(count1);
+			addChoice(count2);
 			m_promptStage = 2;
 
 			break;
 		}
 			// No
 		case 1:
-			dialogue.push_back("Suit yourself.");
+			addDialogue("Suit yourself.");
 			break;
 		}
 		break;
 	case 2:
 		if (getChoices()[index] == m_correctChoice) {
-			dialogue.push_back("Haha! Very well.");
-			dialogue.push_back("Claim your prize.");
+			addDialogue("Haha! Very well.");
+			addDialogue("Claim your prize.");
 			setSatisfaction(true);
 			reward(*m_dungeon);
 			rewardWasGiven();
 		}
 		else {
-			dialogue.push_back("Seems you need to work on your memory a bit more.");
-			dialogue.push_back("I've got nothing for you.");
+			addDialogue("Seems you need to work on your memory a bit more.");
+			addDialogue("I've got nothing for you.");
 			incInteractionStage();
 		}
+		m_promptChoices.clear();
 	}
 
 }
@@ -1724,22 +1810,21 @@ void Memorizer::reward(Dungeon& dungeon) {
 	dungeon.addSprite(dungeon.item_sprites, x, y, -1, dungeon[y*cols + x].object->getImageName());
 }
 
-void Memorizer::addInteractedDialogue(std::vector<std::string> &dialogue) {
-	dialogue.clear();
+void Memorizer::addInteractedDialogue() {
+	m_dialogue.clear();
+	m_promptChoices.clear();
 
 	switch (getInteractionStage()) {
 	case 1: {
-		dialogue.push_back("Oh, change your mind?");
-		dialogue.push_back(NPC_PROMPT);
+		addDialogue("Oh, change your mind?");
+		addDialogue(NPC_PROMPT);
 
-		std::vector<std::string> choices;
-		choices.push_back("Fine.");
-		choices.push_back("No, didn't mean to talk to you again.");
-		setChoices(choices);
+		addChoice("Fine.");
+		addChoice("No, didn't mean to talk to you again.");
 		break;
 	}
 	case 2:
-		dialogue.push_back("I've got nothing for you.");
+		addDialogue("I've got nothing for you.");
 		break;
 	}
 
@@ -1747,27 +1832,25 @@ void Memorizer::addInteractedDialogue(std::vector<std::string> &dialogue) {
 	/*if (getInteractionStage() < getInteractionLimit())
 		incInteractionStage();*/
 }
-void Memorizer::addSatisfiedDialogue(std::vector<std::string> &dialogue) {
-	dialogue.clear();
+void Memorizer::addSatisfiedDialogue() {
+	m_dialogue.clear();
 	return;
 }
-void Memorizer::addFinalDialogue(std::vector<std::string> &dialogue) {
-	dialogue.clear();
+void Memorizer::addFinalDialogue() {
+	m_dialogue.clear();
 
-	dialogue.push_back("Until we meet again.");
+	addDialogue("Until we meet again.");
 }
 
 //		SHOPKEEPER
 Shopkeeper::Shopkeeper(int x, int y) : NPC(x, y, SHOPKEEPER, "Shopkeeper_48x48.png") {
-	std::vector<std::string> dialogue;
 
-	dialogue.push_back("Huh. Hello.");
-	dialogue.push_back("Wasn't expecting to see someone like you down here.");
-	dialogue.push_back("Don't get too comfy. Things are not what they seem.");
-	dialogue.push_back("I've sealed the doors off so no monsters can get in.");
-	dialogue.push_back("Please, have a look around.");
+	addDialogue("Huh. Hello.");
+	addDialogue("Wasn't expecting to see someone like you down here.");
+	addDialogue("Don't get too comfy. Things are not what they seem.");
+	addDialogue("I've sealed the doors off so no monsters can get in.");
+	addDialogue("Please, have a look around.");
 
-	setDialogue(dialogue);
 	setInteractionLimit(5);
 }
 
@@ -1778,36 +1861,36 @@ void Shopkeeper::reward(Dungeon& dungeon) {
 	return;
 }
 
-void Shopkeeper::addInteractedDialogue(std::vector<std::string> &dialogue) {
-	dialogue.clear();
+void Shopkeeper::addInteractedDialogue() {
+	m_dialogue.clear();
 
 	switch (getInteractionStage()) {
 	case 1:
-		dialogue.push_back("This shop was originally set up by my great grandfather and a close friend.");
-		dialogue.push_back("Of course, my own father took over, and now I.");
+		addDialogue("This shop was originally set up by my great grandfather and a close friend.");
+		addDialogue("Of course, my own father took over, and now I.");
 		break;
-	case 2: dialogue.push_back("It's not often I get to speak with another person these days."); break;
-	case 3: dialogue.push_back("The shop's not in its best condition, but it don't need to be."); break;
+	case 2: addDialogue("It's not often I get to speak with another person these days."); break;
+	case 3: addDialogue("The shop's not in its best condition, but it don't need to be."); break;
 	case 4:
-		dialogue.push_back("My father is still alive. Although he's too old to keep running the place.");
-		dialogue.push_back("'sides, I can manage.");
+		addDialogue("My father is still alive. Although he's too old to keep running the place.");
+		addDialogue("'sides, I can manage.");
 		break;
 	case 5:
 		switch (randInt(8)) {
-		case 0: dialogue.push_back("Still looking?"); break;
-		case 1: dialogue.push_back("Back there? Just some extra supplies."); break;
-		case 2: dialogue.push_back("I won't entertain any offers. Everything's already discounted."); break;
+		case 0: addDialogue("Still looking?"); break;
+		case 1: addDialogue("Back there? Just some extra supplies."); break;
+		case 2: addDialogue("I won't entertain any offers. Everything's already discounted."); break;
 		case 3: 
-			dialogue.push_back("It gets lonely, but eventually you get used to it.");
-			dialogue.push_back("Just like everything else.");
+			addDialogue("It gets lonely, but eventually you get used to it.");
+			addDialogue("Just like everything else.");
 			break;
-		case 4: dialogue.push_back("I certainly ain't in a rush."); break;
-		case 5: dialogue.push_back("No, nothing's changed in the last 20 seconds."); break;
+		case 4: addDialogue("I certainly ain't in a rush."); break;
+		case 5: addDialogue("No, nothing's changed in the last 20 seconds."); break;
 		case 6:
-			dialogue.push_back("I was a local champion at darts.");
-			dialogue.push_back("Never did get me anywhere.");
+			addDialogue("I was a local champion at darts.");
+			addDialogue("Never did get me anywhere.");
 			break;
-		case 7: dialogue.push_back("Hard choices to make huh? I get it."); break;
+		case 7: addDialogue("Hard choices to make huh? I get it."); break;
 		}
 		break;
 	}
@@ -1816,58 +1899,584 @@ void Shopkeeper::addInteractedDialogue(std::vector<std::string> &dialogue) {
 	if (getInteractionStage() < getInteractionLimit())
 		incInteractionStage();
 }
-void Shopkeeper::addSatisfiedDialogue(std::vector<std::string> &dialogue) {
+void Shopkeeper::addSatisfiedDialogue() {
 	return;
 }
-void Shopkeeper::addFinalDialogue(std::vector<std::string> &dialogue) {
+void Shopkeeper::addFinalDialogue() {
 	return;
+}
+
+//		BLACKSMITH
+Blacksmith::Blacksmith(Dungeon *dungeon, int x, int y) : NPC(x, y, BLACKSMITH, "Shopkeeper_48x48.png") {
+	m_dungeon = dungeon;
+}
+
+void Blacksmith::useResponse(int index) {
+	m_dialogue.clear();
+
+	switch (m_promptStage) {
+	case 1: {
+
+		switch (index) {
+			// Improve Weapon
+		case 0: {
+			improveWeapon();
+			break;
+		}
+			// Buy something
+		case 1: {
+			buyItem();
+			break;
+		}
+			// Mingle
+		case 2: {
+			mingle();
+			break;
+		}
+			// Walk away
+		case 3: {
+			addDialogue("Good luck out there.");
+			break;
+		}
+		}
+		break;
+	}
+	case 2:	
+		break;
+	}
+}
+void Blacksmith::improveWeapon() {
+
+	// Can't improve your weapon if you don't have one
+	if (m_dungeon->getPlayer()->getWeapon()->getName() == HANDS) {
+		addDialogue("You okay? You don't have anything for me to work with.");
+
+		return;
+	}
+
+	if (m_dungeon->getPlayer()->getMoney() >= m_improveCost) {
+		addDialogue("You got it.");
+
+		playHitSmasher();
+		m_dungeon->getPlayerVector().at(0)->getWeapon()->increaseSharpnessBy(20);
+		m_dungeon->getPlayerVector().at(0)->setMoney(m_dungeon->getPlayerVector().at(0)->getMoney() - m_improveCost);
+	}
+	else {
+		playCrowSound();
+		addDialogue("Looks like your pockets are a little light.");
+	}
+}
+void Blacksmith::buyItem() {
+
+}
+void Blacksmith::mingle() {
+
+}
+
+void Blacksmith::checkSatisfaction(Dungeon& dungeon) {
+	return;
+}
+void Blacksmith::reward(Dungeon& dungeon) {
+	return;
+}
+
+void Blacksmith::addInitialDialogue() {
+	// 'arcan' is supposed to be a term for those that enter the ruins looking for the magic.
+	addDialogue("Greetings arcan.");
+	addDialogue("Weapon need a little sharpening?");
+	addDialogue(NPC_PROMPT);
+
+	// Choices for the player when prompted
+	int playerWeaponSharpness = m_dungeon->getPlayer()->getWeapon()->getSharpness();
+	m_improveCost = (playerWeaponSharpness + 1) * 60;
+
+	addChoice("Can you improve this weapon? (" + std::to_string(m_improveCost) + " Gold)");
+	addChoice("What do you have for sale?");
+	addChoice("What's new?");
+	addChoice("Just passing by.");
+
+	setInteractionLimit(5);
+}
+void Blacksmith::addInteractedDialogue() {
+	m_dialogue.clear();
+	m_promptChoices.clear();
+
+	// 'arcan' is supposed to be a term for those that enter the ruins looking for the magic.
+	addDialogue("Back again?");
+	addDialogue(NPC_PROMPT);
+
+	// Choices for the player when prompted
+	int playerWeaponSharpness = m_dungeon->getPlayer()->getWeapon()->getSharpness();
+	m_improveCost = (playerWeaponSharpness + 1) * 40;
+
+	addChoice("Sharpen this weapon please. (" + std::to_string(m_improveCost) + " Gold)");
+	addChoice("What do you have for sale?");
+	addChoice("Any stories?");
+	addChoice("Sorry to bother.");
+}
+void Blacksmith::addSatisfiedDialogue() {
+	m_dialogue.clear();
+	return;
+}
+void Blacksmith::addFinalDialogue() {
+	return;
+}
+
+//		ENCHANTER
+Enchanter::Enchanter(Dungeon *dungeon, int x, int y) : NPC(x, y, ENCHANTER, "Shopkeeper_48x48.png") {
+	m_dungeon = dungeon;
+}
+
+void Enchanter::useResponse(int index) {
+	m_dialogue.clear();
+	m_promptChoices.clear();
+
+	switch (m_promptStage) {
+		// Choice menu
+	case 1: {
+
+		switch (index) {
+			// Pick Imbuement
+		case 0: {
+			imbueWeapon();
+			break;
+		}
+			// Buy something
+		case 1: {
+			buyItem();
+			break;
+		}
+			// Mingle
+		case 2: {
+			mingle();
+			break;
+		}
+			// Walk away
+		case 3: {
+			addDialogue("We shall meet again.");
+			break;
+		}
+		}
+		break;
+	}
+		// Imbuing weapon
+	case 2:
+		switch (index) {
+			// Burning
+		case 0: {
+			int cost = determineCost(Weapon::ImbuementType::BURNING);
+			if (m_dungeon->getPlayer()->getMoney() >= cost) {
+				playHitSmasher();
+				addDialogue("Right away.");
+
+				m_dungeon->getPlayer()->getWeapon()->setImbuement(Weapon::ImbuementType::BURNING, 10);
+				m_dungeon->getPlayer()->setMoney(m_dungeon->getPlayer()->getMoney() - cost);
+			}
+			else {
+				addDialogue("What, you don't have enough!");
+			}
+			
+			break;
+		}
+			// Poison
+		case 1: {
+			int cost = determineCost(Weapon::ImbuementType::POISONING);
+			if (m_dungeon->getPlayer()->getMoney() >= cost) {
+				playHitSmasher();
+				addDialogue("Absolutely.");
+
+				m_dungeon->getPlayer()->getWeapon()->setImbuement(Weapon::ImbuementType::POISONING, 10);
+				m_dungeon->getPlayer()->setMoney(m_dungeon->getPlayer()->getMoney() - cost);
+			}
+			else {
+				addDialogue("Come back when you have enough money.");
+			}
+
+			break;
+		}
+			// Freeze
+		case 2: {
+			int cost = determineCost(Weapon::ImbuementType::FREEZING);
+			if (m_dungeon->getPlayer()->getMoney() >= cost) {
+				playHitSmasher();
+				addDialogue("Good choice.");
+
+				m_dungeon->getPlayer()->getWeapon()->setImbuement(Weapon::ImbuementType::FREEZING, 10);
+				m_dungeon->getPlayer()->setMoney(m_dungeon->getPlayer()->getMoney() - cost);
+			}
+			else {
+				addDialogue("If you want the best, you need to pay up.");
+			}
+
+			break;
+		}
+			// Nevermind
+		case 3: {
+			addDialogue("Make up your mind.");
+		}
+		}
+
+		m_promptStage = 1;
+		break;
+	}
+}
+void Enchanter::imbueWeapon() {
+	addDialogue("Certainly, if you have the coin.");
+	addDialogue(NPC_PROMPT);
+
+	int igniteCost = determineCost(Weapon::ImbuementType::BURNING);
+	addChoice("Imbue fire. (" + std::to_string(igniteCost) + " Gold)");
+
+	int poisonCost = determineCost(Weapon::ImbuementType::POISONING);
+	addChoice("Imbue poison. (" + std::to_string(poisonCost) + " Gold)");
+
+	int freezeCost = determineCost(Weapon::ImbuementType::FREEZING);
+	addChoice("Imbue freeze. (" + std::to_string(freezeCost) + " Gold)");
+
+	addChoice("Nevermind.");
+		
+	m_promptStage = 2;
+}
+int Enchanter::determineCost(Weapon::ImbuementType type) {
+	int imbuementLevel = m_dungeon->getPlayer()->getWeapon()->getImbuementLevel(type);
+
+	// Weapon cannot be imbued past 50% chance
+	if (imbuementLevel == 50)
+		return -1;
+
+	imbuementLevel /= 10;
+
+	// If weapon has not been imbued with this type yet, then the price is slightly higher
+	if (imbuementLevel == 0) {
+		return 100;
+	}
+
+	switch (type) {
+	case Weapon::ImbuementType::BURNING:
+		return imbuementLevel * 40;
+	case Weapon::ImbuementType::POISONING:
+		return imbuementLevel * 45;
+	case Weapon::ImbuementType::FREEZING:
+		return imbuementLevel * 50;
+	default:
+		return 0;
+	}
+}
+void Enchanter::buyItem() {
+
+}
+void Enchanter::mingle() {
+
+}
+
+void Enchanter::checkSatisfaction(Dungeon& dungeon) {
+	return;
+}
+void Enchanter::reward(Dungeon& dungeon) {
+
+}
+
+void Enchanter::addInitialDialogue() {
+	addDialogue("Welcome traveler...");
+	addDialogue("Are you in need of my services?");
+	addDialogue(NPC_PROMPT);
+
+	addChoice("Enchant my weapon.");
+	addChoice("What do you have for sale?");
+	addChoice("Any news?");
+	addChoice("Goodbye.");
+
+	setInteractionLimit(5);
+}
+void Enchanter::addInteractedDialogue() {
+	m_dialogue.clear();
+	m_promptChoices.clear();
+
+	addDialogue("I knew you'd be back.");
+	addDialogue(NPC_PROMPT);
+
+	addChoice("Enchant my weapon.");
+	addChoice("Let me see what you have.");
+	addChoice("How's business?");
+	addChoice("Later.");
+
+	setInteractionLimit(5);
+}
+void Enchanter::addSatisfiedDialogue() {
+	m_dialogue.clear();
+	return;
+}
+void Enchanter::addFinalDialogue() {
+	m_dialogue.clear();
+	m_promptChoices.clear();
+
+	
+}
+
+
+//		TRADER
+Trader::Trader(Dungeon *dungeon, int x, int y) : NPC(x, y, TRADER, "Spellcaster_48x48.png") {
+	m_dungeon = dungeon;
+}
+
+void Trader::useResponse(int index) {
+	m_dialogue.clear();
+	m_promptChoices.clear();
+
+	switch (m_promptStage) {
+		// Choice menu
+	case 1: {
+
+		switch (index) {
+			// Start trade
+		case 0: {
+			startTrade();
+			break;
+		}
+		//	// Mingle
+		//case 1: {
+		//	mingle();
+		//	break;
+		//}
+			// Walk away
+		case 1: {
+			addDialogue("Tread carefully arcan.");
+			break;
+		}
+		}
+		break;
+	}
+		// Trade menu
+	case 2:
+		switch (index) {
+		case 0:
+		case 1:
+		case 2:
+			makeTrade(index);
+			break;
+		default:
+			addDialogue("You'll come around.");
+			m_promptStage = 1;
+			break;
+		}
+
+		break;
+	}
+}
+void Trader::startTrade() {
+	m_dialogue.clear();
+	m_promptChoices.clear();
+
+	addDialogue("You're gonna jump at the opportunity!");
+	addDialogue(NPC_PROMPT);
+
+	addChoice("Trade Passive.");
+	addChoice("Trade Item.");
+	addChoice("Trade Weapon.");
+
+	addChoice("No way, dude.");
+
+	m_promptStage = 2;
+}
+void Trader::makeTrade(int index) {
+	m_dialogue.clear();
+	m_promptChoices.clear();
+
+	bool successfulTrade = false;
+	switch (index) {
+		// Trade Passive
+	case 0:
+		if (m_passiveTraded) {
+			addDialogue("Sorry, this was a one-time deal.");
+			addDialogue("I hope you enjoy it. Haha!");
+		}
+		else if (m_dungeon->getPlayer()->getPassives().empty()) {
+			addDialogue("What kind of fool do you take me for.");
+			addDialogue("You've got nothing of the sort.");
+		}
+		else {
+			addDialogue("Haha! You won't regret it.");
+			tradePassive();
+			successfulTrade = true;
+		}
+		break;
+		// Trade Inventory Item
+	case 1:
+		if (m_itemTraded) {
+			addDialogue("Sorry, this was a one-time deal.");
+			addDialogue("I hope you enjoy it. Haha!");
+		}
+		else if (m_dungeon->getPlayer()->getItems().empty()) {
+			addDialogue("What kind of fool do you take me for.");
+			addDialogue("You've got nothing of the sort.");
+		}
+		else {
+			addDialogue("You know what they say: low-risk, no reward.");
+			tradeItem();
+			successfulTrade = true;
+		}
+		break;
+		// Trade Weapon
+	case 2:
+		if (m_weaponTraded) {
+			addDialogue("Sorry, this was a one-time deal.");
+			addDialogue("I hope you enjoy it. Haha!");
+		}
+		else if (m_dungeon->getPlayer()->getWeapon()->getName() == HANDS) {
+			addDialogue("I would gladly chop your arms off. Hahaha!");
+			addDialogue("But I don't think you'd like that.");
+		}
+		else {
+			addDialogue("A risktaker, I like it.");
+			tradeWeapon();
+			successfulTrade = true;
+		}
+		break;
+	default:
+		break;
+	}
+
+	// Loop dialogue if no trade was made
+	if (!successfulTrade) {
+		addDialogue(NPC_PROMPT);
+
+		addChoice("Trade Passive.");
+		addChoice("Trade Item.");
+		addChoice("Trade Weapon.");
+
+		addChoice("No way, dude.");
+	}
+}
+void Trader::tradePassive() {
+	int index = randInt(m_dungeon->getPlayer()->getPassives().size());
+	m_dungeon->getPlayer()->removePassive(index);
+
+	std::shared_ptr<Passive> passive(nullptr);
+	switch (randInt(5)) {
+	case 0: passive = std::make_shared<FireTouch>(); break;
+	case 1: passive = std::make_shared<PoisonTouch>(); break;
+	case 2: passive = std::make_shared<FrostTouch>(); break;
+	case 3: passive = std::make_shared<PotionAlchemy>(); break;
+	case 4: passive = std::make_shared<Berserk>(); break;
+	}
+	m_dungeon->getPlayer()->equipPassive(*m_dungeon, passive);
+	
+	m_passiveTraded = true;
+	m_promptStage = 1;
+}
+void Trader::tradeItem() {
+	int index = randInt(m_dungeon->getPlayer()->getItems().size());
+	m_dungeon->getPlayer()->removeItem(index);
+
+	std::shared_ptr<Drops> item(nullptr);
+	switch (randInt(5)) {
+	case 0: item = std::make_shared<Bomb>(); break;
+	case 1: item = std::make_shared<SmokeBomb>(); break;
+	case 2: item = std::make_shared<BearTrap>(); break;
+	case 3: item = std::make_shared<RottenMeat>(); break;
+	case 4: item = std::make_shared<Matches>(); break;
+	}
+	m_dungeon->getPlayer()->addItem(item);
+
+	m_itemTraded = true;
+	m_promptStage = 1;
+}
+void Trader::tradeWeapon() {
+	std::shared_ptr<Weapon> item(nullptr);
+	switch (randInt(5)) {
+	case 0: item = std::make_shared<EnchantedPike>(); break;
+	case 1: item = std::make_shared<RadiantPike>(); break;
+	case 2: item = std::make_shared<CarbonFiberPike>(); break;
+	case 3: item = std::make_shared<LuckyPike>(); break;
+	case 4: item = std::make_shared<WoodBow>(); break;
+	}
+	m_dungeon->getPlayer()->tradeWeapon(item);
+
+	m_weaponTraded = true;
+	m_promptStage = 1;
+}
+void Trader::mingle() {
+
+}
+
+void Trader::checkSatisfaction(Dungeon& dungeon) {
+	return;
+}
+void Trader::reward(Dungeon& dungeon) {
+
+}
+
+void Trader::addInitialDialogue() {
+	addDialogue("You there.");
+	addDialogue("I've got just the deal for you.");
+	addDialogue(NPC_PROMPT);
+
+	addChoice("What deal?");
+	addChoice("No way, dude.");
+
+	setInteractionLimit(5);
+}
+void Trader::addInteractedDialogue() {
+	m_dialogue.clear();
+	m_promptChoices.clear();
+
+	addDialogue("They always come back.");
+	addDialogue(NPC_PROMPT);
+
+	addChoice("Fine, I'll take a look.");
+	addChoice("Still no.");
+}
+void Trader::addSatisfiedDialogue() {
+	m_dialogue.clear();
+	return;
+}
+void Trader::addFinalDialogue() {
+
 }
 
 
 //		TUTORIAL NPCS
 OutsideMan1::OutsideMan1(int x, int y) : NPC(x, y, OUTSIDE_MAN1, "Archer_48x48.png") {
-	std::vector<std::string> dialogue;
 
-	dialogue.push_back("Another sucker.");
-	dialogue.push_back("Can't say I'm surprised.");
-	dialogue.push_back("You should really turn back. But if you don't, good luck.");
-	dialogue.push_back("You're gonna need it.");
+	addDialogue("Another sucker.");
+	addDialogue("Can't say I'm surprised.");
+	addDialogue("You should really turn back. But if you don't, good luck.");
+	addDialogue("You're gonna need it.");
 
-	setDialogue(dialogue);
 	setInteractionLimit(5);
 }
 
-void OutsideMan1::addInteractedDialogue(std::vector<std::string> &dialogue) {
-	dialogue.clear();
+void OutsideMan1::addInteractedDialogue() {
+	m_dialogue.clear();
 
 	switch (getInteractionStage()) {
 	case 1:
-		dialogue.push_back("Well, make your choice.");
+		addDialogue("Well, make your choice.");
 		break;
-	case 2: dialogue.push_back("You don't need me to tell you the story here."); break;
+	case 2: addDialogue("You don't need me to tell you the story here."); break;
 	case 3:
-		dialogue.push_back("My story ain't that interesting..");
-		dialogue.push_back("But if you must know, I lost my partner to this place.");
+		addDialogue("My story ain't that interesting..");
+		addDialogue("But if you must know, I lost my partner to this place.");
 		break;
 	case 4:
-		dialogue.push_back("The strangeness of this place sometimes allows people to survive death.");
-		dialogue.push_back("It seems for my partner they weren't so lucky.");
-		dialogue.push_back("But I wait anyway.");
+		addDialogue("The strangeness of this place sometimes allows people to survive death.");
+		addDialogue("It seems for my partner they weren't so lucky.");
+		addDialogue("But I wait anyway.");
 		break;
 	case 5:
 		switch (randInt(8)) {
-		case 0: dialogue.push_back("Nothing else to say to you."); break;
-		case 1: dialogue.push_back("My name? Of no importance."); break;
-		case 2: dialogue.push_back("You want some candy? *laughs*"); break;
+		case 0: addDialogue("Nothing else to say to you."); break;
+		case 1: addDialogue("My name? Of no importance."); break;
+		case 2: addDialogue("You want some candy? *laughs*"); break;
 		case 3:
-			dialogue.push_back("I am now exhausted in more ways than one.");
+			addDialogue("I am now exhausted in more ways than one.");
 			break;
-		case 4: dialogue.push_back("Get outta my face."); break;
-		case 5: dialogue.push_back("You'll learn your lesson."); break;
+		case 4: addDialogue("Get outta my face."); break;
+		case 5: addDialogue("You'll learn your lesson."); break;
 		case 6:
-			dialogue.push_back("*whistles*");
+			addDialogue("*whistles*");
 			break;
-		case 7: dialogue.push_back("Looks like everyday does bring something new."); break;
+		case 7: addDialogue("Looks like everyday does bring something new."); break;
 		}
 		break;
 	}
@@ -1878,52 +2487,47 @@ void OutsideMan1::addInteractedDialogue(std::vector<std::string> &dialogue) {
 }
 
 OutsideMan2::OutsideMan2(int x, int y) : NPC(x, y, OUTSIDE_MAN2, "OutsideMan2.png") {
-	std::vector<std::string> dialogue;
 
-	dialogue.push_back("I know it! The next time's going to be it for sure!");
-	dialogue.push_back("I'm gonna be rich!");
-	dialogue.push_back("You there! You're looking at the guy who's going to win it all!");
-	dialogue.push_back(NPC_PROMPT); // Indicates that the npc will prompt the user
+	addDialogue("I know it! The next time's going to be it for sure!");
+	addDialogue("I'm gonna be rich!");
+	addDialogue("You there! You're looking at the guy who's going to win it all!");
+	addDialogue(NPC_PROMPT); // Indicates that the npc will prompt the user
 
-	setDialogue(dialogue);
 	setInteractionLimit(5);
 
 	// Choices for the player when prompted
-	std::vector<std::string> choices;
-
-	choices.push_back("Winning? What are you..?");
-	choices.push_back("I don't believe you.");
-	setChoices(choices);
+	addChoice("Winning? What are you..?");
+	addChoice("I don't believe you.");
 }
 
-void OutsideMan2::addInteractedDialogue(std::vector<std::string> &dialogue) {
-	dialogue.clear();
+void OutsideMan2::addInteractedDialogue() {
+	m_dialogue.clear();
 
 	switch (getInteractionStage()) {
 	case 1:
-		dialogue.push_back("I knew I'd make it!");
-		dialogue.push_back("Momma always said I was a winna!");
+		addDialogue("I knew I'd make it!");
+		addDialogue("Momma always said I was a winna!");
 		break;
 	case 2:
-		dialogue.push_back("Glory favors the bold!");
-		dialogue.push_back("You could learn a thing or two from me!");
+		addDialogue("Glory favors the bold!");
+		addDialogue("You could learn a thing or two from me!");
 		break;
 	case 3:
-		dialogue.push_back("You want to take part in my fortune?! Toooo bad!");
+		addDialogue("You want to take part in my fortune?! Toooo bad!");
 		break;
 	case 4:
-		dialogue.push_back("HaHA!");
-		dialogue.push_back("HAHAHA!");
+		addDialogue("HaHA!");
+		addDialogue("HAHAHA!");
 		break;
 	case 5:
 		switch (randInt(5)) {
-		case 0: dialogue.push_back("I've gotta start making plans soon! They won't make themselves!"); break;
-		case 1: dialogue.push_back("Too bad for my cousin, they weren't so lucky!"); break;
-		case 2: dialogue.push_back("Nobody saw this coming, not even me!"); break;
+		case 0: addDialogue("I've gotta start making plans soon! They won't make themselves!"); break;
+		case 1: addDialogue("Too bad for my cousin, they weren't so lucky!"); break;
+		case 2: addDialogue("Nobody saw this coming, not even me!"); break;
 		case 3:
-			dialogue.push_back("Maybe you could be next! But not here you won't be!");
+			addDialogue("Maybe you could be next! But not here you won't be!");
 			break;
-		case 4: dialogue.push_back("No point in sticking around!"); break;
+		case 4: addDialogue("No point in sticking around!"); break;
 		}
 		break;
 	}
@@ -1932,62 +2536,60 @@ void OutsideMan2::addInteractedDialogue(std::vector<std::string> &dialogue) {
 	if (getInteractionStage() < getInteractionLimit())
 		incInteractionStage();
 }
-void OutsideMan2::useResponse(std::vector<std::string> &dialogue, int index) {
-	dialogue.clear();
+void OutsideMan2::useResponse(int index) {
+	m_dialogue.clear();
 
 	switch (index) {
 	case 0:
-		dialogue.push_back("YEEEEHAAAWWW!");
+		addDialogue("YEEEEHAAAWWW!");
 		break;
 	case 1:
-		dialogue.push_back("HaHAHA! More for me!");
+		addDialogue("HaHAHA! More for me!");
 		break;
 	}
 
 }
 
 OutsideWoman1::OutsideWoman1(int x, int y) : NPC(x, y, OUTSIDE_WOMAN1, ".png") {
-	std::vector<std::string> dialogue;
 
-	dialogue.push_back("");
-	dialogue.push_back("");
-	dialogue.push_back("");
-	dialogue.push_back("");
+	addDialogue("");
+	addDialogue("");
+	addDialogue("");
+	addDialogue("");
 
-	setDialogue(dialogue);
 	setInteractionLimit(1);
 }
 
-void OutsideWoman1::addInteractedDialogue(std::vector<std::string> &dialogue) {
-	dialogue.clear();
+void OutsideWoman1::addInteractedDialogue() {
+	m_dialogue.clear();
 
 	switch (getInteractionStage()) {
 	case 1:
-		dialogue.push_back("");
-		dialogue.push_back("");
+		addDialogue("");
+		addDialogue("");
 		break;
-	case 2: dialogue.push_back(""); break;
-	case 3: dialogue.push_back(""); break;
+	case 2: addDialogue(""); break;
+	case 3: addDialogue(""); break;
 	case 4:
-		dialogue.push_back("");
-		dialogue.push_back("");
+		addDialogue("");
+		addDialogue("");
 		break;
 	case 5:
 		switch (randInt(8)) {
-		case 0: dialogue.push_back(""); break;
-		case 1: dialogue.push_back(""); break;
-		case 2: dialogue.push_back(""); break;
+		case 0: addDialogue(""); break;
+		case 1: addDialogue(""); break;
+		case 2: addDialogue(""); break;
 		case 3:
-			dialogue.push_back("");
-			dialogue.push_back("");
+			addDialogue("");
+			addDialogue("");
 			break;
-		case 4: dialogue.push_back(""); break;
-		case 5: dialogue.push_back(""); break;
+		case 4: addDialogue(""); break;
+		case 5: addDialogue(""); break;
 		case 6:
-			dialogue.push_back("");
-			dialogue.push_back("");
+			addDialogue("");
+			addDialogue("");
 			break;
-		case 7: dialogue.push_back(""); break;
+		case 7: addDialogue(""); break;
 		}
 		break;
 	}
@@ -2092,7 +2694,7 @@ void Monster::death(Dungeon &dungeon) {
 	int y = getPosY();
 
 	dungeon[y*cols + x].enemy = false;
-	dungeon.queueRemoveSprite(getSprite());
+	spriteCleanup(dungeon);
 
 	// If multisegmented, remove their segments
 	if (isMultiSegmented())
@@ -2113,7 +2715,7 @@ void Monster::death(Dungeon &dungeon) {
 
 	// If Spelunker, then all monsters have a chance to drop a Rock on death
 	if (dungeon.getPlayer()->getName() == SPELUNKER) {
-		if (1 + randInt(100) + dungeon.getPlayer()->getLuck() > 75) {
+		if (1 + randInt(100) + dungeon.getPlayer()->getLuck() > 85) {
 
 			if (dungeon[y*cols + x].item)
 				dungeon.itemHash(x, y);
@@ -2128,6 +2730,9 @@ void Monster::death(Dungeon &dungeon) {
 	// check if monster drops extra stuff upon death
 	deathDrops(dungeon);
 	
+}
+void Monster::spriteCleanup(Dungeon &dungeon) {
+	dungeon.queueRemoveSprite(getSprite());
 }
 
 bool Monster::attemptChase(std::vector<_Tile> &dungeon, int cols, int &shortest, int smelldist, int origdist, int x, int y, char &first_move, char &optimal_move) {
@@ -2526,7 +3131,7 @@ bool Monster::attemptMove(Dungeon &dungeon, char move) {
 		}
 	}
 
-	if (!dungeon[(y + m)*cols + (x + n)].enemy) {
+	if (!dungeon[(y + m)*cols + (x + n)].enemy || isSpirit()) {
 		moveTo(dungeon, x + n, y + m);
 
 		return true;
@@ -2673,11 +3278,7 @@ char Monster::moveMonsterRandomly(Dungeon &dungeon) {
 			hero = dungeon[my*cols + mx + n].hero;
 		}
 
-		dungeon[my*cols + mx + n].enemy = true;
-		dungeon[my*cols + mx].enemy = false;
-
-		dungeon.queueMoveSprite(getSprite(), n == -1 ? 'l' : 'r');
-		setPosX(mx + n);
+		moveTo(dungeon, mx + n, my);
 
 		return n == -1 ? 'l' : 'r';
 	}
@@ -2701,11 +3302,7 @@ char Monster::moveMonsterRandomly(Dungeon &dungeon) {
 			hero = dungeon[(my + m)*cols + mx].hero;
 		}
 
-		dungeon[(my + m)*cols + mx].enemy = true;
-		dungeon[my*cols + mx].enemy = false;
-
-		dungeon.queueMoveSprite(getSprite(), m == -1 ? 'u' : 'd');
-		setPosY(my + m);
+		moveTo(dungeon, mx, my + m);
 
 		return m == -1 ? 'u' : 'd';
 	}
@@ -2963,9 +3560,66 @@ void ArrowSign::deathDrops(Dungeon &dungeon) {
 }
 
 
+//		FORGOTTEN SPIRIT
+ForgottenSpirit::ForgottenSpirit(Dungeon &dungeon, int x, int y) : Monster(x, y, 1, 1, 1, 1, FORGOTTEN_SPIRIT) {
+	setFlying(true);
+	setEthereal(true);
+
+	setImageName("Old_Orc.png");
+	setSprite(dungeon.createSprite(x, y, 4, getImageName()));
+	getSprite()->setOpacity(180);
+}
+
+void ForgottenSpirit::moveTo(Dungeon &dungeon, int x, int y, float time) {
+	int cols = dungeon.getCols();
+
+	dungeon[getPosY()*cols + getPosX()].spirit = false;
+	dungeon[y*cols + x].spirit = true;
+
+	dungeon.queueMoveSprite(getSprite(), x, y, time);
+
+	setPosX(x); setPosY(y);
+}
+void ForgottenSpirit::move(Dungeon &dungeon) {
+
+	if (m_turns > 0) {
+		m_turns--;
+		return;
+	}
+
+	int x = getPosX();
+	int y = getPosY();
+	
+	int px = dungeon.getPlayer()->getPosX();
+	int py = dungeon.getPlayer()->getPosY();
+
+	// Check if player moved on top of the spirit
+	if (x == px && y == py) {
+		attack(dungeon, *dungeon.getPlayer());
+		return;
+	}
+
+	attemptGreedyChase(dungeon);
+	m_turns = 4;
+}
+void ForgottenSpirit::attack(Dungeon &dungeon, Player &p) {
+	playSound("Devils_Gift.mp3");
+
+	int px = dungeon.getPlayer()->getPosX();
+	int py = dungeon.getPlayer()->getPosY();
+
+	cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+	dungeon.runSingleAnimation(frames, 120, px, py, 2);
+
+	moveTo(dungeon, px, py);
+
+	p.getSprite()->setVisible(false);
+	p.setSuperDead(true);
+}
+
 
 //		MONSTER SEGMENT
-MonsterSegment::MonsterSegment(int x, int y, int sx, int sy, std::string name, std::string image) : Monster(x, y, 1000, 1, 1, 1, name), m_segmentX(sx), m_segmentY(sy) {
+MonsterSegment::MonsterSegment(int x, int y, int sx, int sy, std::string name, std::string image) : Monster(x, y, 1000, 1, 1, 1, name), m_parentX(sx), m_parentY(sy) {
 	setImageName(image);
 }
 
@@ -3045,35 +3699,7 @@ void Wanderer::move(Dungeon &dungeon) {
 
 		// if it's not the player, then move them to that space
 		if (!hero) {
-			dungeon[(my + m)*cols + mx + n].enemy = true;
-			dungeon[my*cols + mx].enemy = false;
-
-			// Key: (for moveSprite 'move' parameter)
-			// 1 u 2
-			// l _ r
-			// 3 d 4
-
-			// n is x, m is y
-			if (n == 0 && m != 0) {
-				dungeon.queueMoveSprite(getSprite(), m == -1 ? 'u' : 'd');
-			}
-			else if (n != 0 && m == 0) {
-				dungeon.queueMoveSprite(getSprite(), n == -1 ? 'l' : 'r');
-			}
-			// wanderer moved diagonally
-			else if (n != 0 && m != 0) {
-				// moved left and ?
-				if (n == -1) {
-					dungeon.queueMoveSprite(getSprite(), m == -1 ? '1' : '3');
-				}
-				// moved right and ?
-				else if (n == 1) {
-					dungeon.queueMoveSprite(getSprite(), m == -1 ? '2' : '4');
-				}
-			}
-
-			setPosX(mx + n);
-			setPosY(my + m);
+			moveTo(dungeon, mx + n, my + m);
 		}
 		// otherwise attack the player
 		else {
@@ -3132,35 +3758,7 @@ void RabidWanderer::move(Dungeon &dungeon) {
 
 		// if it's not the player, then move them to that space
 		if (!hero) {
-			dungeon[(my + m)*cols + mx + n].enemy = true;
-			dungeon[my*cols + mx].enemy = false;
-
-			// Key: (for moveSprite 'move' parameter)
-			// 1 u 2
-			// l _ r
-			// 3 d 4
-
-			// n is x, m is y
-			if (n == 0 && m != 0) {
-				dungeon.queueMoveSprite(getSprite(), m == -1 ? 'u' : 'd');
-			}
-			else if (n != 0 && m == 0) {
-				dungeon.queueMoveSprite(getSprite(), n == -1 ? 'l' : 'r');
-			}
-			// wanderer moved diagonally
-			else if (n != 0 && m != 0) {
-				// moved left and ?
-				if (n == -1) {
-					dungeon.queueMoveSprite(getSprite(), m == -1 ? '1' : '3');
-				}
-				// moved right and ?
-				else if (n == 1) {
-					dungeon.queueMoveSprite(getSprite(), m == -1 ? '2' : '4');
-				}
-			}
-
-			setPosX(mx + n);
-			setPosY(my + m);
+			moveTo(dungeon, mx + n, my + m);
 		}
 		// otherwise attack the player
 		else {
@@ -3259,8 +3857,7 @@ void SleepingWanderer::deathDrops(Dungeon &dungeon) {
 	int y = getPosY();
 	bool item = dungeon[y*cols + x].item;
 
-	// 10% drop chance
-	if (1 + randInt(100) + dungeon.getPlayer()->getLuck() > 90) {
+	if (1 + randInt(100) + dungeon.getPlayer()->getLuck() > 95) {
 
 		if (item)
 			dungeon.itemHash(x, y);
@@ -3321,25 +3918,8 @@ void ProvocableWanderer::move(Dungeon &dungeon) {
 
 	// if the randomly selected move is a free space, move them
 	if (!(wall || enemy || hero)) {
-
-		dungeon[(my + m)*cols + mx + n].enemy = true;
-		dungeon[my*cols + mx].enemy = false;
-
-		// Key: (for moveSprite 'move' parameter)
-		//   u  
-		// l _ r
-		//   d  
-
-		// n is x, m is y
-		if (n == 0 && m != 0) {
-			dungeon.queueMoveSprite(getSprite(), m == -1 ? 'u' : 'd');
-		}
-		else if (n != 0 && m == 0) {
-			dungeon.queueMoveSprite(getSprite(), n == -1 ? 'l' : 'r');
-		}
-
-		setPosX(mx + n);
-		setPosY(my + m);
+		moveTo(dungeon, mx + n, my + m);
+		
 		m_turns = 2;
 	}
 }
@@ -3550,28 +4130,27 @@ void Archer::deathDrops(Dungeon &dungeon) {
 
 
 //		ZAPPER
-Zapper::Zapper(int x, int y, int rows) : Monster(x, y, 10 + randInt(3), 1, 4, 1, ZAPPER), m_cooldown(true), m_attack(randInt(2)) {
-	for (int i = 0; i < 8; i++) {
-		cocos2d::Sprite* spark = cocos2d::Sprite::createWithSpriteFrameName("Spark_48x48.png");
-		sparks.insert(std::pair<int, cocos2d::Sprite*>(i, spark));
-	}
+Zapper::Zapper(Dungeon &dungeon, int x, int y, int rows) : Monster(x, y, 10 + randInt(3), 1, 4, 1, ZAPPER), m_cooldown(true), m_attack(randInt(2)) {
 
-	// set sprite positions
+	// Create sprites
+	int n = 0, m = 0;
 	for (int i = 0; i < 8; i++) {
 		switch (i) {
 			// cardinals
-		case 0: getSparks()[i]->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET); break; // top
-		case 1: getSparks()[i]->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET); break;// left
-		case 2: getSparks()[i]->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET); break;// right
-		case 3: getSparks()[i]->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottom
+		case 0: n = x; m = y - 1; break; // top
+		case 1: n = x - 1; m = y; break; // left
+		case 2: n = x + 1; m = y; break; // right
+		case 3: n = x; m = y + 1; break; // bottom
+
 			// diagonals
-		case 4: getSparks()[i]->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET); break;// topleft
-		case 5: getSparks()[i]->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET); break;// topright
-		case 6: getSparks()[i]->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottomleft
-		case 7: getSparks()[i]->setPosition((x + 1)* SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET); break;// bottomright
+		case 4: n = x - 1; m = y - 1; break; // topleft
+		case 5: n = x + 1; m = y - 1; break; // topright
+		case 6: n = x - 1; m = y + 1; break; // bottomleft
+		case 7: n = x + 1; m = y + 1; break; // bottomright
 		}
-		getSparks()[i]->setScale(0.75);
-		getSparks()[i]->setVisible(false);
+		sparks.insert(std::make_pair(i, dungeon.createSprite(n, m, 0, "Spark_48x48.png")));
+		sparks[i]->setScale(0.75f);
+		sparks[i]->setVisible(false);
 	}
 
 	setImageName("Zapper_48x48.png");
@@ -3579,10 +4158,13 @@ Zapper::Zapper(int x, int y, int rows) : Monster(x, y, 10 + randInt(3), 1, 4, 1,
 	setEmitsLight(true);
 	setGold(2);
 }
-Zapper::~Zapper() {
+
+void Zapper::spriteCleanup(Dungeon &dungeon) {
+	dungeon.queueRemoveSprite(getSprite());
+
 	if (!sparks.empty()) {
 		for (int i = 0; i < 8; i++) {
-			getSparks()[i]->removeFromParent();
+			dungeon.queueRemoveSprite(sparks[i]);
 		}
 	}
 }
@@ -3651,7 +4233,7 @@ void Zapper::move(Dungeon &dungeon) {
 	}
 }
 void Zapper::attack(Dungeon &dungeon, Player &p) {
-	cocos2d::experimental::AudioEngine::play2d("Shock5.mp3", false, 1.0f);
+	playSound("Shock5.mp3");
 
 	int damage = 1 + randInt(getStr());
 	dungeon.damagePlayer(damage);
@@ -3712,7 +4294,7 @@ void Zapper::addLightEmitters(const Dungeon &dungeon, std::vector<std::pair<int,
 
 
 //		SPINNER
-Spinner::Spinner(int x, int y, int rows) : Monster(x, y, 10 + randInt(3), 1, 3, 1, SPINNER) {
+Spinner::Spinner(Dungeon &dungeon, int x, int y, int rows) : Monster(x, y, 10 + randInt(3), 1, 3, 1, SPINNER) {
 	setCanBeBurned(false);
 
 	bool dir = randInt(2);
@@ -3720,14 +4302,13 @@ Spinner::Spinner(int x, int y, int rows) : Monster(x, y, 10 + randInt(3), 1, 3, 
 	m_clockwise = dir;
 	m_angle = 1 + randInt(8);
 
-	inner = cocos2d::Sprite::createWithSpriteFrameName("Spinner_Buddy_48x48.png");
-	outer = cocos2d::Sprite::createWithSpriteFrameName("Spinner_Buddy_48x48.png");
-
-	inner->setScale(GLOBAL_SPRITE_SCALE);
-	outer->setScale(GLOBAL_SPRITE_SCALE);
+	auto inner = dungeon.createSprite(x, y, 0, "Spinner_Buddy_48x48.png");
+	auto outer = dungeon.createSprite(x, y, 0, "Spinner_Buddy_48x48.png");
 
 	m_innerFire = std::make_shared<Objects>();
+	m_innerFire->setSprite(inner);
 	m_outerFire = std::make_shared<Objects>();
+	m_outerFire->setSprite(outer);
 
 	setInitialFirePosition(x, y, rows);
 
@@ -3736,12 +4317,12 @@ Spinner::Spinner(int x, int y, int rows) : Monster(x, y, 10 + randInt(3), 1, 3, 
 	setEmitsLight(true);
 	setGold(2);
 }
-Spinner::~Spinner() {
-	if (getInner() != nullptr)
-		getInner()->removeFromParent();
 
-	if (getOuter() != nullptr)
-		getOuter()->removeFromParent();
+void Spinner::spriteCleanup(Dungeon &dungeon) {
+	dungeon.queueRemoveSprite(getSprite());
+
+	dungeon.queueRemoveSprite(m_innerFire->getSprite());
+	dungeon.queueRemoveSprite(m_outerFire->getSprite());
 }
 
 void Spinner::moveTo(Dungeon &dungeon, int x, int y, float time) {
@@ -3766,8 +4347,8 @@ void Spinner::move(Dungeon &dungeon) {
 	int my = getPosY();
 
 	// reset projectiles to visible
-	getInner()->setVisible(true);
-	getOuter()->setVisible(true);
+	m_innerFire->getSprite()->setVisible(true);
+	m_outerFire->getSprite()->setVisible(true);
 
 	// 8 1 2 
 	// 7 X 3
@@ -3777,88 +4358,72 @@ void Spinner::move(Dungeon &dungeon) {
 	if (isClockwise()) {
 		switch (getAngle()) {
 		case 1:
-			dungeon.queueMoveSprite(getInner(), 'r');
-			dungeon.queueMoveSprite(getOuter(), 'R');
-			setFirePosition('r');
+			setFirePosition(dungeon, 'r');
 
 			if (my == 1) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		case 2:
-			dungeon.queueMoveSprite(getInner(), 'r');
-			dungeon.queueMoveSprite(getOuter(), 'R');
-			setFirePosition('r');
+			setFirePosition(dungeon, 'r');
 
 			if (my == 1 || mx == cols - 2) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		case 3:
-			dungeon.queueMoveSprite(getInner(), 'd');
-			dungeon.queueMoveSprite(getOuter(), 'D');
-			setFirePosition('d');
+			setFirePosition(dungeon, 'd');
 
 			// if spinner is on the left or right edge boundary, hide the projectiles
 			if (mx == cols - 2) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		case 4:
-			dungeon.queueMoveSprite(getInner(), 'd');
-			dungeon.queueMoveSprite(getOuter(), 'D');
-			setFirePosition('d');
+			setFirePosition(dungeon, 'd');
 
 			// if spinner is on the bottom or right edge boundary, hide the projectiles
 			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2)) || mx == cols - 2) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		case 5:
-			dungeon.queueMoveSprite(getInner(), 'l');
-			dungeon.queueMoveSprite(getOuter(), 'L');
-			setFirePosition('l');
+			setFirePosition(dungeon, 'l');
 
 			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2))) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		case 6:
-			dungeon.queueMoveSprite(getInner(), 'l');
-			dungeon.queueMoveSprite(getOuter(), 'L');
-			setFirePosition('l');
+			setFirePosition(dungeon, 'l');
 
 			// if spinner is on the left or bottom edge boundary, hide the projectiles
 			if (my == rows - 2 || mx == 1) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		case 7:
-			dungeon.queueMoveSprite(getInner(), 'u');
-			dungeon.queueMoveSprite(getOuter(), 'U');
-			setFirePosition('u');
+			setFirePosition(dungeon, 'u');
 
 			// if spinner is on the left edge boundary, hide the projectiles
 			if (mx == 1) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		case 8:
-			dungeon.queueMoveSprite(getInner(), 'u');
-			dungeon.queueMoveSprite(getOuter(), 'U');
-			setFirePosition('u');
+			setFirePosition(dungeon, 'u');
 
 			// if spinner is on the left or top edge boundary, hide the projectiles
 			if (!(my != 1 && !(my == 2 && mx == 1)) || mx == 1) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		default:
@@ -3874,106 +4439,73 @@ void Spinner::move(Dungeon &dungeon) {
 	else {
 		switch (getAngle()) {
 		case 1:
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx + 1, my - 1, 'l');
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx + 2, my - 2, 'L');
-			dungeon.queueMoveSprite(getInner(), 'l');
-			dungeon.queueMoveSprite(getOuter(), 'L');
-			setFirePosition('l');
+			setFirePosition(dungeon, 'l');
 
 			if (my == 1) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		case 2:
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx + 1, my, 'u');
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx + 2, my, 'U');
-			dungeon.queueMoveSprite(getInner(), 'u');
-			dungeon.queueMoveSprite(getOuter(), 'U');
-			setFirePosition('u');
+			setFirePosition(dungeon, 'u');
 
 			// if spinner is on the left or right edge boundary, hide the projectiles
 			if (my == 1 || mx == cols - 2) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		case 3:
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx + 1, my + 1, 'u');
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx + 2, my + 2, 'U');
-			dungeon.queueMoveSprite(getInner(), 'u');
-			dungeon.queueMoveSprite(getOuter(), 'U');
-			setFirePosition('u');
+			setFirePosition(dungeon, 'u');
 
 			// if spinner is on the right edge boundary, hide the projectiles
 			if (mx == cols - 2) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		case 4:
-
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx, my + 1, 'r');
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx, my + 2, 'R');
-			dungeon.queueMoveSprite(getInner(), 'r');
-			dungeon.queueMoveSprite(getOuter(), 'R');
-			setFirePosition('r');
+			setFirePosition(dungeon, 'r');
 
 			// if spinner is on the bottom or right edge boundary, hide the projectiles
 			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2)) || mx == cols - 2) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		case 5:
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx - 1, my + 1, 'r');
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx - 2, my + 2, 'R');
-			dungeon.queueMoveSprite(getInner(), 'r');
-			dungeon.queueMoveSprite(getOuter(), 'R');
-			setFirePosition('r');
+			setFirePosition(dungeon, 'r');
 
 			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2))) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		case 6:
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx - 1, my, 'd');
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx - 2, my, 'D');
-			dungeon.queueMoveSprite(getInner(), 'd');
-			dungeon.queueMoveSprite(getOuter(), 'D');
-			setFirePosition('d');
+			setFirePosition(dungeon, 'd');
 
 			// if spinner is on the left or bottom edge boundary, hide the projectiles
 			if (mx == 1 || my == rows - 2) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		case 7:
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx - 1, my - 1, 'd');
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx - 2, my - 2, 'D');
-			dungeon.queueMoveSprite(getInner(), 'd');
-			dungeon.queueMoveSprite(getOuter(), 'D');
-			setFirePosition('d');
+			setFirePosition(dungeon, 'd');
 
 			// if spinner is on the left or top edge boundary, hide the projectiles
 			if (!(my != 1 && !(my == 2 && mx == 1)) || mx == 1) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		case 8:
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx, my - 1, 'l');
-			//dungeon.moveAssociatedSprite(dungeon.spinner_sprites, rows, mx, my, mx, my - 2, 'L');
-			dungeon.queueMoveSprite(getInner(), 'l');
-			dungeon.queueMoveSprite(getOuter(), 'L');
-			setFirePosition('l');
+			setFirePosition(dungeon, 'l');
 
 			// if spinner is on the left or top edge boundary, hide the projectiles
 			if (!(my != 1 && !(my == 2 && mx == 1)) || mx == 1) {
-				getInner()->setVisible(false);
-				getOuter()->setVisible(false);
+				m_innerFire->getSprite()->setVisible(false);
+				m_outerFire->getSprite()->setVisible(false);
 			}
 			break;
 		default:
@@ -4094,79 +4626,79 @@ void Spinner::setInitialFirePosition(int x, int y, int rows) {
 	if (isClockwise()) {
 		switch (getAngle()) {
 		case 1:
-			getInner()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
 			break;
 		case 2:
-			getInner()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
 			break;
 		case 3:
-			getInner()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
 			break;
 		case 4:
-			getInner()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
 			break;
 		case 5:
-			getInner()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
 			break;
 		case 6:
-			getInner()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition((x) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition((x) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
 			break;
 		case 7:
-			getInner()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
 			break;
 		case 8:
-			getInner()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
 			break;
 		}
 	}
 	else {
 		switch (getAngle()) {
 		case 1:
-			getInner()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
 			break;
 		case 2:
-			getInner()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
 			break;
 		case 3:
-			getInner()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
 			break;
 		case 4:
-			getInner()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
 			break;
 		case 5:
-			getInner()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
 			break;
 		case 6:
-			getInner()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
 			break;
 		case 7:
-			getInner()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
 			break;
 		case 8:
-			getInner()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			getOuter()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
+			m_innerFire->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
+			m_outerFire->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
 			break;
 		}
 	}
 	
 	setSpriteVisibility(false);
 }
-void Spinner::setFirePosition(char move) {
+void Spinner::setFirePosition(Dungeon &dungeon, char move) {
 	switch (move) {
 	case 'l':
 		m_innerFire->setPosX(m_innerFire->getPosX() - 1);
@@ -4185,6 +4717,9 @@ void Spinner::setFirePosition(char move) {
 		m_outerFire->setPosY(m_outerFire->getPosY() + 2);
 		break;
 	}
+	
+	dungeon.queueMoveSprite(m_innerFire->getSprite(), m_innerFire->getPosX(), m_innerFire->getPosY());
+	dungeon.queueMoveSprite(m_outerFire->getSprite(), m_outerFire->getPosX(), m_outerFire->getPosY());
 }
 
 bool Spinner::isClockwise() const {
@@ -4205,19 +4740,13 @@ bool Spinner::playerWasHit(const Actors &a) {
 	return false;
 }
 
-cocos2d::Sprite* Spinner::getInner() const {
-	return inner;
-}
-cocos2d::Sprite* Spinner::getOuter() const {
-	return outer;
-}
 void Spinner::setSpriteVisibility(bool visible) {
-	getInner()->setVisible(visible);
-	getOuter()->setVisible(visible);
+	m_innerFire->getSprite()->setVisible(visible);
+	m_outerFire->getSprite()->setVisible(visible);
 }
 void Spinner::setSpriteColor(cocos2d::Color3B color) {
-	getInner()->setColor(color);
-	getOuter()->setColor(color);
+	m_innerFire->getSprite()->setColor(color);
+	m_outerFire->getSprite()->setColor(color);
 }
 void Spinner::addLightEmitters(const Dungeon &dungeon, std::vector<std::pair<int, int>> &lightEmitters) {
 	lightEmitters.push_back(std::make_pair(getPosX(), getPosY()));
@@ -4327,11 +4856,7 @@ void MountedKnight::move(Dungeon &dungeon) {
 			return;
 		}
 		else {
-			dungeon[y*cols + x].enemy = false;
-			dungeon[(y + m)*cols + (x + n)].enemy = true;
-
-			dungeon.queueMoveSprite(getSprite(), getDirection());
-			setPosX(x + n); setPosY(y + m);
+			moveTo(dungeon, x + n, y + m);
 		}
 
 		return;
@@ -4349,8 +4874,6 @@ void MountedKnight::move(Dungeon &dungeon) {
 		if (!wallCollision(dungeon, 'y', py, y)) {
 			setDirection(py - y > 0 ? 'd' : 'u');
 			toggleAlert();
-
-			//dungeonText.push_back("The " + monsters.at(pos)->getName() + " charges toward you!\n");
 		}
 		else {
 			step(dungeon);
@@ -4363,8 +4886,6 @@ void MountedKnight::move(Dungeon &dungeon) {
 		if (!wallCollision(dungeon, 'x', px, x)) {
 			setDirection(px - x > 0 ? 'r' : 'l');
 			toggleAlert();
-
-			//dungeonText.push_back("The " + monsters.at(pos)->getName() + " charges toward you!\n");
 		}
 		else {
 			step(dungeon);
@@ -4669,9 +5190,10 @@ void FireRoundabout::move(Dungeon &dungeon) {
 		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("Fire%04d.png", 8);
 		ember->setSprite(dungeon.runAnimationForever(frames, 24, getPosX(), getPosY(), 2));
 		ember->getSprite()->setScale(0.75f * GLOBAL_SPRITE_SCALE);
-		//ember->setSprite(dungeon.createSprite(getPosX(), getPosY(), 0, ember->getImageName()));
+		
 		dungeon[getPosY() * cols + getPosX()].trap = true;
 		dungeon.getTraps().push_back(ember);
+		dungeon.addLightSource(getPosX(), getPosY(), 3, ember->getName());
 	}
 }
 
@@ -4865,9 +5387,10 @@ void ItemThief::death(Dungeon &dungeon) {
 	dungeon.queueRemoveSprite(getSprite());
 
 	if (m_stolenItem != nullptr) {
-		if (dungeon[y*cols + x].item) {
+
+		if (dungeon[y*cols + x].item)
 			dungeon.itemHash(x, y);
-		}
+		
 		dungeon[y*cols + x].object = m_stolenItem;
 		dungeon[y*cols + x].item_name = m_stolenItem->getName();
 		dungeon[y*cols + x].item = true;
@@ -5170,7 +5693,7 @@ void Charger::move(Dungeon &dungeon) {
 	// If charger has LOS with the player, then get primed
 	if ((px == x && abs(py - y) <= m_losRange || py == y && abs(px - x) <= m_losRange) && clearLineOfSight(dungeon, *dungeon.getPlayerVector()[0])) {
 		// sound effect for priming
-		cocos2d::experimental::AudioEngine::play2d("Goo_Sack_Primed.mp3", false, 1.0f);
+		playSound("Goo_Sack_Primed.mp3");
 
 		if (px == x && py > y) m_direction = 'd';
 		else if (px == x && py < y) m_direction = 'u';
@@ -5320,11 +5843,7 @@ void Rat::run(Dungeon& dungeon) {
 		}
 	}
 
-	dungeon[y*cols + x].enemy = false;
-	dungeon[fy*cols + fx].enemy = true;
-
-	dungeon.queueMoveSprite(getSprite(), fx, fy);
-	setPosX(fx); setPosY(fy);
+	moveTo(dungeon, fx, fy);
 }
 
 
@@ -5384,8 +5903,8 @@ void Toad::move(Dungeon &dungeon) {
 
 				// 50% chance to spit out a poison puddle
 				if (1 + randInt(100) > 50) {
-					std::shared_ptr<Traps> puddle = std::make_shared<PoisonPuddle>(x + n, y + m, 8);
-					puddle->setSprite(dungeon.createSprite(x + n, y + m, 0, puddle->getImageName()));
+					std::shared_ptr<Traps> puddle = std::make_shared<PoisonPuddle>(dungeon, x + n, y + m, 8);
+					//puddle->setSprite(dungeon.createSprite(x + n, y + m, 0, puddle->getImageName()));
 					dungeon[(y + m)*cols + (x + n)].trap = true;
 					dungeon.getTraps().push_back(puddle);
 				}
@@ -5411,6 +5930,8 @@ Spider::Spider(Dungeon &dungeon, int x, int y, int webCount) : Monster(x, y, 4 +
 	setAnimationFrames("SpiderIdle%04d.png");
 	setAnimationFrameCount(5);
 	setFrameInterval(8);
+
+
 
 	createWebs(dungeon, x, y);
 }
@@ -5453,19 +5974,23 @@ void Spider::move(Dungeon &dungeon) {
 
 	// Check if player is adjacent
 	if (getName() != SHOOTING_SPIDER) {
-		if (!m_primed) {
+
+		if (!m_primed && !m_wait) {
 			if (playerIsAdjacent(*dungeon.getPlayer(), true)) {
 				playSound("Spider_Primed.mp3");
 				m_primed = true;
 			}
 		}
-		else {
+		else if (m_primed && !m_wait) {
 			// If player is still adjacent, attack them
 			if (playerIsAdjacent(*dungeon.getPlayer(), true))
 				attack(dungeon, *dungeon.getPlayerVector()[0]);
 
 			m_primed = false;
+			m_wait = true;
 		}
+		else if (m_wait)
+			m_wait = false;
 	}
 
 	// Special actions priority over creating new webs
@@ -5478,8 +6003,7 @@ void Spider::move(Dungeon &dungeon) {
 			m_webs.push_back(std::make_pair(x, y));
 
 			dungeon[y*cols + x].trap = true;
-			std::shared_ptr<Web> web = std::make_shared<Web>(x, y);
-			web->setSprite(dungeon.createSprite(x, y, 0, web->getImageName()));
+			std::shared_ptr<Web> web = std::make_shared<Web>(dungeon, x, y);			
 			dungeon.getTraps().push_back(web);
 		}
 		else {
@@ -5513,9 +6037,9 @@ void Spider::attack(Dungeon &dungeon, Player &p) {
 		}
 	}
 
-	if (damage > 0) {
+	if (damage > 0)
 		dungeon.damagePlayer(damage);
-	}
+	
 
 	m_captured = false;
 	m_primed = false;
@@ -5546,7 +6070,7 @@ void Spider::createWebs(Dungeon &dungeon, int x, int y) {
 			m_webs.push_back(std::make_pair(n, m));
 
 			dungeon[m*cols + n].trap = true;
-			std::shared_ptr<Web> web = std::make_shared<Web>(n, m);
+			std::shared_ptr<Web> web = std::make_shared<Web>(dungeon, n, m);
 			dungeon.getTraps().push_back(web);
 			dungeon[m*cols + n].trap_name = web->getName();
 
@@ -5601,7 +6125,11 @@ bool ShootingSpider::specialMove(Dungeon &dungeon) {
 }
 
 PouncingSpider::PouncingSpider(int x, int y) : Monster(x, y, 6 + randInt(6), 2, 7, 2, POUNCING_SPIDER), m_x(x), m_y(y) {
+	setHasAnimation(true);
 	setAnimationFrames("RedSpiderIdle%04d.png");
+	setAnimationFrameCount(5);
+	setFrameInterval(8);
+
 	setImageName("RedSpiderIdle0001.png");
 	setGold(10);
 }
@@ -5622,11 +6150,7 @@ void PouncingSpider::move(Dungeon &dungeon) {
 			attack(dungeon, *dungeon.getPlayer());
 
 			// Jump on top of player
-			setPosX(px);
-			setPosY(py);
-			dungeon.queueMoveSprite(getSprite(), px, py, 0.05f);
-			dungeon[y*cols + x].enemy = false;
-			dungeon[py*cols + px].enemy = true;
+			moveTo(dungeon, px, py, 0.05f);
 		}
 
 		m_turns = 0;
@@ -5676,13 +6200,12 @@ bool PouncingSpider::boundaryCheck(const Dungeon &dungeon) {
 	for (int i = y - 2; i < y + 3; i++) {
 		for (int j = x - 2; j < x + 3; j++) {
 
-			// boundary and corner check
-			if (i != -1 && i != rows && !(j == -1 && i <= 0) && !(j == cols && i >= rows - 1) && !(j == x && i == y) &&
+			// Boundary and corner check
+			if (dungeon.withinBounds(j, i) && !(j == x && i == y) &&
 				!(i == y - 2 && j == x - 2) && !(i == y - 2 && j == x + 2) && !(i == y + 2 && j == x - 2) && !(i == y + 2 && j == x + 2)) {
 
-				if (px == j && py == i) {
-					return true;
-				}
+				if (px == j && py == i)
+					return true;			
 			}
 		}
 	}
@@ -5707,7 +6230,7 @@ void Ghost::move(Dungeon &dungeon) {
 }
 void Ghost::attack(Dungeon &dungeon, Player &p) {
 	// sound effect
-	cocos2d::experimental::AudioEngine::play2d("Possessed.mp3", false, 1.0f);
+	playSound("Possessed.mp3");
 
 	// Possess the player
 	p.addAffliction(std::make_shared<Possessed>(10));
@@ -6071,6 +6594,8 @@ Serpent::Serpent(Dungeon &dungeon, int &x, int &y, int turns) : Monster(x, y, 8 
 		setPosX(x);
 		setPosY(y);
 	}
+
+	addSegments(dungeon);
 }
 Serpent::Serpent(Dungeon &dungeon, int &x, int &y, int turns, std::string name, std::string image, int hp, int armor, int str, int dex) 
 	: Monster(x, y, hp, armor, str, dex, name), m_turns(turns), m_maxTurns(turns) {
@@ -6141,6 +6666,19 @@ void Serpent::rerollMonsterPosition(Dungeon &dungeon, int &x, int &y) {
 		hero = dungeon[y*cols + x].hero;
 	}
 }
+
+void Serpent::moveTo(Dungeon &dungeon, int x, int y, float time) {
+	int cols = dungeon.getCols();
+
+	dungeon[getPosY()*cols + getPosX()].enemy = false;
+	dungeon[y*cols + x].enemy = true;
+
+	dungeon.queueMoveSprite(getSprite(), x, y, time);
+
+	moveSegments(dungeon, x, y);
+
+	setPosX(x); setPosY(y);
+}
 void Serpent::move(Dungeon &dungeon) {
 	int cols = dungeon.getCols();
 
@@ -6174,7 +6712,7 @@ void Serpent::move(Dungeon &dungeon) {
 				// Check if this move went on top of its tail, if so then the serpent can perform this action
 				if (x + n == m_tail->getPosX() && y + m == m_tail->getPosY()) {
 					setPosX(x + n); setPosY(y + m);
-					dungeon.queueMoveSprite(getSprite(), best);
+					dungeon.queueMoveSprite(getSprite(), x + n, y + m);
 					flipped = true;
 
 						// No need to update the enemy flags since we're simply switching the head and tail
@@ -6197,8 +6735,8 @@ void Serpent::move(Dungeon &dungeon) {
 			dungeon.queueMoveSprite(m_tail->getSprite(), x, y);
 			m_tail->setPosX(x);
 			m_tail->setPosY(y);
-			m_tail->setSegmentX(getPosX());
-			m_tail->setSegmentY(getPosY());
+			m_tail->setParentX(getPosX());
+			m_tail->setParentY(getPosY());
 		}
 		
 	}
@@ -6208,47 +6746,43 @@ void Serpent::move(Dungeon &dungeon) {
 void Serpent::extraAttackEffects(Dungeon& dungeon) {
 	int roll = 1 + randInt(100) + dungeon.getPlayer()->getLuck();
 
-	if (roll < 50) {
+	if (roll < 50)
 		dungeon.getPlayerVector()[0]->addAffliction(std::make_shared<Bleed>());
-	}
+	
 }
 
 void Serpent::moveSegments(Dungeon &dungeon, int x, int y) {
+
+	// x and y is where the parent (head) is moving to
 
 	// If the parent's previous position is not its current position, then move the tail
 	if (x != getPosX() || y != getPosY()) {
 		int cols = dungeon.getCols();
 
 		// If the parent's new position did not switch with its tail, then update enemy flag
-		if (getPosX() != m_tail->getPosX() || getPosY() != m_tail->getPosY())
+		if (x != m_tail->getPosX() || y != m_tail->getPosY())
 			dungeon[m_tail->getPosY()*cols + m_tail->getPosX()].enemy = false;
 
 		dungeon[y*cols + x].enemy = true;
 
-		dungeon.queueMoveSprite(m_tail->getSprite(), x, y, 0.05f);
-		m_tail->setPosX(x);
-		m_tail->setPosY(y);
-		m_tail->setSegmentX(getPosX());
-		m_tail->setSegmentY(getPosY());
+		dungeon.queueMoveSprite(m_tail->getSprite(), getPosX(), getPosY(), 0.05f);
+		m_tail->setPosX(getPosX());
+		m_tail->setPosY(getPosY());
+
+		m_tail->setParentX(x);
+		m_tail->setParentY(y);
 	}
 }
 void Serpent::addSegments(Dungeon &dungeon) {
-	std::shared_ptr<Monster> segment = std::make_shared<MonsterSegment>(m_tailX, m_tailY, getPosX(), getPosY(), SERPENT_TAIL, "Bone_32x32.png");
+	std::shared_ptr<MonsterSegment> segment = std::make_shared<MonsterSegment>(m_tailX, m_tailY, getPosX(), getPosY(), SERPENT_TAIL, "Bone_32x32.png");
 	dungeon.getMonsters().emplace_back(segment);
-	m_tail = std::dynamic_pointer_cast<MonsterSegment>(segment);
+	m_tail = segment;
 
 	dungeon.getDungeon()[m_tailY*dungeon.getCols() + m_tailX].enemy = true;
 }
 void Serpent::removeSegments(Dungeon &dungeon) {
-	int cols = dungeon.getCols();
-	dungeon[m_tail->getPosY()*cols + m_tail->getPosX()].enemy = false;
-
-	// Destroy the tail too upon death
-	int index = dungeon.findMonster(m_tail->getPosX(), m_tail->getPosY());
-	if (index != -1) {
-		dungeon.monsterDeath(index);
-	}
-
+	// Destroy the tail upon death
+	m_tail->setDestroyed(true);
 }
 
 ArmoredSerpent::ArmoredSerpent(Dungeon &dungeon, int x, int y, int turns) 
@@ -6439,7 +6973,7 @@ void Smasher::avalanche() {
 	int col = getPosX();
 	int row = getPosY();
 	int x, y, speed, spikecount;
-	char traptile;
+	bool trap;
 	spikecount = 15 + randInt(8);
 	std::shared_ptr<FallingSpike> spike = nullptr;
 
@@ -6447,16 +6981,16 @@ void Smasher::avalanche() {
 		x = 1 + randInt(BOSSCOLS - 2);
 		y = 1 + randInt(5);
 		speed = 1 + randInt(3);
-		traptile = m_dungeon->getDungeon()[y*BOSSCOLS + x].traptile;
+		trap = m_dungeon->getDungeon()[y*BOSSCOLS + x].trap;
 		spike = std::make_shared<FallingSpike>(x, y, speed);
 
-		while (traptile != SPACE || x == col || x == col - 1 || x == col + 1) { // while spike position clashes with anything
+		while (trap || x == col || x == col - 1 || x == col + 1) { // while spike position clashes with anything
 			x = 1 + randInt(BOSSCOLS - 2);
 			y = 1 + randInt(5);
 			spike->setPosX(x);	// reroll it
 			spike->setPosY(y);
 
-			traptile = m_dungeon->getDungeon()[spike->getPosY()*BOSSCOLS + spike->getPosX()].traptile;
+			trap = m_dungeon->getDungeon()[spike->getPosY()*BOSSCOLS + spike->getPosX()].trap;
 		}
 
 		// add spike sprite
@@ -6558,9 +7092,10 @@ void Smasher::moveSmasherL() {
 			m_dungeon->getDungeon()[j*BOSSCOLS + i].enemy = true;
 		}
 
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-		m_dungeon->queueMoveSprite(getSprite(), 'l');
+		playSound("Smasher_Smash.mp3");
+		
 		setPosX(col - 1);
+		m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
 	}
 
 	//	if there are only two spaces to the left of the smasher
@@ -6611,10 +7146,12 @@ void Smasher::moveSmasherL() {
 
 			}
 		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
 
-		m_dungeon->queueMoveSprite(getSprite(), 'L');
+
+		playSound("Smasher_Smash.mp3");
+		//m_dungeon->queueMoveSprite(getSprite(), 'L');
 		setPosX(col - 2);
+		m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
 	}
 
 	//	if there are at least 3 spaces to left of the smasher
@@ -6666,8 +7203,9 @@ void Smasher::moveSmasherL() {
 				m_dungeon->getDungeon()[j*BOSSCOLS + i].enemy = true;
 			}
 		}
-		m_dungeon->queueMoveSprite(getSprite(), 'L');
+		//m_dungeon->queueMoveSprite(getSprite(), 'L');
 		setPosX(col - 2);
+		m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
 	}
 
 }
@@ -6709,9 +7247,11 @@ void Smasher::moveSmasherR() {
 			m_dungeon->getDungeon()[j*BOSSCOLS + i].upper = SMASHER;
 			m_dungeon->getDungeon()[j*BOSSCOLS + i].enemy = true;
 		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-		m_dungeon->queueMoveSprite(getSprite(), 'r');
+		
+		playSound("Smasher_Smash.mp3");
+		//m_dungeon->queueMoveSprite(getSprite(), 'r');
 		setPosX(col + 1);
+		m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
 	}
 
 	//	if there are only two spaces to the right of the smasher
@@ -6763,10 +7303,11 @@ void Smasher::moveSmasherR() {
 
 			}
 		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-
-		m_dungeon->queueMoveSprite(getSprite(), 'R');
+		
+		playSound("Smasher_Smash.mp3");
+		//m_dungeon->queueMoveSprite(getSprite(), 'R');
 		setPosX(col + 2);
+		m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
 	}
 
 	//	if there are at least 3 spaces to right of the smasher
@@ -6819,8 +7360,9 @@ void Smasher::moveSmasherR() {
 			}
 		}
 
-		m_dungeon->queueMoveSprite(getSprite(), 'R');
+		//m_dungeon->queueMoveSprite(getSprite(), 'R');
 		setPosX(col + 2);
+		m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
 	}
 
 }
@@ -6863,9 +7405,11 @@ void Smasher::moveSmasherU() {
 			m_dungeon->getDungeon()[i*BOSSCOLS + j].upper = SMASHER;
 			m_dungeon->getDungeon()[i*BOSSCOLS + j].enemy = true;
 		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-		m_dungeon->queueMoveSprite(getSprite(), 'u');
+		
+		playSound("Smasher_Smash.mp3");
+		//m_dungeon->queueMoveSprite(getSprite(), 'u');
 		setPosY(row - 1);
+		m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
 	}
 
 	//	if there are only two spaces above the smasher
@@ -6918,9 +7462,11 @@ void Smasher::moveSmasherU() {
 
 			}
 		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-		m_dungeon->queueMoveSprite(getSprite(), 'U');
+		
+		playSound("Smasher_Smash.mp3");
+		//m_dungeon->queueMoveSprite(getSprite(), 'U');
 		setPosY(row - 2);
+		m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
 	}
 
 	//	if there are at least 3 spaces above the smasher
@@ -6972,8 +7518,10 @@ void Smasher::moveSmasherU() {
 				m_dungeon->getDungeon()[i*BOSSCOLS + j].enemy = true;
 			}
 		}
-		m_dungeon->queueMoveSprite(getSprite(), 'U');
+		
+		//m_dungeon->queueMoveSprite(getSprite(), 'U');
 		setPosY(row - 2);
+		m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
 	}
 
 }
@@ -7017,10 +7565,11 @@ void Smasher::moveSmasherD() {
 			m_dungeon->getDungeon()[i*BOSSCOLS + j].upper = SMASHER;
 			m_dungeon->getDungeon()[i*BOSSCOLS + j].enemy = true;
 		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-
-		m_dungeon->queueMoveSprite(getSprite(), 'd');
+		
+		playSound("Smasher_Smash.mp3");
+		//m_dungeon->queueMoveSprite(getSprite(), 'd');
 		setPosY(row + 1);
+		m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
 	}
 
 	//	if there are only two spaces underneath the smasher
@@ -7072,10 +7621,11 @@ void Smasher::moveSmasherD() {
 				m_dungeon->getDungeon()[i*BOSSCOLS + j].enemy = true;
 			}
 		}
-		cocos2d::experimental::AudioEngine::play2d("Smasher_Smash.mp3", false, 1.0f);
-
-		m_dungeon->queueMoveSprite(getSprite(), 'D');
+		
+		playSound("Smasher_Smash.mp3");
+		//m_dungeon->queueMoveSprite(getSprite(), 'D');
 		setPosY(row + 2);
+		m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
 	}
 
 	//	if there are at least 3 spaces underneath the smasher
@@ -7128,9 +7678,9 @@ void Smasher::moveSmasherD() {
 				m_dungeon->getDungeon()[i*BOSSCOLS + j].enemy = true;
 			}
 		}
-
-		m_dungeon->queueMoveSprite(getSprite(), 'D');
+	
 		setPosY(row + 2);
+		m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
 	}
 
 }
@@ -7233,9 +7783,8 @@ void Smasher::resetUpward() {
 		}
 	}
 
-	m_dungeon->queueMoveSprite(getSprite(), '^');
 	setPosY(row - 3);
-	
+	m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
 }
 void Smasher::resetDownward() {
 	int col = getPosX();
@@ -7262,7 +7811,7 @@ void Smasher::resetDownward() {
 }
 
 void Smasher::attack(Dungeon &dungeon, Player &p) {
-	cocos2d::experimental::AudioEngine::play2d("Smasher_HitBy1.mp3", false, 1.0f);
+	playSound("Smasher_HitBy1.mp3");
 
 	int damage = 10 + randInt(3);
 	dungeon.damagePlayer(damage);
@@ -7271,10 +7820,9 @@ void Smasher::attack(Dungeon &dungeon, Player &p) {
 	p.addAffliction(std::make_shared<Stun>(2));
 }
 void Smasher::attack(Monster &m) {
-	cocos2d::experimental::AudioEngine::play2d("Smasher_HitBy1.mp3", false, 1.0f);
+	playSound("Smasher_HitBy1.mp3");
 
-	int damage = 100;
-	m.setHP(m.getHP() - damage);
+	m.setHP(0);
 }
 void Smasher::death(Dungeon &dungeon) {
 	int rows = dungeon.getRows();
@@ -7285,24 +7833,21 @@ void Smasher::death(Dungeon &dungeon) {
 
 	// pause current music, play victory music, and then resume music once finished
 	cocos2d::experimental::AudioEngine::pauseAll();
-	int id = cocos2d::experimental::AudioEngine::play2d("Victory! All Clear.mp3", false, 1.0f);
+	int id = playMusic("Victory! All Clear.mp3", false);
 
 	cocos2d::experimental::AudioEngine::setFinishCallback(id,
 		[](int id, std::string music) {
 		cocos2d::experimental::AudioEngine::resumeAll();
 	});
 
-	//dungeon.removeSprite(dungeon.monster_sprites, rows, x, y);
 	dungeon.queueRemoveSprite(getSprite());
 
-	Idol idol;
-	idol.setPosX(BOSSCOLS / 2);
-	idol.setPosY(3);
-	dungeon[idol.getPosY()*cols + idol.getPosX()].bottom = IDOL;
-	dungeon[idol.getPosY()*cols + idol.getPosX()].item = true;
+	std::shared_ptr<Objects> idol = std::make_shared<Idol>(cols / 2, 3);
+	dungeon[idol->getPosY()*cols + idol->getPosX()].object = idol;
+	dungeon[idol->getPosY()*cols + idol->getPosX()].item = true;
 
 	// sprite for idol
-	dungeon.addSprite(dungeon.item_sprites, idol.getPosX(), idol.getPosY(), -1, "Freeze_Spell_48x48.png");
+	dungeon.addSprite(dungeon.item_sprites, idol->getPosX(), idol->getPosY(), -1, "Glass_Toy_48x48.png");
 
 	for (int i = y - 1; i < y + 2; i++) {
 		for (int j = x - 1; j < x + 2; j++) {

@@ -24,11 +24,10 @@ public:
 	int getPosX() const { return m_x; };
 	int getPosY() const { return m_y; };
 
-	void setSprite(cocos2d::Sprite* sprite);
-	void setPosX(int x);
-	void setPosY(int y);
-	void setrandPosX(int maxrows);
-	void setrandPosY(int maxcols);
+	void setName(std::string name) { m_name = name; };
+	void setSprite(cocos2d::Sprite* sprite) { m_sprite = sprite; };
+	void setPosX(int x) { m_x = x; };
+	void setPosY(int y) { m_y = y; };
 
 	bool isDestructible() const { return m_destructible; };
 	virtual bool isWeapon() const { return false; };
@@ -41,7 +40,7 @@ public:
 	virtual bool isPassive() const { return false; }
 
 	std::string getDescription() const { return m_description; };
-	void setDescription(std::string description);
+	void setDescription(std::string description) { m_description = description; };
 
 	std::string getSoundName() const { return m_sound; };
 	bool hasExtraSprites() const { return m_hasExtraSprites; };
@@ -49,18 +48,18 @@ public:
 	bool emitsLight() const { return m_emitsLight; }; // tells if the sprite should emit extra light
 
 protected:
-	void setImageName(std::string image);
-	void setSoundName(std::string sound);
-	void setExtraSpritesFlag(bool extras);
-	void setEmitsLight(bool emits);
+	void setImageName(std::string image) { m_image = image; };
+	void setSoundName(std::string sound) { m_sound = sound; };
+	void setExtraSpritesFlag(bool extras) { m_hasExtraSprites = extras; };
+	void setEmitsLight(bool emits) { m_emitsLight = emits; };
 
-	void setDestructible(bool destructible);
-	void setWeaponFlag(bool weapon);
-	void setShieldFlag(bool shield);
-	void setItemFlag(bool item);
-	void setAutoFlag(bool autoUse);
-	void setChestFlag(bool chest);
-	void setTrinketFlag(bool trinket);
+	void setDestructible(bool destructible) { m_destructible = destructible; };
+	void setWeaponFlag(bool weapon) { m_isWeapon = weapon; };
+	void setShieldFlag(bool shield) { m_isShield = shield; };
+	void setItemFlag(bool item) { m_isItem = item; };
+	void setAutoFlag(bool autoUse) { m_autoUse = autoUse; };
+	void setChestFlag(bool chest) { m_isChest = chest; };
+	void setTrinketFlag(bool trinket) { m_isTrinket = trinket; };
 
 private:
 	std::string m_name;
@@ -86,9 +85,7 @@ private:
 
 class Idol : public Objects {
 public:
-	Idol();
-	
-private:
+	Idol(int x, int y);
 };
 
 class Door : public Objects {
@@ -117,11 +114,19 @@ public:
 	virtual void useItem(Dungeon &dungeon) { return; };
 
 	bool forPlayer() const { return m_forPlayer; };
+
+	// For items that can stack.
+	// The FatStacks passive lets all items stack, which is why this is here.
 	bool canStack() const { return m_canStack; };
+	int getCount() const { return m_count; };
+	void increaseCountBy(int count) { m_count += count; };
+	void decreaseCount() { m_count--; };
 
 protected:
 	void setForPlayer(bool forPlayer) { m_forPlayer = forPlayer; };
 	void setCanStack(bool stack) { m_canStack = stack; };
+
+	int m_count = 1; // Number of each stackable remaining
 
 private:
 	bool m_forPlayer = true; // flag to check if item is used on the player or the dungeon
@@ -254,15 +259,8 @@ public:
 
 class Stackable : public Drops {
 public:
-	// Items that can be stacked beyond one
+	// Items that can be stacked beyond 1
 	Stackable(int x, int y, std::string name, std::string image, int count);
-
-	int getCount() const { return m_count; };
-	void increaseCountBy(int count) { m_count += count; };
-	void decreaseCount() { m_count--; };
-
-private:
-	int m_count; // Number of each stackable remaining
 };
 
 class Bomb : public Stackable {
@@ -319,6 +317,13 @@ public:
 
 private:
 	int m_durability;
+};
+
+class Mobility : public Drops {
+public:
+	// The special ability for the Acrobat character.
+	Mobility(int x = 0, int y = 0);
+	void useItem(Dungeon &dungeon);
 };
 
 
@@ -534,6 +539,12 @@ public:
 	void useItem(Player &p);
 };
 
+class FatStacks : public Passive {
+public:
+	// All drops are now stackable
+	FatStacks(int x = 0, int y = 0);
+	void useItem(Player &p);
+};
 
 
 //		SPELLS
@@ -633,6 +644,13 @@ public:
 };
 
 // Misc
+class ThunderCloudSpell : public Spell {
+public:
+	// Sends forth a slow-moving cloud that shocks nearby enemies and chains lightning.
+	ThunderCloudSpell(int x = 0, int y = 0);
+	void useItem(Dungeon &dungeon);
+};
+
 class InvisibilitySpell : public Spell {
 public: 
 	InvisibilitySpell(int x = 0, int y = 0);
@@ -652,154 +670,189 @@ public:
 //		TRINKETS
 class Trinket : public Objects {
 public:
+	// Trinkets (to be renamed Relics) are powerful passives that can only be obtained from the Shrines.
+	// They are upgradeable to a maximum level of 4. As before, the player can only hold one of these at a time.
 	Trinket(int x, int y, std::string name, std::string image);
 
 	bool isTrinket() const { return true; };
 
 	virtual void apply(Dungeon &dungeon, Player &p) = 0;
 	virtual void unapply(Dungeon &dungeon, Player &p) = 0;
+
+	virtual void upgrade(Dungeon &dungeon, Player &p) = 0;
+
+	int getLevel() const { return m_level; };
+	void setLevel(int level) { m_level = level; };
+
+protected:
+	void increaseLevel() { m_level++; };
+	void decreaseLevel() { m_level--; };
+
+private:
+	int m_level = 1;
 };
 
 class CursedStrength : public Trinket {
 public:
-	// Grants immense strength, but at the cost of letting monsters and traps move first
+	// Grants immense strength, but at the cost of letting monsters and traps move first.
+	// Base: +8 Strength, +Slow attribute
+	// +1:   +Armor
+	// +2:   +2 Strength
+	// +3:   -Slow attribute
 	CursedStrength(int x = 0, int y = 0);
 
 	void apply(Dungeon &dungeon, Player &p);
 	void unapply(Dungeon &dungeon, Player &p);
+
+	void upgrade(Dungeon &dungeon, Player &p);
 };
 
 class BrightStar : public Trinket {
 public:
-	// Greater field of vision and slightly increased max hp while equipped
+	// Base: +1 Vision
+	// +1:   +15% Max HP, Gold Illumination
+	// +2:   +1 Vision
+	// +3:   +20 Luck, +5 Favor
 	BrightStar(int x = 0, int y = 0);
 
 	void apply(Dungeon &dungeon, Player &p);
 	void unapply(Dungeon &dungeon, Player &p);
+
+	void upgrade(Dungeon &dungeon, Player &p);
 };
 
 class DarkStar : public Trinket {
 public:
-	// Increases the player's strength, but reduces their field of vision
+	// Base: -1 Vision, +3 Strength
+	// +1:   +2 Dex
+	// +2:   -1 Vision, +2 Str, +1 Dex
+	// +3:   +1 Vision, Chain lightning; Attacks chain through adjacent enemies
 	DarkStar(int x = 0, int y = 0);
 
 	void apply(Dungeon &dungeon, Player &p);
 	void unapply(Dungeon &dungeon, Player &p);
+
+	void upgrade(Dungeon &dungeon, Player &p);
 };
 
-class GoldPot : public Trinket {
+class Riches : public Trinket {
 public:
-	// More gold!
-	GoldPot(int x = 0, int y = 0);
+	// Base: +3 Money Bonus
+	// +1:   +1 Money Multiplier
+	// +2:   +1 Money Multiplier
+	// +3:   Picking up money has high (100% ?) chance to give player 1 turn of invulnerability
+	Riches(int x = 0, int y = 0);
 
 	void apply(Dungeon &dungeon, Player &p);
 	void unapply(Dungeon &dungeon, Player &p);
+
+	void upgrade(Dungeon &dungeon, Player &p);
 };
 
-// Deprecated
-class LuckyPig : public Trinket {
+class MatrixVision : public Trinket {
 public:
-	// luck increase, it will give you a greater chance of item drops and better roll save chances
-	LuckyPig(int x = 0, int y = 0);
+	// Base: +0.05s on level timer
+	// +1:   Attacks have chance to Cripple enemies
+	// +2:   +0.05s on level timer
+	// +3:   Small chance (<= 5%) to skip trap and monster actions for a few turns.
+	//       Cannot activate more than once every 15 turns.
+	MatrixVision(int x = 0, int y = 0);
 
 	void apply(Dungeon &dungeon, Player &p);
 	void unapply(Dungeon &dungeon, Player &p);
+
+	void upgrade(Dungeon &dungeon, Player &p);
 };
 
-class RingOfCasting : public Trinket {
+class SuperMagicEssence : public Trinket {
 public:
-	// increased spell potency (+intellect)
-	RingOfCasting(int x = 0, int y = 0);
+	// Base: +3 Intellect
+	// +1:   +2 Intellect, all inflicted afflictions have increased durations (that hinder enemies and benefit players)
+	// +2:   +1 Intellect, chance to cast random spell when attacked
+	// +3:   All afflictions have a chance to affect any enemy, regardless of resistances
+	SuperMagicEssence(int x = 0, int y = 0);
 
 	void apply(Dungeon &dungeon, Player &p);
 	void unapply(Dungeon &dungeon, Player &p);
+
+	void upgrade(Dungeon &dungeon, Player &p);
 };
 
-class VulcanRune : public Trinket {
+class Protection : public Trinket {
 public:
-	// lava immunity
-	VulcanRune(int x = 0, int y = 0);
+	// 
+	// Base: +1 Armor, +10% Max HP
+	// +1:   +15% Max HP, +5 Luck
+	// +2:   +2 Armor; Gain bonus roll to save from afflictions
+	// +3:   +10% Max HP; After being hit, small chance for enemies to gain Fragile affliction
+	Protection(int x = 0, int y = 0);
 
 	void apply(Dungeon &dungeon, Player &p);
 	void unapply(Dungeon &dungeon, Player &p);
+
+	void upgrade(Dungeon &dungeon, Player &p);
 };
-
-class Bloodrite : public Trinket {
-public:
-	// chance to heal on attack
-	Bloodrite(int x = 0, int y = 0);
-
-	void apply(Dungeon &dungeon, Player &p);
-	void unapply(Dungeon &dungeon, Player &p);
-};
-
-class Bloodlust : public Trinket {
-public:
-	// low hp increases damage
-	Bloodlust(int x = 0, int y = 0);
-
-	void apply(Dungeon &dungeon, Player &p);
-	void unapply(Dungeon &dungeon, Player &p);
-};
-
-class BatFang : public Trinket {
-public:
-	// Poison chance
-	BatFang(int x = 0, int y = 0);
-
-	void apply(Dungeon &dungeon, Player &p);
-	void unapply(Dungeon &dungeon, Player &p);
-};
-
 
 
 //	BEGIN CHESTS CLASSES
 class Chests : public Drops {
 public:
 	Chests(int x, int y, std::string chest, std::string image);
+	~Chests();
 
 	bool isChest() const { return true; };
 
-	virtual void open(Dungeon &dungeon) = 0;
+	// Used to check if this can be opened
+	virtual void attemptOpen(Dungeon &dungeon) { open(dungeon); };
+	virtual void open(Dungeon &dungeon);
+	virtual void openEffect(Dungeon &dungeon); // Check if anything happens after opening
+
+protected:
+	// Contains the item that the chest will unlock.
+	// It's set when the chest is constructed.
+	std::shared_ptr<Objects> m_item = nullptr;
+};
+
+class TreasureChest : public Chests {
+public:
+	// Contains currency
+	TreasureChest(int x, int y);
+	void open(Dungeon &dungeon);
 };
 
 class LifeChest : public Chests {
 public:
 	// Life Chests are guaranteed to provide a healing-based item
 	LifeChest(int x, int y);
-	void open(Dungeon &dungeon);
 };
 
 class BrownChest : public Chests {
 public:
 	BrownChest(int x, int y);
-	void open(Dungeon &dungeon);
 };
 
 class SilverChest : public Chests {
 public:
 	SilverChest(int x, int y);
-	void open(Dungeon &dungeon);
 };
 
 class GoldenChest : public Chests {
 public:
 	GoldenChest(int x, int y);
-	void open(Dungeon &dungeon);
 };
 
 class HauntedChest : public Chests {
 public:
 	// Unleashes 3 ghosts nearby when opened
 	HauntedChest(int x, int y);
-	void open(Dungeon &dungeon);
+	void openEffect(Dungeon &dungeon);
 };
 
 class TeleportingChest : public Chests {
 public:
 	// Must be found and opened multiple times
 	TeleportingChest(int x, int y);
-	void open(Dungeon &dungeon);
+	void attemptOpen(Dungeon &dungeon);
 
 private:
 	int m_teleports; // Number of times it will teleport
@@ -818,7 +871,7 @@ class ExplodingChest : public RiggedChest {
 public:
 	// Places a bomb where the chest was which explodes 1 turn later
 	ExplodingChest(int x, int y);
-	void open(Dungeon &dungeon);
+	void openEffect(Dungeon &dungeon);
 };
 
 class InfinityBox : public Chests {
@@ -840,6 +893,7 @@ public:
 	virtual void unapplyBonus(Actors &a) { return; };
 	virtual void useAbility(Dungeon &dungeon, Actors &a) { return; };
 	virtual void usePattern(Dungeon &dungeon, bool &moveUsed) { return; };
+	void useImbuement(Dungeon &dungeon, Actors &a); // Enchanter NPC effects
 
 	// Indicates if the weapon grants the player stats
 	bool hasBonus() const { return m_hasBonus; };
@@ -861,6 +915,17 @@ public:
 	virtual bool hasMeter() const { return false; };
 	virtual void increaseCharge() { return; };
 
+	enum class ImbuementType {
+		BURNING,
+		POISONING,
+		FREEZING
+	};
+
+	// Indicates if the weapon has been imbued with special powers from the Enchanter
+	bool isImbued() const { return m_imbued; };
+	void setImbuement(ImbuementType imbuement, int chance);
+	int getImbuementLevel(ImbuementType imbuement) const; // Returns the maximum of all existing imbuements that this weapon has
+
 	/**
 	*  Dual wielding increases the player's damage output via twice the damage of one of the weapons.
 	*  When a player dual wields, they cannot use their active item.
@@ -875,6 +940,15 @@ public:
 	int getDexBonus() const { return m_dexbonus; };
 	int getDmg() const { return m_dmg; };
 
+	// Sharpness is how much a weapon has been improved by a Blacksmith
+	int getSharpnessBonus(); // Calculates the extra damage that the sharpness provides
+	int getSharpness() const { return m_sharpness; };
+	void increaseSharpnessBy(int sharp) { m_sharpness += sharp; };
+	void decreaseSharpnessBy(int sharp) { 
+		m_sharpness -= sharp;
+		if (m_sharpness < 0) m_sharpness = 0;
+	};
+
 protected:
 	void setDamage(int damage) { m_dmg = damage; };
 
@@ -883,9 +957,24 @@ private:
 	bool m_hasAbility = false;
 	bool m_hasPattern = false;
 	bool m_canBeCast = false;
+
+	bool m_imbued = false;
+
+	struct Imbuement {
+		bool burn = false;
+		int burnChance = 0;
+
+		bool poison = false;
+		int poisonChance = 0;
+
+		bool freeze = false;
+		int freezeChance = 0;
+	};
+	Imbuement m_imbuement;
 	
-	int m_dexbonus;
 	int m_dmg;
+	int m_dexbonus;
+	int m_sharpness = 0; // How much a weapon has been improved by a blacksmith
 };
 
 class Hands : public Weapon {
@@ -1530,6 +1619,7 @@ public:
 
 	// Occurs when the trap is destroyed
 	virtual void destroyTrap(Dungeon &dungeon);
+	virtual void spriteCleanup(Dungeon &dungeon);
 
 	int getDmg() const { return m_trapdmg; };
 	void setDmg(int damage) { m_trapdmg = damage; };
@@ -1583,7 +1673,7 @@ private:
 
 class Stairs : public Traps {
 public:
-	Stairs(int x = 0, int y = 0);
+	Stairs(Dungeon &dungeon, int x = 0, int y = 0);
 
 	bool canBeIlluminated() const { return true; };
 };
@@ -1597,7 +1687,7 @@ class Brazier : public Traps {
 public:
 	// These can be lit to provide more light within the dungeon.
 	// Braziers can be tipped over to leave a 3x3 grid of Embers
-	Brazier(int x, int y);
+	Brazier(Dungeon &dungeon, int x, int y);
 	~Brazier();
 
 	void trapAction(Dungeon &dungeon, Actors &a);
@@ -1614,8 +1704,9 @@ private:
 class Pit : public Traps {
 public:
 	// Pits kill all non-flying enemies instantly
-	Pit(int x, int y);
+	Pit(Dungeon &dungeon, int x, int y);
 
+	void activeTrapAction(Dungeon &dungeon, Actors &a);
 	void trapAction(Dungeon &dungeon, Actors &a);
 };
 
@@ -1635,15 +1726,15 @@ private:
 
 class Spikes : public Traps {
 public:
-	Spikes(int x, int y);
+	Spikes(Dungeon &dungeon, int x, int y);
 
 	void trapAction(Dungeon &dungeon, Actors &a); // used if a player steps in the way
 };
 
 class SpikeTrap : public Traps {
 public:
-	SpikeTrap();
-	SpikeTrap(int x, int y, int speed);
+	SpikeTrap(Dungeon &dungeon, int x, int y, int speed);
+	~SpikeTrap();
 
 	void activeTrapAction(Dungeon &dungeon, Actors &a); // called if player was standing on top of one that becomes active
 	void trapAction(Dungeon &dungeon, Actors &a); // used if player steps on one already active
@@ -1655,9 +1746,6 @@ public:
 	int getCountdown() const;
 	void setCountdown(int count);
 
-	cocos2d::Sprite* getSpriteD();
-	cocos2d::Sprite* getSpriteP();
-	cocos2d::Sprite* getSpriteA();
 private:
 	int m_cyclespeed;
 	int m_countdown;
@@ -1669,7 +1757,8 @@ private:
 
 class TriggerSpike : public Traps {
 public:
-	TriggerSpike(int x, int y);
+	TriggerSpike(Dungeon &dungeon, int x, int y);
+	~TriggerSpike();
 
 	void activeTrapAction(Dungeon &dungeon, Actors &a);
 	void trapAction(Dungeon &dungeon, Actors &a);
@@ -1679,9 +1768,6 @@ public:
 	bool isTriggered() const;
 	void toggleTrigger();
 
-	cocos2d::Sprite* getSpriteD();
-	cocos2d::Sprite* getSpriteP();
-	cocos2d::Sprite* getSpriteA();
 private:
 	bool m_triggered;
 
@@ -1692,7 +1778,7 @@ private:
 
 class Puddle : public Traps {
 public:
-	Puddle(int x, int y, int turns = -1);
+	Puddle(Dungeon &dungeon, int x, int y, int turns = -1);
 	Puddle(int x, int y, int turns, std::string name, std::string image);
 	
 	void activeTrapAction(Dungeon &dungeon, Actors &a);
@@ -1705,16 +1791,15 @@ private:
 
 class PoisonPuddle : public Puddle {
 public:
-	PoisonPuddle(int x, int y, int turns = -1);
+	PoisonPuddle(Dungeon &dungeon, int x, int y, int turns = -1);
 
 	void specialAction(Dungeon &dungeon, Actors &a);
 };
 
 class Firebar : public Traps {
 public:
-	Firebar(int x, int y, int rows);
+	Firebar(Dungeon &dungeon, int x, int y, int rows);
 	Firebar(int x, int y, std::string firebar); // for double firebar
-	virtual ~Firebar();
 
 	bool canBeIlluminated() const { return true; };
 
@@ -1726,13 +1811,13 @@ public:
 	bool isClockwise() const;
 
 	virtual bool playerWasHit(const Actors &a);
-	virtual void setFirePosition(char move);
+	virtual void setFirePosition(Dungeon &dungeon, char move);
 
 	void setSpriteColor(cocos2d::Color3B color);
 	virtual void setSpriteVisibility(bool visible);
 
-	cocos2d::Sprite* getInner();
-	cocos2d::Sprite* getOuter();
+	void spriteCleanup(Dungeon &dungeon);
+
 private:
 	int m_angle;
 	bool m_clockwise;
@@ -1740,44 +1825,33 @@ private:
 	// these are helper objects to keep track of where the firebar's fireball is
 	std::shared_ptr<Objects> m_innerFire;
 	std::shared_ptr<Objects> m_outerFire;
-
-	cocos2d::Sprite* m_inner = nullptr;
-	cocos2d::Sprite* m_outer = nullptr;
 };
 
 class DoubleFirebar : public Firebar {
 public:
-	DoubleFirebar(int x, int y, int rows);
-	~DoubleFirebar();
+	DoubleFirebar(Dungeon &dungeon, int x, int y, int rows);
 
 	void activeTrapAction(Dungeon &dungeon, Actors &a);
 
 	void setInitialFirePosition(int x, int y, int rows);
 	bool playerWasHit(const Actors &a);
-	void setFirePosition(char move);
+	void setFirePosition(Dungeon &dungeon, char move);
 
 	void setSpriteColor(cocos2d::Color3B color);
 	void setSpriteVisibility(bool visible);
-	cocos2d::Sprite* getInner();
-	cocos2d::Sprite* getInnerMirror();
-	cocos2d::Sprite* getOuter();
-	cocos2d::Sprite* getOuterMirror();
+
+	void spriteCleanup(Dungeon &dungeon);
 
 private:
 	std::shared_ptr<Objects> m_innerFire;
 	std::shared_ptr<Objects> m_innerFireMirror;
 	std::shared_ptr<Objects> m_outerFire;
 	std::shared_ptr<Objects> m_outerFireMirror;
-
-	cocos2d::Sprite* m_inner = nullptr;
-	cocos2d::Sprite* m_innerMirror = nullptr;
-	cocos2d::Sprite* m_outer = nullptr;
-	cocos2d::Sprite* m_outerMirror = nullptr;
 };
 
 class Lava : public Traps {
 public:
-	Lava(int x, int y);
+	Lava(Dungeon &dungeon, int x, int y);
 
 	void trapAction(Dungeon &dungeon, Actors &a);
 };
@@ -1790,7 +1864,7 @@ public:
 
 	// This is the standard spring trap; it points in a single random direction if @move is not specified
 	// @trigger specifies if it needs to be triggered or if it springs immediately
-	Spring(int x, int y, bool trigger = true, char move = '-');
+	Spring(Dungeon &dungeon, int x, int y, bool trigger = true, char move = '-');
 
 
 	/* This constructor lets you explicitly specify that the spring direction can or cannot be @known
@@ -1803,7 +1877,7 @@ public:
 	*    1   |    1     | points in only diagonal directions
 
 	*/
-	Spring(int x, int y, bool trigger, bool known, bool cardinal);
+	Spring(Dungeon &dungeon, int x, int y, bool trigger, bool known, bool cardinal);
 
 	void activeTrapAction(Dungeon &dungeon, Actors &a);
 	void trapAction(Dungeon &dungeon, Actors &a);
@@ -1845,7 +1919,7 @@ public:
 	*  Turrets, like archers, must be set off before shooting. Turrets are stationary, have a limited detection range, but infinite shooting range.
 	*  They also only face in one direction at a time, whereas archers are able to shoot in any of the 4 cardinal directions.
 	*/
-	Turret(int x, int y, char move, int range = 8);
+	Turret(Dungeon &dungeon, int x, int y, char move, int range = 8);
 
 	bool canBeIlluminated() const { return true; };
 
@@ -1869,7 +1943,7 @@ private:
 
 class MovingBlock : public Traps {
 public:
-	MovingBlock(int x, int y, char pattern, int spaces = 3);
+	MovingBlock(Dungeon &dungeon, int x, int y, char pattern, int spaces = 3);
 
 	void activeTrapAction(Dungeon &dungeon, Actors &a);
 
@@ -1963,7 +2037,7 @@ private:
 
 class CrumbleFloor : public Traps {
 public:
-	CrumbleFloor(int x, int y , int strength = 4);
+	CrumbleFloor(Dungeon &dungeon, int x, int y, int strength = 4);
 	CrumbleFloor(int x, int y, int strength, std::string name, std::string image);
 
 	void activeTrapAction(Dungeon &dungeon, Actors &a);
@@ -1979,7 +2053,7 @@ private:
 
 class CrumbleLava : public CrumbleFloor {
 public:
-	CrumbleLava(int x, int y, int strength = 4);
+	CrumbleLava(Dungeon &dungeon, int x, int y, int strength = 4);
 
 };
 
@@ -1987,7 +2061,6 @@ class Ember : public Traps {
 public:
 	// Temporary embers that subside after a certain amount of time
 	Ember(int x, int y, int turns = 5);
-	~Ember();
 
 	void activeTrapAction(Dungeon &dungeon, Actors &a);
 	void trapAction(Dungeon &dungeon, Actors &a);
@@ -2001,7 +2074,7 @@ private:
 
 class Web : public Traps {
 public:
-	Web(int x, int y, int stickiness = 1);
+	Web(Dungeon &dungeon, int x, int y, int stickiness = 1);
 
 	void trapAction(Dungeon &dungeon, Actors &a);
 	void ignite(Dungeon &dungeon);
@@ -2098,7 +2171,22 @@ public:
 
 private:
 	int m_turns = 0; // Turns left
-	int m_limit; // Maximum number of strikes
+	int m_limit; // Maximum number of turns
+};
+
+class ThunderCloud : public Traps {
+public:
+	// Released from ThunderCloud spell
+	ThunderCloud(int x, int y, char dir, int limit = 20);
+	void activeTrapAction(Dungeon &dungeon, Actors &a);
+
+	bool isLightSource() const { return true; };
+
+private:
+	char m_dir;
+	int m_turns = 0; // Turns left
+	int m_limit; // Maximum number of turns
+	int m_wait = 1;
 };
 
 #endif

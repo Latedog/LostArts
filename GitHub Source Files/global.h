@@ -87,6 +87,30 @@ const int ID_ACROBAT = 5;
 
 const char WIND_UP = 's'; // wind up is used for items that have a turn of priming
 
+const int TUTORIAL = -1;
+const int WORLD_HUB = 0;
+const int FIRST_FLOOR = 1;
+const int SECOND_FLOOR = 3;
+const int THIRD_FLOOR = 5;
+const int FOURTH_FLOOR = 7;
+const int FIFTH_FLOOR = 9;
+const int SIXTH_FLOOR = 11;
+const int SEVENTH_FLOOR = 13;
+const int EIGHTH_FLOOR = 15;
+const int NINTH_FLOOR = 17;
+
+const int FIRST_BOSS = 8;
+
+const int FIRST_SHOP = 4;
+const int SECOND_SHOP = 8;
+const int THIRD_SHOP = 12;
+const int FOURTH_SHOP = 16;
+
+const int FIRST_SHRINE = 2;
+const int SECOND_SHRINE = 6;
+const int THIRD_SHRINE = 10;
+const int FOURTH_SHRINE = 14;
+
 const char c_PLAYER = '@';
 const char SMASHER = '%';
 
@@ -94,6 +118,11 @@ const char SMASHER = '%';
 const std::string SPAWN_DISALLOWED = "Nothing is allowed to spawn here";
 const std::string NPC_PROMPT = "NPC Prompt";
 const std::string CHEST_PURCHASED = "Chest Purchased";
+
+// For Shrines
+const std::string CHEST_CHOICE = "Chests";
+const std::string TRINKET_CHOICE = "Trinkets";
+const std::string HEALTH_CHOICE = "Health";
 
 // PLAYERS
 const std::string PLAYER = "Player";
@@ -107,6 +136,9 @@ const std::string ACROBAT = "The Acrobat";
 const std::string CREATURE_LOVER = "Lionel";
 const std::string MEMORIZER = "Stewart";
 const std::string SHOPKEEPER = "Shopkeeper";
+const std::string BLACKSMITH = "Blacksmith";
+const std::string ENCHANTER = "Enchanter";
+const std::string TRADER = "Trader";
 
 const std::string OUTSIDE_MAN1 = "Tired Man";
 const std::string OUTSIDE_MAN2 = "Other Tired Man";
@@ -114,6 +146,7 @@ const std::string OUTSIDE_WOMAN1 = "Alert Woman";
 
 
 // MONSTERS
+const std::string FORGOTTEN_SPIRIT = "Forgotten Spirit";
 const std::string RANDOM_MONSTER = "Random Monster";
 const std::string GOBLIN = "Goblin";
 const std::string ARCHER = "Archer";
@@ -271,11 +304,14 @@ const std::string SKELETON_KEY = "Skeleton Key";
 const std::string MATCHES = "Matches";
 const std::string FIRECRACKERS = "Firecrackers";
 const std::string SMOKE_BOMB = "Smoke Bomb";
+const std::string TELEPORT = "Scroll of Unpredictable Travel";
 
 const std::string TELEPORTER = "Functional Teleporter";
 const std::string ROCKS = "Rock";
+const std::string MOBILITY = "Acrobatics";
 
 // CHESTS
+const std::string TREASURE_CHEST = "Treasure Chest";
 const std::string LIFE_CHEST = "Life Chest";
 const std::string BROWN_CHEST = "Brown Chest";
 const std::string SILVER_CHEST = "Silver Chest";
@@ -305,9 +341,9 @@ const std::string FIRE_EXPLOSION_SPELL = "Fiery Explosion";
 const std::string WHIRLWIND_SPELL = "Whirlwind";
 const std::string WIND_BLAST_SPELL = "Wind Blast";
 const std::string WIND_VORTEX_SPELL = "Wind Vortex";
+const std::string THUNDER_CLOUD_SPELL = "Thunder Cloud";
 const std::string INVISIBILITY_SPELL = "Invisibility Spell";
 const std::string ETHEREAL_SPELL = "Ethereal Spell";
-const std::string TELEPORT = "Scroll of Unpredictable Travel";
 
 // PASSIVES
 const std::string BATWING = "Dismembered Wing";
@@ -316,6 +352,10 @@ const std::string MAGIC_ESSENCE = "Magic Essence";
 const std::string FLYING = "Levitation";
 const std::string STEEL_PUNCH = "Steel Punch";
 const std::string IRON_CLEATS = "Iron Cleats";
+const std::string LUCKY_PIG = "Lucky Pig";
+const std::string LIFESTEAL = "Soul Steal";
+const std::string BERSERK = "Bloodlust";
+const std::string VULCAN_RUNE = "Rune of Vulcan";
 const std::string POISON_TOUCH = "Poison Touch";
 const std::string FIRE_TOUCH = "Thermal Energy";
 const std::string FROST_TOUCH = "Frozen Touch";
@@ -334,19 +374,16 @@ const std::string TRAP_ILLUMINATION = "Divine Vision";
 const std::string ITEM_ILLUMINATION = "Item Vision";
 const std::string MONSTER_ILLUMINATION = "Monster Vision";
 const std::string RESONANT_SPELLS = "Resonant Spells";
+const std::string FAT_STACKS = "Fat Stacks";
 
-
-// TRINKETS
-const std::string DARK_STAR = "60 Watt";
-const std::string LUCKY_PIG = "Lucky Pig";
-const std::string GOLD_POT = "Golden Ring";
-const std::string RING_OF_CASTING = "Spellcaster's Cap";
-const std::string VULCAN_RUNE = "Rune of Vulcan";
-const std::string BRIGHT_STAR = "Jar of Fireflies";
-const std::string BLOODRITE = "Bloodrite";
-const std::string BLOODLUST = "Bloodlust";
-const std::string BATFANG = "Wanderer Fang";
+// RELICS
 const std::string CURSED_STRENGTH = "Cursed Strength";
+const std::string BRIGHT_STAR = "Jar of Fireflies";
+const std::string DARK_STAR = "60 Watt";
+const std::string RICHES = "Gold Torus";
+const std::string SUPER_MAGIC_ESSENCE = "Super Magic Essence";
+const std::string MATRIX_VISION = "Matrix Vision";
+const std::string PROTECTION = "Guardian's Protection";
 
 // TRAPS
 const std::string BRAZIER = "Brazier";
@@ -399,6 +436,7 @@ const std::string HAIL_STORM = "Hail Storm";
 const std::string SHOCKWAVES = "Shockwaves";
 const std::string ROCK_SUMMON = "Rock Summon";
 const std::string WIND_VORTEX = "Wind Vortex";
+const std::string THUNDER_CLOUD = "Thunder Cloud";
 
 // Afflictions
 const std::string HEAL_OVER_TIME = "Heal Over Time";
@@ -415,7 +453,7 @@ const std::string BUFF = "Buff";
 const std::string STUCK = "Stuck";
 const std::string POSSESSED = "Possessed";
 const std::string CRIPPLE = "Cripple";
-
+const std::string FRAGILE = "Fragile";
 
 
 // ================================================

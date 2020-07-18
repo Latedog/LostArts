@@ -196,6 +196,10 @@ int playMusic(std::string track, bool loop) {
 //		SOUND EFFECTS
 void playSound(std::string sound, int px, int py, int x, int y, bool loop) {
 
+	// Reserve one sound for game over music
+	if (cocos2d::experimental::AudioEngine::getPlayingAudioCount() == cocos2d::experimental::AudioEngine::getMaxAudioInstance() - 1)
+		return;
+
 	float range = abs(px - x) + abs(py - y);
 	if (range <= 12) {
 		float volume = exp(-(range / 3));
@@ -203,9 +207,17 @@ void playSound(std::string sound, int px, int py, int x, int y, bool loop) {
 	}
 }
 void playSound(std::string sound, float volume, bool loop) {
+	// Reserve one sound for game over music
+	if (cocos2d::experimental::AudioEngine::getPlayingAudioCount() == cocos2d::experimental::AudioEngine::getMaxAudioInstance() - 1)
+		return;
+
 	cocos2d::experimental::AudioEngine::play2d(sound, loop, volume * GLOBAL_SOUND_VOLUME);
 }
 int playSoundWithID(std::string sound, float volume, bool loop) {
+	// Reserve one sound for game over music
+	if (cocos2d::experimental::AudioEngine::getPlayingAudioCount() == cocos2d::experimental::AudioEngine::getMaxAudioInstance() - 1)
+		return -1;
+
 	return cocos2d::experimental::AudioEngine::play2d(sound, loop, volume * GLOBAL_SOUND_VOLUME);
 }
 

@@ -46,23 +46,45 @@ public:
 	int getAnimationFrameCount() const { return m_frameCount; };
 	int getFrameInterval() const { return m_frameInterval; };
 
-	void setPosX(int x);
-	void setPosY(int y);
-	void setHP(int hp);
-	void setMaxHP(int maxhp);
-	void setArmor(int armor);
-	void setStr(int str);
-	void setDex(int dex);
-	void setInt(int intellect);
-	void setLuck(int luck);
-	void setWeapon(std::shared_ptr<Weapon> wep);
-	void setName(std::string name);
-	void setSprite(cocos2d::Sprite* sprite);
+	void setPosX(int x) { m_x = x; };
+	void setPosY(int y) { m_y = y; };
+	void setHP(int hp) {
+
+		// If this was a killing blow, or they were fragile and this damaged them
+		if (hp <= 0 || (m_hp > hp && isFragile())) {
+			m_isDead = true;
+			m_hp = 0;
+			return;
+		}
+
+		m_hp = hp;
+	};
+	void setMaxHP(int maxhp) { m_maxhp = maxhp; };
+	void setArmor(int armor) { m_armor = armor; };
+	void setStr(int str) { m_str = str; };
+	void setDex(int dex) { m_dex = dex; };
+	void setInt(int intellect) { m_int = intellect; };
+	void setLuck(int luck) { m_luck = luck; };
+	void setWeapon(std::shared_ptr<Weapon> wep) { m_wep = wep; };
+	void setName(std::string name) { m_name = name; };
+	void setSprite(cocos2d::Sprite* sprite) { m_sprite = sprite; };
 
 	bool isPlayer() const { return m_isPlayer; };
 	bool isMonster() const { return m_isMonster; };
+	virtual bool isSpirit() const { return false; } // Indicates if this is the insta-kill enemy
 	bool isDead() const { return m_isDead; };
 	void setDead(bool dead) { m_isDead = dead; };
+
+	// SuperDead indicates that there is no way the Actor can come back to life
+	// For instance, the player is invulnerable and falls down a Pit.
+	bool isSuperDead() const { return m_superDead; };
+	void setSuperDead(bool super) {
+		if (super) {
+			m_isDead = true;
+			m_hp = 0;
+		}
+		m_superDead = super;
+	};
 
 	//	AFFLICTIONS
 	void checkAfflictions();
@@ -78,13 +100,13 @@ public:
 	bool hasBloodlust() const { return m_bloodlust; };
 	bool hasToxic() const { return m_toxic; };
 
-	void setLavaImmunity(bool immune);
-	void setFlying(bool flying);
-	void setSturdy(bool sturdy);
+	void setLavaImmunity(bool immune) { m_lavaImmune = immune; };
+	void setFlying(bool flying) { m_flying = flying; };
+	void setSturdy(bool sturdy) { m_sturdy = sturdy; };
 	void setHeavy(bool heavy) { m_heavy = heavy; };
 
-	void setBloodlust(bool lust);
-	void setToxic(bool toxic); // can poison others
+	void setBloodlust(bool lust) { m_bloodlust = lust; };
+	void setToxic(bool toxic) { m_toxic = toxic; }; // can poison others
 
 	bool canBeStunned() const { return m_stunnable; };
 	bool canBeBurned() const { return m_burnable; };
@@ -93,12 +115,12 @@ public:
 	bool canBeFrozen() const { return m_freezable; };
 	bool canBePoisoned() const { return m_poisonable; };
 
-	void setCanBeStunned(bool stunnable);
-	void setCanBeBurned(bool burnable);
-	void setCanBeBled(bool bleedable);
-	void setCanBeHealed(bool healable);
-	void setCanBeFrozen(bool freezable);
-	void setCanBePoisoned(bool poisonable);
+	void setCanBeStunned(bool stunnable) { m_stunnable = stunnable; };
+	void setCanBeBurned(bool burnable) { m_burnable = burnable; };
+	void setCanBeBled(bool bleedable) { m_bleedable = bleedable; };
+	void setCanBeHealed(bool healable) { m_healable = healable; };
+	void setCanBeFrozen(bool freezable) { m_freezable = freezable; };
+	void setCanBePoisoned(bool poisonable) { m_poisonable = poisonable; };
 
 	bool isBurned() const { return m_burned; };
 	bool isBled() const { return m_bled; };
@@ -113,32 +135,32 @@ public:
 	bool isStuck() const { return m_stuck; };
 	bool isPossessed() const { return m_possessed; };
 	bool isCrippled() const { return m_crippled; };
+	bool isFragile() const { return m_fragile; };
 
-	void setBurned(bool burned);
-	void setBleed(bool bled);
-	void setStunned(bool stun);
-	void setFrozen(bool freeze);
-	void setPoisoned(bool poisoned);
-	void setInvisible(bool invisible);
-	void setEthereal(bool ethereal);
-	void setConfused(bool confused);
-	void setBuffed(bool buffed);
-	void setInvulnerable(bool invulnerable);
-	void setStuck(bool stuck);
+	void setBurned(bool burned) { m_burned = burned; };
+	void setBleed(bool bled) { m_bled = bled; };
+	void setStunned(bool stun) { m_stunned = stun; };
+	void setFrozen(bool freeze) { m_frozen = freeze; };
+	void setPoisoned(bool poisoned) { m_poisoned = poisoned; };
+	void setInvisible(bool invisible) { m_invisible = invisible; };
+	void setEthereal(bool ethereal) { m_ethereal = ethereal; };
+	void setConfused(bool confused) { m_confused = confused; };
+	void setBuffed(bool buffed) { m_buffed = buffed; };
+	void setInvulnerable(bool invulnerable) { m_invulnerable = invulnerable; };
+	void setStuck(bool stuck) { m_stuck = stuck; };
 	void setPossessed(bool possessed) { m_possessed = possessed; };
 	void setCrippled(bool crippled) { m_crippled = crippled; };
+	void setFragile(bool fragile) { m_fragile = fragile; };
 
 protected:
-	void setrandPosX(int maxcols);
-	void setrandPosY(int maxrows);
-	void setImageName(std::string image);
-	void setHasAnimation(bool hasAnimation);
-	void setAnimationFrames(std::string frames);
-	void setAnimationFrameCount(int count);
-	void setFrameInterval(int interval);
+	void setImageName(std::string image) { m_image = image; };
+	void setHasAnimation(bool hasAnimation) { m_hasAnimation = hasAnimation; };
+	void setAnimationFrames(std::string frames) { m_frames = frames; };
+	void setAnimationFrameCount(int count) { m_frameCount = count; };
+	void setFrameInterval(int interval) { m_frameInterval = interval; };
 
-	void setPlayerFlag(bool player);
-	void setMonsterFlag(bool monster);
+	void setPlayerFlag(bool player) { m_isPlayer = player; };
+	void setMonsterFlag(bool monster) { m_isMonster = monster; };
 	
 private:
 	int m_x;
@@ -163,6 +185,8 @@ private:
 	std::vector<std::shared_ptr<Afflictions>> m_afflictions;
 
 	bool m_isDead = false;
+	bool m_superDead = false;
+
 	bool m_isPlayer = false;
 	bool m_isMonster = true;
 	bool m_lavaImmune = false;
@@ -188,6 +212,7 @@ private:
 	bool m_poisoned = false;
 	bool m_stuck = false;
 	bool m_crippled = false;
+	bool m_fragile = false;
 
 	bool m_invisible = false;
 	bool m_ethereal = false;
@@ -214,6 +239,7 @@ public:
 	void attack(Dungeon &dungeon, Actors &a);
 	virtual void successfulAttack(Dungeon &dungeon, Actors &a) = 0;
 	void botchedAttack(Dungeon &dungeon, Actors &a);
+	void chainLightning(Dungeon &dungeon, Actors &a);
 
 	int getMoney() const { return m_money; };
 	void setMoney(int money) { m_money = money; };
@@ -239,9 +265,8 @@ public:
 		}
 	};
 	int getMaxMoneyBonus() const { return m_maxMoneyBonus; };
-	std::vector<std::shared_ptr<Weapon>>& getWeapons() { return m_weapons; };
+	
 	std::vector<std::shared_ptr<Drops>>& getItems() { return m_items; };
-	int getMaxWeaponInvSize() const { return m_maxwepinv; };
 	int getMaxItemInvSize() const { return m_maxiteminv; };
 
 	// Active item (Spacebar)
@@ -269,28 +294,32 @@ public:
 
 	virtual void setBlock(bool blocking) { m_blocking = blocking; };
 
-	// Unused
-	void addWeapon(std::shared_ptr<Weapon> weapon);
-	void wield(int index);
-	///
-
+	void equipWeapon(std::shared_ptr<Weapon> weapon); // Shrine
 	void storeWeapon(Dungeon &dungeon, std::shared_ptr<Weapon> weapon, bool shop = false);
 	void switchWeapon();
 	void throwWeaponTo(Dungeon &dungeon, int x, int y);
 	std::shared_ptr<Weapon> getStoredWeapon() const { return m_storedWeapon; };
+	void tradeWeapon(std::shared_ptr<Weapon> weapon); // Trader
+	void removeStoredWeapon(); // Shrine
 
 	void addItem(std::shared_ptr<Drops> drop);
 	void addItem(std::shared_ptr<Drops> drop, bool &itemAdded); // New for item collection
 	void use(Dungeon &dungeon, int index);
+	void removeItems(); // Shrine effect
+	void removeItem(int index); // Trader
 
 	void equipPassive(Dungeon &dungeon, std::shared_ptr<Passive> passive);
 	std::vector<std::shared_ptr<Passive>> getPassives() const { return m_passives; };
+	void removePassive(int index); // Trader
 
 	bool hasTrinket() const { return m_hasTrinket; };
 	void setTrinketFlag(bool hasTrinket) { m_hasTrinket = hasTrinket; };
 	std::shared_ptr<Trinket>& getTrinket() { return m_trinket; };
 	void equipTrinket(Dungeon &dungeon, std::shared_ptr<Trinket> trinket, bool shop = false);
 	void swapTrinket(Dungeon& dungeon, std::shared_ptr<Trinket> trinket, bool shop = false);
+	void equipRelic(Dungeon &dungeon, std::shared_ptr<Trinket> relic); // Shrine use
+	void removeRelic(Dungeon &dungeon); // Shrine use
+
 
 	char facingDirection() const { return m_facing; };
 	void setFacingDirection(char facing) { m_facing = facing; };
@@ -301,6 +330,10 @@ public:
 
 	int getVision() const { return m_vision; };
 	void setVision(int vision) { m_vision = vision; };
+
+	int getFavor() const { return m_favor; };
+	void increaseFavorBy(int favor);
+	void decreaseFavorBy(int favor);
 
 	// Dual wielding bonus
 	bool isDualWielding() const { return m_dualWield; };
@@ -356,12 +389,51 @@ public:
 	bool hasMonsterIllumination() const { return m_monsterIllumination; };
 	void setMonsterIllumination(bool illuminate) { m_monsterIllumination = illuminate; };
 
+	bool hasGoldIllumination() const { return m_goldIllumination; };
+	void setGoldIllumination(bool illuminate) { m_goldIllumination = illuminate; };
+
+	bool hasGoldInvulnerability() const { return m_goldInvulnerability; };
+	void setGoldInvulnerability(bool ability) { m_goldInvulnerability = ability; };
+
 	bool hasResonantSpells() const { return m_resonantSpells; };
 	void setResonantSpells(bool resonant) { m_resonantSpells = resonant; };
 
 	bool isSlow() const { return m_slow; };
 	void setSlow(bool slow) { m_slow = slow; };
+
+	bool hasChainLightning() const { return m_chainLightning; };
+	void setChainLightning(bool lightning) { m_chainLightning = lightning; };
+
+	bool hasCripplingBlows() const { return m_cripplingBlows; };
+	void setCripplingBlows(bool cripple) { m_cripplingBlows = cripple; };
+
+	bool hasMatrixVision() const { return m_matrixVision; };
+	void setMatrixVision(bool matrix) { m_matrixVision = matrix; };
+
+	bool hasHarshAfflictions() const { return m_harshAfflictions; };
+	void setHarshAfflictions(bool harsh) { m_harshAfflictions = harsh; };
+
+	bool hasSpellRetaliation() const { return m_spellRetaliation; };
+	void setSpellRetaliation(bool retaliate) { m_spellRetaliation = retaliate; };
+
+	bool hasAfflictionOverride() const { return m_afflictionOverride; };
+	void setAfflictionOverride(bool afflict) { m_afflictionOverride = afflict; };
+
+	int getTimerReduction() const { return m_timerReduction; };
+	void setTimerReduction(float reduction) { m_timerReduction = reduction; };
+
+	bool hasFatStacks() const { return m_fatStacks; };
+	void setFatStacks(bool stack) { m_fatStacks = stack; };
+
+	bool hasBonusRoll() const { return m_bonusRoll; };
+	void setBonusRoll(bool bonus) { m_bonusRoll = bonus; };
+
+	bool hasFragileRetaliation() const { return m_fragileRetaliation; };
+	void setFragileRetaliation(bool fragile) { m_fragileRetaliation = fragile; };
 	/// End special abilities
+
+	bool spiritActive() const { return m_spiritActive; };
+	void setSpiritActive(bool flag) { m_spiritActive = flag; };
 
 	bool hasSkeletonKey() const;
 	void checkKeyConditions();
@@ -385,7 +457,6 @@ protected:
 	void setActiveItem(std::shared_ptr<Objects> active) { m_activeItem = active; };
 
 private:
-	std::vector<std::shared_ptr<Weapon>> m_weapons;
 	std::shared_ptr<Weapon> m_storedWeapon = nullptr;
 
 	bool m_hasActiveItem;
@@ -394,8 +465,8 @@ private:
 	std::vector<std::shared_ptr<Drops>> m_items;
 	std::vector<std::shared_ptr<Passive>> m_passives;
 
-	std::shared_ptr<Trinket> m_trinket = nullptr;
 	bool m_hasTrinket = false;
+	std::shared_ptr<Trinket> m_trinket = nullptr;
 
 	int m_maxhp;
 	int m_maxarmor = 99;
@@ -406,12 +477,16 @@ private:
 	int m_money = 0;
 	int m_moneyMultiplier = 1; // money multiplied upon monster death
 
-	// flat extra money, not based on multiplier
+	// Flat extra money; not based on multiplier
 	// increases by 0.25 upon successful hit; decreases by 0.50 if hit
 	float m_moneyBonus = 0;
 	int m_maxMoneyBonus = 10;
 
 	int m_vision = 5;
+
+	// Favor works sort of like curse, except favor can be positive or negative.
+	// Positive favor will help the player, whereas negative favor will harm them.
+	int m_favor = 0;
 
 	bool m_dualWield = false;
 
@@ -432,9 +507,22 @@ private:
 	bool m_trapIllumination = false; // Illuminates certain traps
 	bool m_itemIllumination = false; // Illuminates item locations
 	bool m_monsterIllumination = false; // Illuminates monsters
+	bool m_goldIllumination = false; // Illuminates gold. Can only be obtained through BrightStar relic.
+	bool m_goldInvulnerability = false; // High chance to gain 1 turn of invulnerability after collecting gold. Only obtainable through Riches relic.
 	bool m_resonantSpells = false; // Spells have a chance to not be consumed on use
 	bool m_slow = false; // Slowness means that monsters get to move before the player
-
+	bool m_chainLightning = false; // Chance to chain damage through nearby enemies. Only obtainable through Lightbulb relic.
+	bool m_cripplingBlows = false; // Chance to cripple enemies on hit. Only obtainable through MatrixVision relic.
+	bool m_matrixVision = false; // Chance for traps and monster to skip a few turns. Only obtainable through MatrixVision relic.
+	bool m_harshAfflictions = false; // All inflicted afflictions have longer duration. Only obtainable through SuperMagicEssence relic.
+	bool m_spellRetaliation = false; // Chance to cast random spell after being hit. Only obtainable through SuperMagicEssence relic.
+	bool m_afflictionOverride = false; // All afflictions have a chance to affect any enemy, ignoring any resistances. Only obtainable through SuperMagicEssence relic.
+	float m_timerReduction = 0.0f; // Makes the level timer slower.
+	bool m_fatStacks = false; // Allows all items to become stackable.
+	bool m_bonusRoll = false; // Grants the player a bonus roll to save from certain afflictions.
+	bool m_fragileRetaliation = false; // Small chance to give an enemy Fragile status when attacked.
+	
+	bool m_spiritActive = false; // Indicator that the ForgottenSpirit is to spawn
 	
 	bool m_blocking = false;
 
@@ -534,6 +622,31 @@ private:
 	std::vector<std::shared_ptr<Rocks>> m_rocks;
 };
 
+class Acrobat : public Player {
+public:
+	// The Acrobat's ability allows them to roll/maneuver past enemies and over obstacles.
+	// They have a stamina meter though
+	Acrobat();
+
+	void useActiveItem(Dungeon &dungeon);
+	void equipActiveItem(Dungeon &dungeon, std::shared_ptr<Objects> active, bool shop = false);
+
+	bool activeHasMeter() const { return true; };
+	int getCurrentActiveMeter() const { return m_stamina; };
+	int getMaxActiveMeter() const { return m_maxStamina; };
+	bool activeHasAbility() const { return false; };
+
+	bool canBlock() const { return false; };
+	bool canUseShield() const { return false; };
+
+	void successfulAttack(Dungeon &dungeon, Actors &a);
+
+private:
+	std::shared_ptr<Drops> m_item = nullptr;
+	int m_stamina;
+	int m_maxStamina;
+};
+
 class TheMadman : public Player {
 public:
 	// Active item is a teleporter. Cannot be replaced.
@@ -568,20 +681,21 @@ public:
 	virtual void checkSatisfaction(Dungeon &dungeon) = 0;
 	virtual void reward(Dungeon& dungeon) = 0;
 
-	void setDialogue(std::vector<std::string> dialogue) { m_dialogue = dialogue; };
-	void setChoices(std::vector<std::string> choices) { m_promptChoices = choices; };
-	virtual void addInteractedDialogue(std::vector<std::string> &dialogue) = 0;
-	virtual void addSatisfiedDialogue(std::vector<std::string> &dialogue) = 0;
-	virtual void addFinalDialogue(std::vector<std::string> &dialogue) = 0;
+	virtual void addInitialDialogue() { return; };
+	virtual void addInteractedDialogue() = 0;
+	virtual void addSatisfiedDialogue() = 0;
+	virtual void addFinalDialogue() = 0;
 	void setSatisfaction(bool satisfied) { m_satisfied = satisfied; };
 
 	std::vector<std::string> getDialogue() const { return m_dialogue; };
 	std::vector<std::string> getChoices() const { return m_promptChoices; };
-	void useResponse(int index) { useResponse(m_dialogue, index); }; // Index of the choice that the player made in the choices vector
+	virtual void useResponse(int index) { return; }; // Index of the choice that the player made in the choices vector
 
 protected:
+	void addDialogue(std::string line) { m_dialogue.push_back(line); }; // Adds line to to back of the dialogue vector
+	void addChoice(std::string line) { m_promptChoices.push_back(line); };
+
 	void playDialogue(Dungeon &dungeon);
-	virtual void useResponse(std::vector<std::string> &dialogue, int index) { return; }; // Index of the choice that the player made in the choices vector
 
 	void rewardWasGiven() { m_rewardGiven = true; };
 
@@ -590,10 +704,16 @@ protected:
 	int getInteractionLimit() const { return m_interactionLimit; };
 	void setInteractionLimit(int limit) { m_interactionLimit = limit; };
 
-private:
+	Dungeon *m_dungeon = nullptr;
+
+	// Indicates what stage of prompt we're at so that we use
+	// the appropriate set of choices.
+	int m_promptStage = 1;
+
 	std::vector<std::string> m_dialogue;
 	std::vector<std::string> m_promptChoices;
 
+private:
 	bool m_interacted = false; // flag for initial interaction with player
 	bool m_satisfied = false; // flag for determining if player has met the NPCs request
 	bool m_rewardGiven = false; // flag so that players are not given more than one reward
@@ -611,9 +731,9 @@ public:
 	void checkSatisfaction(Dungeon& dungeon);
 	void reward(Dungeon& dungeon);
 
-	void addInteractedDialogue(std::vector<std::string> &dialogue);
-	void addSatisfiedDialogue(std::vector<std::string> &dialogue);
-	void addFinalDialogue(std::vector<std::string> &dialogue);
+	void addInteractedDialogue();
+	void addSatisfiedDialogue();
+	void addFinalDialogue();
 
 private:
 	std::string m_wantedCreature;
@@ -624,22 +744,22 @@ class Memorizer : public NPC {
 public:
 	Memorizer(Dungeon *dungeon, int x, int y);
 
-	void useResponse(std::vector<std::string> &dialogue, int index);
+	void useResponse(int index);
 	void checkSatisfaction(Dungeon& dungeon);
 	void reward(Dungeon& dungeon);
 
-	void addInteractedDialogue(std::vector<std::string> &dialogue);
-	void addSatisfiedDialogue(std::vector<std::string> &dialogue);
-	void addFinalDialogue(std::vector<std::string> &dialogue);
+	void addInteractedDialogue();
+	void addSatisfiedDialogue();
+	void addFinalDialogue();
 
 private:
-	Dungeon *m_dungeon = nullptr;
+	//Dungeon *m_dungeon = nullptr;
 	std::string m_topic;
 	std::string m_correctChoice;
 
 	// Since there are multiple prompts, this indicates what stage of prompt we're at so that we use
 	// the appropriate set of choices.
-	int m_promptStage = 1;
+	//int m_promptStage = 1;
 };
 
 class Shopkeeper : public NPC {
@@ -649,12 +769,91 @@ public:
 	void checkSatisfaction(Dungeon& dungeon);
 	void reward(Dungeon& dungeon);
 
-	void addInteractedDialogue(std::vector<std::string> &dialogue);
-	void addSatisfiedDialogue(std::vector<std::string> &dialogue);
-	void addFinalDialogue(std::vector<std::string> &dialogue);
+	void addInteractedDialogue();
+	void addSatisfiedDialogue();
+	void addFinalDialogue();
 
 private:
 
+};
+
+class Blacksmith : public NPC {
+public:
+	// Allows the player the upgrade their weapon's damage. It does not carry over between weapons.
+	// The player can also repair items, if applicable.
+	// On occasion, the Blacksmith will offer weapons for sale.
+	Blacksmith(Dungeon *dungeon, int x, int y);
+
+	void useResponse(int index);
+	void improveWeapon();
+	void buyItem();
+	void mingle();
+
+	void checkSatisfaction(Dungeon& dungeon);
+	void reward(Dungeon& dungeon);
+
+	void addInitialDialogue();
+	void addInteractedDialogue();
+	void addSatisfiedDialogue();
+	void addFinalDialogue();
+
+private:
+	int m_improveCost;
+};
+
+class Enchanter : public NPC {
+public:
+	// Can imbue weapons with magical effects such as igniting, poison, freezing.
+	// Can increase the player's active item maximums, if applicable.
+	// Rarely, offers Magic Essence for sale (+intellect).
+	Enchanter(Dungeon *dungeon, int x, int y);
+
+	void useResponse(int index);
+	void imbueWeapon();
+	void buyItem();
+	void mingle();
+
+	void checkSatisfaction(Dungeon& dungeon);
+	void reward(Dungeon& dungeon);
+
+	void addInitialDialogue();
+	void addInteractedDialogue();
+	void addSatisfiedDialogue();
+	void addFinalDialogue();
+
+private:
+	int determineCost(Weapon::ImbuementType type);
+
+	int m_imbuementCost;
+};
+
+class Trader : public NPC {
+public:
+	// The player can trade out one of their passives for a new one at random.
+	// Can trade inventory items for gold or another item.
+	// Can trade one weapon for another at random.
+	Trader(Dungeon *dungeon, int x, int y);
+
+	void useResponse(int index);
+	void startTrade();
+	void makeTrade(int index);
+	void tradePassive();
+	void tradeItem();
+	void tradeWeapon();
+	void mingle();
+
+	void checkSatisfaction(Dungeon& dungeon);
+	void reward(Dungeon& dungeon);
+
+	void addInitialDialogue();
+	void addInteractedDialogue();
+	void addSatisfiedDialogue();
+	void addFinalDialogue();
+
+private:
+	bool m_passiveTraded = false;
+	bool m_itemTraded = false;
+	bool m_weaponTraded = false;
 };
 
 class OutsideMan1 : public NPC {
@@ -665,9 +864,9 @@ public:
 	void checkSatisfaction(Dungeon& dungeon) { return; };
 	void reward(Dungeon& dungeon) { return; };
 
-	void addInteractedDialogue(std::vector<std::string> &dialogue);
-	void addSatisfiedDialogue(std::vector<std::string> &dialogue) { return; };
-	void addFinalDialogue(std::vector<std::string> &dialogue) { return; };
+	void addInteractedDialogue();
+	void addSatisfiedDialogue() { return; };
+	void addFinalDialogue() { return; };
 };
 
 class OutsideMan2 : public NPC {
@@ -675,15 +874,13 @@ public:
 	// A man that hangs outside the entrance to the world hub
 	OutsideMan2(int x, int y);
 
+	void useResponse(int index);
 	void checkSatisfaction(Dungeon& dungeon) { return; };
 	void reward(Dungeon& dungeon) { return; };
 
-	void addInteractedDialogue(std::vector<std::string> &dialogue);
-	void addSatisfiedDialogue(std::vector<std::string> &dialogue) { return; };
-	void addFinalDialogue(std::vector<std::string> &dialogue) { return; };
-
-protected:
-	void useResponse(std::vector<std::string> &dialogue, int index);
+	void addInteractedDialogue();
+	void addSatisfiedDialogue() { return; };
+	void addFinalDialogue() { return; };
 };
 
 class OutsideWoman1 : public NPC {
@@ -694,9 +891,9 @@ public:
 	void checkSatisfaction(Dungeon& dungeon) { return; };
 	void reward(Dungeon& dungeon) { return; };
 
-	void addInteractedDialogue(std::vector<std::string> &dialogue);
-	void addSatisfiedDialogue(std::vector<std::string> &dialogue) { return; };
-	void addFinalDialogue(std::vector<std::string> &dialogue) { return; };
+	void addInteractedDialogue();
+	void addSatisfiedDialogue() { return; };
+	void addFinalDialogue() { return; };
 };
 
 
@@ -721,6 +918,7 @@ public:
 	virtual void extraAttackEffects(Dungeon& dungeon) { return; };
 	virtual void death(Dungeon &dungeon);
 	virtual void deathDrops(Dungeon &dungeon) { return; };
+	virtual void spriteCleanup(Dungeon &dungeon);
 
 	bool wasDestroyed() const { return m_destroyed; };
 	void setDestroyed(bool destroyed) { m_destroyed = destroyed; };
@@ -753,8 +951,8 @@ public:
 
 	virtual void addSegments(Dungeon &dungeon) { return; }; // Adds all segments of a monster if it is multi-segmented
 	virtual void removeSegments(Dungeon &dungeon) { return; }; // Removes all segments of a monster if it is multi-segmented
-	virtual int getSegmentX() const { return getPosX(); }; // X coordinate of the segmented monster's main part
-	virtual int getSegmentY() const { return getPosY(); }; // Y coordinate of the segmented monster's main part
+	virtual int getParentX() const { return getPosX(); }; // X coordinate of the segmented monster's main part
+	virtual int getParentY() const { return getPosY(); }; // Y coordinate of the segmented monster's main part
 
 	bool hasExtraSprites() { return m_hasExtraSprites; };
 	virtual void setSpriteColor(cocos2d::Color3B color) { return; };
@@ -851,6 +1049,22 @@ public:
 };
 ///
 
+class ForgottenSpirit : public Monster {
+public:
+	// A slow-moving, unkillable spirit that can travel through walls,
+	// can travel through all enemies, and is unaffected by all traps.
+	// If it touches the player, they die instantly.
+	ForgottenSpirit(Dungeon &dungeon, int x, int y);
+
+	bool isSpirit() const { return true; }
+
+	void moveTo(Dungeon &dungeon, int x, int y, float time = 0.10f);
+	void move(Dungeon &dungeon);
+	void attack(Dungeon &dungeon, Player &p);
+
+private:
+	int m_turns = 4;
+};
 
 class MonsterSegment : public Monster {
 public:
@@ -862,15 +1076,15 @@ public:
 
 	bool isMonsterSegment() const { return true; }
 
-	void setSegmentX(int x) { m_segmentX = x; };
-	void setSegmentY(int y) { m_segmentY = y; };
-	virtual int getSegmentX() const { return m_segmentX; }; // X coordinate of the segmented monster's main part
-	virtual int getSegmentY() const { return m_segmentY; }; // Y coordinate of the segmented monster's main part
+	void setParentX(int x) { m_parentX = x; };
+	void setParentY(int y) { m_parentY = y; };
+	virtual int getParentX() const { return m_parentX; }; // X coordinate of the segmented monster's parent
+	virtual int getParentY() const { return m_parentY; }; // Y coordinate of the segmented monster's parent
 
 private:
 	// Coordinates of the main monster to which it is attached
-	int m_segmentX;
-	int m_segmentY;
+	int m_parentX;
+	int m_parentY;
 };
 
 class Goblin : public Monster {
@@ -960,8 +1174,9 @@ private:
 
 class Zapper : public Monster {
 public:
-	Zapper(int x, int y, int rows);
-	~Zapper();
+	Zapper(Dungeon &dungeon, int x, int y, int rows);
+	
+	void spriteCleanup(Dungeon &dungeon);
 
 	void moveTo(Dungeon &dungeon, int x, int y, float time = 0.10f);
 	void move(Dungeon &dungeon);
@@ -985,15 +1200,16 @@ private:
 
 class Spinner : public Monster {
 public:
-	Spinner(int x, int y, int rows);
-	~Spinner();
+	Spinner(Dungeon &dungeon, int x, int y, int rows);
+	
+	void spriteCleanup(Dungeon &dungeon);
 
 	void moveTo(Dungeon &dungeon, int x, int y, float time = 0.10f);
 	void move(Dungeon &dungeon);
 	void attack(Dungeon &dungeon, Player &p);
 
 	void setInitialFirePosition(int x, int y, int rows);
-	void setFirePosition(char move);
+	void setFirePosition(Dungeon &dungeon, char move);
 
 	bool isClockwise() const;
 	int getAngle() const;
@@ -1001,8 +1217,6 @@ public:
 
 	bool playerWasHit(const Actors &a);
 
-	cocos2d::Sprite* getInner() const;
-	cocos2d::Sprite* getOuter() const;
 	void setSpriteVisibility(bool visible);
 	void setSpriteColor(cocos2d::Color3B color);
 	void addLightEmitters(const Dungeon &dungeon, std::vector<std::pair<int, int>> &lightEmitters);
@@ -1013,9 +1227,6 @@ private:
 
 	std::shared_ptr<Objects> m_innerFire;
 	std::shared_ptr<Objects> m_outerFire;
-
-	cocos2d::Sprite* inner;
-	cocos2d::Sprite* outer;
 };
 
 class Bombee : public Monster {
@@ -1228,6 +1439,7 @@ private:
 	int m_webCount; // number of webs the spiders will create up to
 
 	bool m_primed = false;
+	bool m_wait = false;
 };
 
 class ShootingSpider : public Spider {
@@ -1358,6 +1570,8 @@ public:
 
 	bool setTailPosition(Dungeon &dungeon);
 	void rerollMonsterPosition(Dungeon &dungeon, int &x, int &y);
+
+	void moveTo(Dungeon &dungeon, int x, int y, float time = 0.10f);
 	void move(Dungeon &dungeon);
 	void extraAttackEffects(Dungeon& dungeon);
 
