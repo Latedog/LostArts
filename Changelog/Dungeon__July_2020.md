@@ -219,3 +219,8 @@
 - Added a temporary working fade transition. Currently there's a noticeable camera "jerk" once the transition completes, but it works. Fix will likely do with no repositioning the scenes and adjust all sprite placements accordingly (which will take some time to redo).
 - Removed the monsterDeath function from the FirstBoss class
 - Smasher's death now creates an idol object and assigns it to a _Tile_. This removes the last instance of the Tile 'bottom' variable.
+
+7/18:
+
+- All Chests now determine their item when they are constructed for polymorphism and game mechanical purposes. attemptOpen and openEffect functions added for chests that have special effects like TeleportingChest and HauntedChest.
+- Added destructor to the Chests class since it now has an Object pointer member variable
