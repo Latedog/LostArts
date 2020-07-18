@@ -230,3 +230,6 @@
 - The light source vector now requires a name tag to identify the source more explicitly. As such, adding and removing light sources requires this tag to be provided.
 - Fixed bug where items would not be stacked if player had FatStacks and their inventory was full.
 - Fixed bug where MovingBlocks would be overlayed on top of the player if they were crushed.
+- Removed queueMoveSprite and moveSprite functions that used a char parameter, as these were unnecessary.
+- Added coordinate transformation functions to convert between sprite and dungeon coordinates. This consolidates all instances of these transformations into one place so that they can be changed easily.
+- Fixed bug on "Third" floor where the unbreakable walls would be invisible--helped in part by this transition to transformation functions.
