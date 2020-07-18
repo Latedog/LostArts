@@ -225,3 +225,4 @@
 - All Chests now determine their item when they are constructed for polymorphism and game mechanical purposes. attemptOpen and openEffect functions added for chests that have special effects like TeleportingChest and HauntedChest.
 - Added destructor to the Chests class since it now has an Object pointer member variable
 - Partially implemented Favor system in Player class
+- Added ForgottenSpirit enemy which is a special monster that kills the player instantly when touched. A 'spirit' flag has been added to the _Tile_ struct to facilitate this, since this monster ignores all other enemies and walls.
