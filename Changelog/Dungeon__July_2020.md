@@ -227,3 +227,4 @@
 - Partially implemented Favor system in Player class
 - Added ForgottenSpirit enemy which is a special monster that kills the player instantly when touched. A 'spirit' flag has been added to the _Tile_ struct to facilitate this, since this monster ignores all other enemies and walls.
 - Added ThunderCloud Spell and corresponding ThunderCloud trap.
+- The light source vector now requires a name tag to identify the source more explicitly. As such, adding and removing light sources requires this tag to be provided.
