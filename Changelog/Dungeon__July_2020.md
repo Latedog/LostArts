@@ -224,3 +224,4 @@
 
 - All Chests now determine their item when they are constructed for polymorphism and game mechanical purposes. attemptOpen and openEffect functions added for chests that have special effects like TeleportingChest and HauntedChest.
 - Added destructor to the Chests class since it now has an Object pointer member variable
+- Partially implemented Favor system in Player class
