@@ -236,3 +236,4 @@
 - Fixed bug where the ThunderCloud would not move vertically
 - Redid Smasher's move function and consolidated all 4 directions into a single function.
 - All door, trap, and wall sprites are now created when the Dungeon is first being constructed. A function for creating wall sprites was added.
+- Dungeon constructor now accepts a pointer to a player. The player is no longer assigned anywhere else.
