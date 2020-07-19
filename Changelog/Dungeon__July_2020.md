@@ -239,3 +239,8 @@
 - Dungeon constructor now accepts a pointer to a player. The player is no longer assigned anywhere else.
 - Moved the randInt function into global.h
 - Created new source files LootUtils.h/.cpp to handle loot tables and rarity.
+
+7/19:
+
+- Removed FirstBoss class's monster/player pushing functions.
+- Removed the overloaded assignment operators for the Dungeons since they weren't used/needed.
