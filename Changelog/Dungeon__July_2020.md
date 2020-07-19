@@ -244,3 +244,4 @@
 
 - Removed FirstBoss class's monster/player pushing functions.
 - Removed the overloaded assignment operators for the Dungeons since they weren't used/needed.
+- Removed peekDungeon function from FirstBoss and devirtualized the peekDungeon function
