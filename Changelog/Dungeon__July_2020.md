@@ -255,3 +255,4 @@
 - Removed the monster_name, item_name, and overlap variables from the _Tile_ struct
 - Reclassified Doors as Walls which also allows them to be destroyed.
 - Added wallObject variable to _Tile_ struct to allow simple/fast access to walls if they need to be destroyed
+- Eliminated the door_sprites vector. Since doors are now added to the Wall vector, they do not need to be checked individually when updating sprite lighting.
