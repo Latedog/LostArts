@@ -249,4 +249,4 @@
 
 7/20:
 
-- Added a 'range' parameter to linearActorPush to specify how far we check for monsters. This was needed to make WindTunnel work as intended. In addition, linearActorPush was not working correctly when pushing variable amounts of monsters, especially with the WindBlast Spell. This has been corrected, and now monster pushed correctly to give a "piled up" effect. Previously, monsters could be pushed a distance equal to the range that the first monster was supposed to be pushed, but this was wrong if there was a large gap between them.
+- Added a 'range' parameter to linearActorPush to specify how far we check for monsters. This was needed to make WindTunnel work as intended. In addition, linearActorPush was not working correctly when pushing variable amounts of monsters, especially with the WindBlast Spell. This has been corrected, and now monsters are pushed correctly to give a "piled up" effect. Previously, monsters could be pushed a distance equal to the range that the first monster was supposed to be pushed, but this was incorrect behavior if there was a large gap between them.
