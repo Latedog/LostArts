@@ -250,3 +250,4 @@
 7/20:
 
 - Added a 'range' parameter to linearActorPush to specify how far we check for monsters. This was needed to make WindTunnel work as intended. In addition, linearActorPush was not working correctly when pushing variable amounts of monsters, especially with the WindBlast Spell. This has been corrected, and now monsters are pushed correctly to give a "piled up" effect. Previously, monsters could be pushed a distance equal to the range that the first monster was supposed to be pushed, but this was incorrect behavior if there was a large gap between them.
+- Created a Wall class for all types of walls. Includes boundary walls and the Fountain. All created instances of walls are now Wall objects. This also resolves a problem where some wall sprites would not be illuminated because of imprecision in converting between sprite and dungeon coordinates. The Dungeon class now has functions for removing walls.
