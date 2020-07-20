@@ -260,3 +260,4 @@
 - Removed openDoor function from the Dungeon class and changed ThirdFloor door functions to not use the wall_type identifier.
 - Eliminated wall_type identifier from the _Tile_ struct.
 - Door checking that was done in the player move function was moved a new interact function for Doors.
+- Added an Exit/Staircase pointer variable to the Dungeon. Redid SecondFloor's exit unlocking mechanic by adding interact and locking functions to the Staircase.
