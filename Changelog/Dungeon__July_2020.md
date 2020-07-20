@@ -253,3 +253,5 @@
 - Created a Wall class for all types of walls. Includes boundary walls and the Fountain. All created instances of walls are now Wall objects. This also resolves a problem where some wall sprites would not be illuminated because of imprecision in converting between sprite and dungeon coordinates. The Dungeon class now has functions for removing walls.
 - Completely eliminated the wall_sprites vector
 - Removed the monster_name, item_name, and overlap variables from the _Tile_ struct
+- Reclassified Doors as Walls which also allows them to be destroyed.
+- Added wallObject variable to _Tile_ struct to allow simple/fast access to walls if they need to be destroyed
