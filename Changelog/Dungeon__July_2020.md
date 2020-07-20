@@ -258,3 +258,4 @@
 - Added wallObject variable to _Tile_ struct to allow simple/fast access to walls if they need to be destroyed
 - Eliminated the door_sprites vector. Since doors are now added to the Wall vector, they do not need to be checked individually when updating sprite lighting.
 - Removed openDoor function from the Dungeon class and changed ThirdFloor door functions to not use the wall_type identifier.
+- Eliminiated wall_type identifier from the _Tile_ struct.
