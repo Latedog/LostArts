@@ -265,3 +265,4 @@
 - Eliminated the item_sprites vector and replaced it with an Objects vector for items. Removed all sprite vectors from the LevelScene class as well as the setSprite function. All items must now be added to this item vector as well as to its appropriate Tile.
 - Removed 'shop' parameter from the Player functions since the item change removes the necessity for it.
 - Renamed Trinkets to Relics including places in the HUD
+- Added actual DevilsWater trap and a regular Water trap.
