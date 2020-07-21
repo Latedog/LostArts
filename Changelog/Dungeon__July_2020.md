@@ -261,3 +261,5 @@
 - Eliminated wall_type identifier from the _Tile_ struct.
 - Door checking that was done in the player move function was moved a new interact function for Doors.
 - Added an Exit/Staircase pointer variable to the Dungeon. Redid SecondFloor's exit unlocking mechanic by adding interact and locking functions to the Staircase.
+- All items now require that x and y coordinates be specified during construction.
+- Eliminated the item_sprites vector and replaced it with an Objects vector for items. Removed all sprite vectors from the LevelScene class as well as the setSprite function. All items must now be added to this item vector as well as to its appropriate Tile.
