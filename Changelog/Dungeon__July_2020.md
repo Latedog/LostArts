@@ -278,3 +278,4 @@
 - Added ExplosiveBarrel Breakable
 - Added PoisonWater trap and made Water traps poisonable.
 - In a stroke of genius, I have realized that adding helper functions for the various types of _Tile_ struct flags would reduce code headache with the constant declaration of the dungeon's column count. Now we can call these functions using just the x and y coordinates.
+- PoisonPuddle's now visually dissipate if they were naturally worn over time.
