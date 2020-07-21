@@ -276,3 +276,4 @@
 
 - Burn and Poison afflictions now require a Player parameter so that the sound effects are played at appropriate levels.
 - Added ExplosiveBarrel Breakable
+- Added PoisonWater trap and made Water traps poisonable.
