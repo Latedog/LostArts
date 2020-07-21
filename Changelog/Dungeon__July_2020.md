@@ -267,3 +267,7 @@
 - Renamed Trinkets to Relics including places in the HUD
 - Added actual DevilsWater trap and a regular Water trap.
 - Changed the cocos2d::Scene pointer to a LevelScene pointer
+- All monsters now require a Dungeon parameter.
+- Created a floor sprite creation function in the Dungeon class.
+- Completely eliminated the need for the renderDungeon function in GUI.
+- Removed the trap_name identifier in the _Tile_ struct.
