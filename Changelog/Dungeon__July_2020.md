@@ -266,3 +266,4 @@
 - Removed 'shop' parameter from the Player functions since the item change removes the necessity for it.
 - Renamed Trinkets to Relics including places in the HUD
 - Added actual DevilsWater trap and a regular Water trap.
+- Changed the cocos2d::Scene pointer to a LevelScene pointer
