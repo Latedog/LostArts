@@ -271,3 +271,7 @@
 - Created a floor sprite creation function in the Dungeon class.
 - Completely eliminated the need for the renderDungeon function in GUI.
 - Removed the trap_name identifier in the _Tile_ struct.
+
+7/21:
+
+- Burn and Poison afflictions now require a Player parameter so that the sound effects are played at appropriate levels.
