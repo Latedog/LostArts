@@ -290,3 +290,5 @@
 - Added Scavenger Passive
 - Added WildMushroom item
 - Added the randReal function to allow for more precise drop rates
+- Required a Dungeon parameter for -all- traps so that all sprite creation and flag setting is done when the object is created.
+- Moved the code for generating npcs, monsters, etc. into their own functions.
