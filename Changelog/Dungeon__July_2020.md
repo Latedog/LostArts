@@ -281,3 +281,6 @@
 - PoisonPuddle's now visually dissipate if they were naturally worn over time.
 - Moved ImbuementType enum class outside of the Weapon class
 - Replaced include headers in Dungeon.h to reduce dependencies.
+- More or less completed the random loot rolling in LootUtils
+- Implemented a LootTable which tracks which passives and relics the player has already encountered so that they do not get them twice in the same run.
+- Most chests now use the random loot rolling to determine their items.
