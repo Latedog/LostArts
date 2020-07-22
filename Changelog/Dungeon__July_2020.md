@@ -289,4 +289,4 @@
 
 - Added Scavenger Passive
 - Added WildMushroom item
-- Added the randReal function for slightly more randomness
+- Added the randReal function to allow for more precise drop rates
