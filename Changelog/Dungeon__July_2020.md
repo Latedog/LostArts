@@ -280,3 +280,4 @@
 - In a stroke of genius, I have realized that adding helper functions for the various types of _Tile_ struct flags would reduce code headache with the constant declaration of the dungeon's column count. Now we can call these functions using just the x and y coordinates.
 - PoisonPuddle's now visually dissipate if they were naturally worn over time.
 - Moved ImbuementType enum class outside of the Weapon class
+- Replaced include headers in Dungeon.h to reduce dependencies.
