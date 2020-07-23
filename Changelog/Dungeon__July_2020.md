@@ -296,3 +296,4 @@
 - Reclassified Passives as Objects instead of Drops
 - Completed current implementation of the LootTable drops
 - Added unapply function to all Passives to allow for removal of passives
+- Shrines now prioritize taking passives for health restore
