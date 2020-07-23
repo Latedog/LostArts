@@ -298,3 +298,6 @@
 - Added unapply function to all Passives to allow for removal of passives
 - Shrines now prioritize taking passives for health restore
 - Devirtualized the Monster death function and those that made use of it (ItemThief and Smasher) had theirs changed into deathDrops functions.
+- Added an NPCTable so that players do not encounter the same NPC on the same level twice.
+- Added GameTable class that initializes all other tables
+- Puddles and (Devils) Water now douse Embers. Embers now visibly dissipate when they are destroyed.
