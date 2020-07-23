@@ -294,3 +294,5 @@
 - Moved the code for generating npcs, monsters, etc. into their own functions.
 - Eliminated the dungeon parameter from all Traps since Traps are given the Dungeon pointer when constructed. As such, all trapAction functions and the like have had their Dungeon parameters removed as well.
 - Reclassified Passives as Objects instead of Drops
+- Completed current implementation of the LootTable drops
+- Added unapply function to all Passives to allow for removal of passives
