@@ -301,3 +301,9 @@
 - Added an NPCTable so that players do not encounter the same NPC on the same level twice.
 - Added GameTable class that initializes all other tables
 - Puddles and (Devils) Water now douse Embers. Embers now visibly dissipate when they are destroyed.
+
+7/23:
+
+- Adding new functions for adding/removing gold, including a money vector for Gold objects.
+- Removed addGoldSprite function and money_sprites member variable
+- Fixed a bug that would allow the game to be cheesed with the inventory key
