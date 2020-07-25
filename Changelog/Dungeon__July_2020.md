@@ -313,3 +313,4 @@
 - Added PoisonMister trap
 - Added PoisonBubble "enemy"
 - Fixed a bug where the PoisonCloud item's sprite would not become affected by lighting and would not be triggered from a flag unsetting in the ActiveBomb constructor
+- Fixed a bug where you could see the item inside a chest because rollItem's create flag was set true on SilverChests
