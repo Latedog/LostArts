@@ -307,3 +307,9 @@
 - Adding new functions for adding/removing gold, including a money vector for Gold objects.
 - Removed addGoldSprite function and money_sprites member variable
 - Fixed a bug that would allow the game to be cheesed with the inventory key
+
+7/24:
+
+- Added PoisonMister trap
+- Added PoisonBubble "enemy"
+- Fixed a bug where the PoisonCloud item's sprite would not become affected by lighting and would not be triggered from a flag unsetting in the ActiveBomb constructor
