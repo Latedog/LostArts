@@ -318,3 +318,5 @@
 7/25:
 
 - Reworked Bows so that you must wind them up before shooting. Range and damage was increased to make them feel more natural.
+- Added Stalactite trap. The lighting of it is currently messed up because its lighting depends on the traps actual position, which is separated from its sprite.
+- Added another damageMonster function that accepts x and y coordinates for easier implementation.
