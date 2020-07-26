@@ -325,5 +325,6 @@
 - Implemented CrystalShooter enemy
 - Implemented CrystalBeetle enemy
 - Implemented Rabbit enemy
-- Implemented Tree
-- Implemented TreeRoot
+- Implemented Tree trap
+- Implemented TreeRoot trap
+- Implemented GiantCrystal trap
