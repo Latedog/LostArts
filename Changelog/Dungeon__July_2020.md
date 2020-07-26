@@ -329,3 +329,9 @@
 - Implemented TreeRoot trap
 - Implemented GiantCrystal trap
 - Implemented BrokenCrystals trap (comes from breaking a GiantCrystal)
+
+7/26:
+
+- Removed the dex boost from the Confusion affliction
+- The Stat Potion now gives the player a Dex Buff affliction instead of Confusion applying it
+- Added CharredWood Breakable
