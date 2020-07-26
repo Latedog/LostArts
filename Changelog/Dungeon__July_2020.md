@@ -328,3 +328,4 @@
 - Implemented Tree trap
 - Implemented TreeRoot trap
 - Implemented GiantCrystal trap
+- Implemented BrokenCrystals trap (comes from breaking a GiantCrystal)
