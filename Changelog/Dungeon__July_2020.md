@@ -337,3 +337,4 @@
 - Added CharredWood Breakable
 - Added MagmaHeart item and associated code in the Dungeon constructor
 - Partially implemented OldSmokey. No mechanism exists with which to create a Smoke effect yet.
+- Implemented MagmaTide trap. Currently if it contracts, then the player will take no damage if they attempt to walk on top of the lava.
