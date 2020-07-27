@@ -336,3 +336,4 @@
 - The Stat Potion now gives the player a Dex Buff affliction instead of Confusion applying it
 - Added CharredWood Breakable
 - Added MagmaHeart item and associated code in the Dungeon constructor
+- Partially implemented OldSmokey. No mechanism exists with which to create a Smoke effect yet.
