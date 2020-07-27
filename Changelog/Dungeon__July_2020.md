@@ -348,3 +348,4 @@
 - Renamed LootUtils to GameUtils to better reflect the purpose of these files
 - Fixed damage sound effect playing if player shielded a Turret's shot and took no damage
 - Cleaned up Turret's checkLineOfFire function
+- Added some utility functions to GameUtils such as setting n & m directions and getting the animation frames. There was no need for the animation frame getter to be a part of the Dungeon class
