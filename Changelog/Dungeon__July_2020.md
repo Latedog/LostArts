@@ -335,3 +335,4 @@
 - Removed the dex boost from the Confusion affliction
 - The Stat Potion now gives the player a Dex Buff affliction instead of Confusion applying it
 - Added CharredWood Breakable
+- Added MagmaHeart item and associated code in the Dungeon constructor
