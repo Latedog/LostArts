@@ -340,3 +340,8 @@
 - Implemented MagmaTide trap. Currently if it contracts, then the player will take no damage if they attempt to walk on top of the lava.
 - Added MoltenPillar trap.
 - Explicitly inlined the remaining trap setters and getters
+
+7/27:
+
+- Matches now leave behind an Ember even if used directly on top of an enemy
+- Water now makes the splash sound when poisoned
