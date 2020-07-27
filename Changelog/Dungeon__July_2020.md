@@ -345,3 +345,6 @@
 
 - Matches now leave behind an Ember even if used directly on top of an enemy
 - Water now makes the splash sound when poisoned
+- Renamed LootUtils to GameUtils to better reflect the purpose of these files
+- Fixed damage sound effect playing if player shielded a Turret's shot and took no damage
+- Cleaned up Turret's checkLineOfFire function
