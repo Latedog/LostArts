@@ -349,3 +349,10 @@
 - Fixed damage sound effect playing if player shielded a Turret's shot and took no damage
 - Cleaned up Turret's checkLineOfFire function
 - Added some utility functions to GameUtils such as setting n & m directions and getting the animation frames. There was no need for the animation frame getter to be a part of the Dungeon class
+
+7/28:
+
+- Removed default constructor from the Afflictions class
+- Added adjust() functions to the Afflictions class to take care of any adjustments when multiple of the same afflictions are stacked
+- Bleed now decreases wait time to a minimum of 0 and increases health loss every time it is stacked
+- Poison now takes the maximum of the str/dex penalties and applies that to the Actor. Currently bugged and must be debugged when interacting between PoisonWater.
