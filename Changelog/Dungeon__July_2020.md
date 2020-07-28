@@ -356,3 +356,4 @@
 - Added adjust() functions to the Afflictions class to take care of any adjustments when multiple of the same afflictions are stacked
 - Bleed now decreases wait time to a minimum of 0 and increases health loss every time it is stacked
 - Poison now takes the maximum of the str/dex penalties and applies that to the Actor. Currently bugged and must be debugged when interacting between PoisonWater.
+- Fixed PoisonWater interaction causing Player Dex to become negative. Because of a quirk of the code, Players will not suffer the poison dex penalty if their Dex drops to zero, since the poison affliction will then attempt to subtract nothing.
