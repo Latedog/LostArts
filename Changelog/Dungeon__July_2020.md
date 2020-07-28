@@ -357,3 +357,5 @@
 - Bleed now decreases wait time to a minimum of 0 and increases health loss every time it is stacked
 - Poison now takes the maximum of the str/dex penalties and applies that to the Actor. Currently bugged and must be debugged when interacting between PoisonWater.
 - Fixed PoisonWater interaction causing Player Dex to become negative. Because of a quirk of the code, Players will not suffer the poison dex penalty if their Dex drops to zero, since the poison affliction will then attempt to subtract nothing.
+- Added another utility function that determines if two facing directions are opposite another
+- Added Quicksand trap
