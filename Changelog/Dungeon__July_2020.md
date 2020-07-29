@@ -371,3 +371,4 @@
 - Fixed bug that would cause the same passives (and relics/NPCs) to be seen
 - Added functions that handled the case for when all passives are seen. If all passives are seen, then a roll is made for simple stat upgrade passives
 - Added JeweledScarab enemy
+- Added more functionality to (hopefully) take care of the instances where all passives of a certain rarity have been seen to avoid infinite recursion.
