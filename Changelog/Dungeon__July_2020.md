@@ -361,3 +361,10 @@
 - Added Quicksand trap
 - Removed the idle trap encounter branch in the Player's move code. This should be replaced with activeTrapAction functions instead.
 - Added activeTrapAction() functions to the Spikes and Lava traps
+
+7/29:
+
+- Added createItem() function to the Dungeon class which handles item setting and adding within the Dungeon.
+- Added Cactus trap
+- Added CactusWater item
+- Added new function to Drops class: pickupEffect(); used for when the player collects an item and doing so has certain effects (like damaging player for CactusWater)
