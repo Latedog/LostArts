@@ -359,3 +359,5 @@
 - Fixed PoisonWater interaction causing Player Dex to become negative. Because of a quirk of the code, Players will not suffer the poison dex penalty if their Dex drops to zero, since the poison affliction will then attempt to subtract nothing.
 - Added another utility function that determines if two facing directions are opposite another
 - Added Quicksand trap
+- Removed the idle trap encounter branch in the Player's move code. This should be replaced with activeTrapAction functions instead.
+- Added activeTrapAction() functions to the Spikes and Lava traps
