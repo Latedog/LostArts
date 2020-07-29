@@ -368,3 +368,6 @@
 - Added Cactus trap
 - Added CactusWater item
 - Added new function to Drops class: pickupEffect(); used for when the player collects an item and doing so has certain effects (like damaging player for CactusWater)
+- Fixed bug that would cause the same passives (and relics/NPCs) to be seen
+- Added functions that handled the case for when all passives are seen. If all passives are seen, then a roll is made for simple stat upgrade passives
+- Added JeweledScarab enemy
