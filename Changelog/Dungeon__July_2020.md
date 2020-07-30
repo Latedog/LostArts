@@ -375,3 +375,5 @@
 - Added ArmoredBeetle enemy
 - Added new DamageType enum class to classify the types of damage that are dealt. This is needed to make use of the Monster canBeDamaged() function to its full intended effect.
 - Added SpectralSword enemy
+- Implemented SandCentipede enemy
+- Added canBeHit() function to the Monster class
