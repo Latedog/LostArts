@@ -385,3 +385,4 @@
 - Fixed bugs related to interactions between SandCentipede and Puffs/Broundabouts/MovingBlocks. These issues have cropped up because the game was not designed to have multiple enemies stacked on top of each other in any sense. Changes were made in linearActorPush to account for the SandCentipede, which shouldn't affect behavior with standard enemies.
 - Added findUndergroundMonster() function so that we can separate when we find monsters above and below
 - Earthquake and Shockwave Spells are able to affect the SandCentipede
+- Underground monsters are now ignored in monsterTrapEncounter since no traps are able to affect things underground. (technically lava should affect them, but lava will not exist in the same area that SandCentipedes can travel in).
