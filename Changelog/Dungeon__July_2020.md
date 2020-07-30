@@ -386,3 +386,6 @@
 - Added findUndergroundMonster() function so that we can separate when we find monsters above and below
 - Earthquake and Shockwave Spells are able to affect the SandCentipede
 - Underground monsters are now ignored in monsterTrapEncounter since no traps are able to affect things underground. (technically lava should affect them, but lava will not exist in the same area that SandCentipedes can travel in).
+- Fixed bug which would not allow players to attack other monsters if the SandCentipede was underneath it
+- Opening the item menu no longer resets the level timer (its behavior is now identical to the inventory key). An action is only explicitly consumed if the player uses or swaps quick access items.
+- Renamed the global level timer from "timer" to "Timer"
