@@ -377,3 +377,4 @@
 - Added SpectralSword enemy
 - Implemented SandCentipede enemy
 - Added canBeHit() function to the Monster class
+- Merged the frozen and stunned monster in the player attacking code into one if statement
