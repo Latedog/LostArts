@@ -378,3 +378,4 @@
 - Implemented SandCentipede enemy
 - Added canBeHit() function to the Monster class
 - Merged the frozen and stunned monster in the player attacking code into one if statement
+- !Added new underEnemy flag to the _Tile_ struct. This is needed to seamlessly integrate enemies that can travle through other enemies, but not through each other. Essentially, it becomes a multi-layered ground where one layer is for creatures that can travel underground and the other for everything else. The SandCentipede uses this so that there are no weird conflicts with other weapon attack patterns/bomb usage.
