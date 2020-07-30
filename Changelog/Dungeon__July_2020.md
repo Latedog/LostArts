@@ -372,3 +372,5 @@
 - Added functions that handled the case for when all passives are seen. If all passives are seen, then a roll is made for simple stat upgrade passives
 - Added JeweledScarab enemy
 - Added more functionality to (hopefully) take care of the instances where all passives of a certain rarity have been seen to avoid infinite recursion.
+- Added new DamageType enum class to classify the types of damage that are dealt. This is needed to make use of the Monster canBeDamaged() function to its full intended effect.
+- Added SpectralSword enemy
