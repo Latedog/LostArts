@@ -389,3 +389,7 @@
 - Fixed bug which would not allow players to attack other monsters if the SandCentipede was underneath it
 - Opening the item menu no longer resets the level timer (its behavior is now identical to the inventory key). An action is only explicitly consumed if the player uses or swaps quick access items.
 - Renamed the global level timer from "timer" to "Timer"
+
+7/31:
+
+- Fixed a bug where MovingBlocks would not move after crushing an enemy or crushing the player
