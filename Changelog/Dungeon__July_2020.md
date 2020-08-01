@@ -397,3 +397,4 @@
 - Renamed the PoisonCloud item to PoisonBomb
 - Renamed the PoisonBomb trap to ActivePoisonBomb
 - Added new trap PoisonCloud that replaces the ActivePoisonBomb when destroyed. The logic from ActivePoisonBomb has been migrated to the PoisonCloud trap which also helps to clean up the code.
+- Adjusted Earthquake and Shockwave spells to be able to possibly destroy all traps on any given tile
