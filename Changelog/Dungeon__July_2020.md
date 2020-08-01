@@ -393,3 +393,7 @@
 7/31:
 
 - Fixed a bug where MovingBlocks would not move after crushing an enemy or crushing the player
+- Removed the Temporary setters and getters from the Traps class since they were unused.
+- Renamed the PoisonCloud item to PoisonBomb
+- Renamed the PoisonBomb trap to ActivePoisonBomb
+- Added new trap PoisonCloud that replaces the ActivePoisonBomb when destroyed. The logic from ActivePoisonBomb has been migrated to the PoisonCloud trap which also helps to clean up the code.
