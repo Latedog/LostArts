@@ -9,3 +9,4 @@
 - Separated standard doors into their own class: RegularDoors
 - Added BlastDoors, which cannot be destroyed by explosives
 - Added an addDoor function to the Dungeon class for easier door creation
+- Added LinearMovingTile traps
