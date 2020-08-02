@@ -10,3 +10,10 @@
 - Added BlastDoors, which cannot be destroyed by explosives
 - Added an addDoor function to the Dungeon class for easier door creation
 - Added LinearMovingTile traps
+
+8/2:
+
+- Added WatcherStatue series traps: FireballWatcher, FreezeWatcher, DartWatcher, CrumbleWatcher, SpawnWatcher, GuardianWatcher
+- Added Watcher enemy that awakens from the GuardianWatcher trap
+- Added hasLineOfSight game utility function
+- Added LavaGrating trap
