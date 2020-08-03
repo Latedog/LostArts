@@ -19,3 +19,5 @@
 - Added LavaGrating trap
 - Changed the Rarity enum to be an enum class
 - Removed the getAnimation functions from the Dungeon class since these were moved into GameUtils
+- Added another hasLineOfSight function that is agnostic to a particular direction--calculates the appropriate direction when called. Replaced the wallCollision function used by the Knight with this function.
+- Cleaned up Turret code further by using the hasLineOfSight function
