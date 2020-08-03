@@ -17,3 +17,5 @@
 - Added Watcher enemy that awakens from the GuardianWatcher trap
 - Added hasLineOfSight game utility function
 - Added LavaGrating trap
+- Changed the Rarity enum to be an enum class
+- Removed the getAnimation functions from the Dungeon class since these were moved into GameUtils
