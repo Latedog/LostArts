@@ -23,3 +23,6 @@
 - Cleaned up Turret code further by using the hasLineOfSight function. As a side effect, Turrets now do not trigger unless they have a clear line of sight with the player
 - Removed the clearLineOfSight function from the Monster class and replaced each instance with hasLineOfSight
 - Added playerInLinearRange function to GameUtils
+- Cleaned up the moveMonsterRandomly code
+- Cleaned up various monster movement code
+- Renamed attemptSmartChase to attemptAllChase. Simpler functions are now used to call these chase functions.
