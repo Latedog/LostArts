@@ -26,3 +26,4 @@
 - Cleaned up the moveMonsterRandomly code
 - Cleaned up various monster movement code
 - Renamed attemptSmartChase to attemptAllChase. Simpler functions are now used to call these chase functions.
+- Added diagonal directions to the drectional offset functions in GameUtils
