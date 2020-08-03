@@ -28,3 +28,8 @@
 - Renamed attemptSmartChase to attemptAllChase. Simpler functions are now used to call these chase functions.
 - Added diagonal directions to the drectional offset functions in GameUtils
 - Code cleanup for Spinners, Zappers, and Firebars
+
+8/3:
+
+- Fixed bug that caused single animations to appear in weird spots before moving to the correct position on screen: Changed runSingleAnimation to use teleportSprite instead of queueMoveSprite
+- Added Shrinekeeper enemy
