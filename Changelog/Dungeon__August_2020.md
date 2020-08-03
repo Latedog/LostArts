@@ -21,3 +21,5 @@
 - Removed the getAnimation functions from the Dungeon class since these were moved into GameUtils
 - Added another hasLineOfSight function that is agnostic to a particular direction--calculates the appropriate direction when called. Replaced the wallCollision function used by the Knight with this function.
 - Cleaned up Turret code further by using the hasLineOfSight function. As a side effect, Turrets now do not trigger unless they have a clear line of sight with the player
+- Removed the clearLineOfSight function from the Monster class and replaced each instance with hasLineOfSight
+- Added playerInLinearRange function to GameUtils
