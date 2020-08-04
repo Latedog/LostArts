@@ -41,3 +41,8 @@
 - Added conditional in moveMonsterRandomly which allows movement by flying enemies even if they move on top of a trap
 - Added EvilShadow enemy
 - Added AbyssalSummoner enemy and corresponding accompanying AbyssalMaw trap
+
+8/4/:
+
+- Added universal support for getFacingDirectionRelativeTo
+- Wisps now use getFacingDirectionRelativeTo to determine their shooting direction
