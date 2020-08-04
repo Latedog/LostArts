@@ -33,3 +33,5 @@
 
 - Fixed bug that caused single animations to appear in weird spots before moving to the correct position on screen: Changed runSingleAnimation to use teleportSprite instead of queueMoveSprite
 - Added Shrinekeeper enemy
+- Fixed inconsistency in directionIsOppositeTo where directions 1-4 did not follow non-quadrant rules
+- Fixed bug in moveMonsterRandomly that would cause monsters to move out of bounds
