@@ -38,3 +38,5 @@
 - Added getFacingDirectionRelativeTo and isMovementAction utility functions
 - Added Wisp, LightningWisp, and Grabber enemies
 - Added conditionals for the Stuck affliction (Used by Grabber enemy) in player move function and Estoc's pattern function
+- Added conditional in moveMonsterRandomly which allows movement by flying enemies even if they move on top of a trap
+- Added EvilShadow enemy
