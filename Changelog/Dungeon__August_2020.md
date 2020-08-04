@@ -35,3 +35,6 @@
 - Added Shrinekeeper enemy
 - Fixed inconsistency in directionIsOppositeTo where directions 1-4 did not follow non-quadrant rules
 - Fixed bug in moveMonsterRandomly that would cause monsters to move out of bounds
+- Added getFacingDirectionRelativeTo and isMovementAction utility functions
+- Added Wisp, LightningWisp, and Grabber enemies
+- Added conditionals for the Stuck affliction (Used by Grabber enemy) in player move function and Estoc's pattern function
