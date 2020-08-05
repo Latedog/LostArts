@@ -46,3 +46,8 @@
 
 - Added universal support for getFacingDirectionRelativeTo
 - Wisps now use getFacingDirectionRelativeTo to determine their shooting direction
+
+8/5:
+
+- Removed the pushPlayer function from the Dungeon class
+- Cleaned up WindSpell code
