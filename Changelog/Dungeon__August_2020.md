@@ -68,3 +68,4 @@
 - Removed the player parameter from Monster's moveCheck, playerIn(Diagonal)Range and playerIsAdjacent functions
 - Removed dungeon parameter from all NPC functions
 - Modified attemptChase and attemptAllChase to set an optimal move direction when player is already adjacent
+- Removed dungeon parameters from all extraneous monster functions
