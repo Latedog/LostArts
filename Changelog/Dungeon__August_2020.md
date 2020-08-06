@@ -52,3 +52,5 @@
 - Removed the pushPlayer function from the Dungeon class
 - Cleaned up WindSpell code
 - Renamed WindSpell to WhirlwindSpell
+- Added DamageType parameter to the fight() functions
+- Gave Weapons a DamageType member variable and cleaned up the weapon code
