@@ -62,9 +62,9 @@
 8/6:
 
 - The Broundabout now inherits directly from Monster instead of from Roundabout
-- Removed the dungeon parameter from the attemptGreedyChase, attemptMove, moveWithSuccessfulChase, moveMonsterRandomly, death, deathDrops, and attack functions
+- Removed the dungeon parameter from ALL Monster functions
 - Removed the moveSegments and addSegments functions from the Monster class
-- Removed the dungeon parameter from Player's various active item functions, relic functions, passive functions, use, dropWeapon, dropStoredWeapon, storeWeapon, throwWeaponTo, checkExtraAttackEffects, botchedAttack, and chainLightning functions
+- Removed the dungeon parameter from ALL player functions
 - Removed the player parameter from Monster's moveCheck, playerIn(Diagonal)Range and playerIsAdjacent functions
 - Removed dungeon parameter from all NPC functions
 - Modified attemptChase and attemptAllChase to set an optimal move direction when player is already adjacent
