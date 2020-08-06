@@ -64,4 +64,4 @@
 - The Broundabout now inherits directly from Monster instead of from Roundabout
 - Removed the dungeon parameter from the moveMonsterRandomly, death, deathDrops, and attack functions
 - Removed the moveSegments and addSegments functions from the Monster class
-- Removed the dungeon parameter from Player checkExtraAttackEffects, botchedAttack, and chainLightning functions
+- Removed the dungeon parameter from Player's use, checkExtraAttackEffects, botchedAttack, and chainLightning functions
