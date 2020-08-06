@@ -54,7 +54,7 @@
 - Renamed WindSpell to WhirlwindSpell
 - Added DamageType parameter to the fight() functions
 - Gave Weapons a DamageType member variable and cleaned up the weapon code
-- Added CrawlingSpine enemy
+- Added CrawlingSpine enemy and Goop trap
 - Added MagicalBerserker enemy
 - Added AngledBouncer enemy
 - Removed the dungeon parameter from the Actor moveTo functions and from the player successfulAttack function
