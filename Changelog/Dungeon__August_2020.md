@@ -54,3 +54,6 @@
 - Renamed WindSpell to WhirlwindSpell
 - Added DamageType parameter to the fight() functions
 - Gave Weapons a DamageType member variable and cleaned up the weapon code
+- Added CrawlingSpine enemy
+- Added MagicalBerserker enemy
+- Added AngledBouncer enemy
