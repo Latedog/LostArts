@@ -51,3 +51,4 @@
 
 - Removed the pushPlayer function from the Dungeon class
 - Cleaned up WindSpell code
+- Renamed WindSpell to WhirlwindSpell
