@@ -57,3 +57,10 @@
 - Added CrawlingSpine enemy
 - Added MagicalBerserker enemy
 - Added AngledBouncer enemy
+- Removed the dungeon parameter from the Actor moveTo functions and from the player successfulAttack function
+
+8/6:
+
+- The Broundabout now inherits directly from Monster instead of from Roundabout
+- Removed the dungeon parameter from the moveMonsterRandomly, death, deathDrops, and attack functions
+- Removed the moveSegments and addSegments functions from the Monster class
