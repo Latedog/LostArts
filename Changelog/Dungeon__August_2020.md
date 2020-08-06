@@ -65,4 +65,4 @@
 - Removed the dungeon parameter from the attemptGreedyChase, attemptMove, moveWithSuccessfulChase, moveMonsterRandomly, death, deathDrops, and attack functions
 - Removed the moveSegments and addSegments functions from the Monster class
 - Removed the dungeon parameter from Player's use, checkExtraAttackEffects, botchedAttack, and chainLightning functions
-- Removed the player parameter from Monster's playerIn(Diagonal)Range and playerIsAdjacent functions
+- Removed the player parameter from Monster's moveCheck, playerIn(Diagonal)Range and playerIsAdjacent functions
