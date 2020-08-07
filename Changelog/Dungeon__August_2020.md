@@ -69,3 +69,5 @@
 - Removed dungeon parameter from all NPC functions
 - Modified attemptChase and attemptAllChase to set an optimal move direction when player is already adjacent
 - Removed dungeon parameters from all extraneous monster functions
+- Renamed the Mounted Knight to Pikeman
+- Adjust the Pikeman to attack up to two spaces in front of them while charging
