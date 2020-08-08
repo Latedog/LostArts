@@ -75,3 +75,4 @@
 8/8:
 
 - Added CombustionGolem enemy and associated MiniEruption and Combustion traps
+- Made CombustionGolem immune to explosions
