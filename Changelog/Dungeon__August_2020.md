@@ -71,3 +71,7 @@
 - Removed dungeon parameters from all extraneous monster functions
 - Renamed the Mounted Knight to Pikeman
 - Adjust the Pikeman to attack up to two spaces in front of them while charging
+
+8/8:
+
+- Added CombustionGolem enemy and associated MiniEruption and Combustion traps
