@@ -86,3 +86,4 @@
 - Cacti can now be ignited
 - Matches and Webs now check for all traps on a tile to be ignited
 - Added a buffer parameter to playerInBufferedLinearRange
+- Added ConstructorDemon enemy and DirtMound traps
