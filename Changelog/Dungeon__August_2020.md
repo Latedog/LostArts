@@ -89,3 +89,5 @@
 - Added ConstructorDemon enemy and DirtMound traps
 - Implemented Piranha enemy
 - Added dry run greedy chase functions to the Monster class. These attempt greedy chases without actually moving the monster.
+- If water is poisoned, it now checks to spread among adjacent Water tiles
+- Fixed bug where the x and y coords were switched when the PoisonBomb explodes and checks for traps to poison
