@@ -87,3 +87,4 @@
 - Matches and Webs now check for all traps on a tile to be ignited
 - Added a buffer parameter to playerInBufferedLinearRange
 - Added ConstructorDemon enemy and DirtMound traps
+- Implemented Piranha enemy
