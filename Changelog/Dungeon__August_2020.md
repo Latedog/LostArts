@@ -78,3 +78,5 @@
 - Made CombustionGolem immune to explosions
 - Added playerIsAdjacent utility function
 - Added MalevolentPlant trap
+- Added WaterSpirit enemy
+- Fixed a bug where Embers would be doused twice which would cause the game to crush because the sprite is attempted to be removed twice
