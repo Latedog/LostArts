@@ -96,3 +96,4 @@
 
 - Added Firefly enemy
 - Added a diagonals parameter to moveMonsterRandomly
+- Organized Monsters into their expected respective floors
