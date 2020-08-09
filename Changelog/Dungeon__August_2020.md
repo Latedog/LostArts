@@ -88,3 +88,4 @@
 - Added a buffer parameter to playerInBufferedLinearRange
 - Added ConstructorDemon enemy and DirtMound traps
 - Implemented Piranha enemy
+- Added dry run greedy chase functions to the Monster class. These attempt greedy chases without actually moving the monster.
