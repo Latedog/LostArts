@@ -97,3 +97,5 @@
 - Added Firefly enemy
 - Added a diagonals parameter to moveMonsterRandomly
 - Organized Monsters into their expected respective floors
+- Changed all reference dungeon parameters to pointer parameters in the Monster functions
+- Added rollMonster function that chooses a random monster appropriate for the floor
