@@ -81,3 +81,6 @@
 - Added WaterSpirit enemy
 - Fixed a bug where Embers would be doused twice which would cause the game to crush because the sprite is attempted to be removed twice
 - Added Ice trap and freeze functions to the Traps class
+- Water and Puddles can now be frozen
+- Added FrozenPuddle trap
+- Cacti can now be ignited
