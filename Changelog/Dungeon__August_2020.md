@@ -42,7 +42,7 @@
 - Added EvilShadow enemy
 - Added AbyssalSummoner enemy and corresponding accompanying AbyssalMaw trap
 
-8/4/:
+8/4:
 
 - Added universal support for getFacingDirectionRelativeTo
 - Wisps now use getFacingDirectionRelativeTo to determine their shooting direction
@@ -91,3 +91,8 @@
 - Added dry run greedy chase functions to the Monster class. These attempt greedy chases without actually moving the monster.
 - If water is poisoned, it now checks to spread among adjacent Water tiles
 - Fixed bug in PoisonBomb and PoisonCloud where the x and y coords were switched when the checking for traps to poison
+
+8/9:
+
+- Added Firefly enemy
+- Added a diagonals parameter to moveMonsterRandomly
