@@ -1,3 +1,4 @@
+#include "cocos2d.h"
 #include "GUI.h"
 #include "AppDelegate.h"
 #include "AudioEngine.h"
@@ -6,8 +7,10 @@
 #include "Dungeon.h"
 #include "GameObjects.h"
 #include "FX.h"
+#include "Actors.h"
 #include "LightEffect.h"
 #include "EffectSprite.h"
+#include "GameUtils.h"
 #include <cstdlib>
 #include <cmath>
 #include <vector>
@@ -1467,9 +1470,9 @@ void StartScene::startGameCallback(Ref* pSender)
 	float vsh = visibleSize.height / 2;
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
 
-	// advance to next scene
-	std::shared_ptr<Player> p = nullptr;
+	GameTable::initializeTables();
 
+	std::shared_ptr<Player> p = nullptr;
 	switch (characterID) {
 	case ID_ADVENTURER: p = std::make_shared<Adventurer>(); break;
 	case ID_SPELLCASTER: p = std::make_shared<Spellcaster>(); break;
@@ -1479,7 +1482,7 @@ void StartScene::startGameCallback(Ref* pSender)
 	default: p = std::make_shared<Adventurer>(); break;
 	}
 	
-	auto levelScene = LevelScene::createScene(p, FIRST_FLOOR);
+	auto levelScene = LevelScene::createScene(p, TUTORIAL);
 	//auto levelScene = ShopScene::createScene(p, FIRST_SHOP);
 	levelScene->setPosition(Vec2(vsw, vsh));
 
@@ -1825,47 +1828,32 @@ void HUDLayer::updateHUD(Dungeon &dungeon) {
 	updateActiveItemBar();
 
 
-	// :::: Trinket check ::::
-	if (p->hasTrinket()) {
-		std::string trinket = p->getTrinket()->getName();
-		image = p->getTrinket()->getImageName();
+	// :::: Relic check ::::
+	if (p->hasRelic()) {
+		std::string relic = p->getRelic()->getName();
+		image = p->getRelic()->getImageName();
 
-		// if there is now a trinket equipped, but there wasn't previously, construct the menu
-		if (image != "" && HUD.find("current trinket") == HUD.end()) {
-			// Trinket HUD box
-			Sprite* trinketbox = Sprite::createWithSpriteFrameName("Current_Weapon_Box_1.png");
-			trinketbox->setPosition(-570 * RES_ADJUST, 110 * RES_ADJUST);
-			trinketbox->setScale(.2f * RES_ADJUST);
-			trinketbox->setOpacity(200);
-			trinketbox->setColor(cocos2d::Color3B(200, 20, 0));
-			this->addChild(trinketbox, 2, "trinketbox");
-			HUD.insert(std::pair<std::string, Sprite*>("trinketbox", trinketbox));
-
-			// trinket sprite
-			Sprite* currentTrinket = Sprite::createWithSpriteFrameName(image);
-			this->addChild(currentTrinket, 3, trinket);
-			currentTrinket->setPosition(-570 * RES_ADJUST, 110 * RES_ADJUST);
-			currentTrinket->setScale(0.5);
-			HUD.insert(std::pair<std::string, Sprite*>("current trinket", currentTrinket));
+		// If there is now a relic equipped, but there wasn't previously, construct the menu
+		if (image != "" && HUD.find("Current Relic") == HUD.end()) {
+			constructRelicHUD();
 		}
-		// else if current shield equipped is different, switch the sprite
-		else if (image != "" && HUD.find("current trinket")->second->getName() != trinket) {
+		// else if current relic equipped is different, switch the sprite
+		else if (image != "" && HUD.find("Current Relic")->second->getName() != relic) {
 			// remove sprite
-			HUD.find("current trinket")->second->removeFromParent();
-			HUD.erase("current trinket");
+			HUD.find("Current Relic")->second->removeFromParent();
+			HUD.erase("Current Relic");
 
 			Sprite* currentTrinket = Sprite::createWithSpriteFrameName(image);
-			this->addChild(currentTrinket, 3, trinket);
+			this->addChild(currentTrinket, 3, relic);
 			currentTrinket->setPosition(-570 * RES_ADJUST, 110 * RES_ADJUST);
 			currentTrinket->setScale(0.50);
-			HUD.insert(std::pair<std::string, Sprite*>("current trinket", currentTrinket));
+			HUD.insert(std::pair<std::string, Sprite*>("Current Relic", currentTrinket));
 		}
 	}
 	else {
 		// if there's no trinket equipped and there was previously, deconstruct the trinket HUD
-		if (image == "" && HUD.find("current trinket") != HUD.end()) {
-			deconstructTrinketHUD();
-		}
+		if (image == "" && HUD.find("Current Relic") != HUD.end())
+			deconstructRelicHUD();	
 	}
 	
 
@@ -2177,29 +2165,7 @@ void HUDLayer::devilsWaters(cocos2d::EventListenerKeyboard* listener, Dungeon &d
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
 
-	//       PAUSE
-	//    |---------|
-	// -> |  Resume |
-	//    | Restart |
-	//    |         |
-	//    |Exit Game|
-	//    |---------|
-
-
-	// menu border
-	Sprite* box = Sprite::create("Pause_Menu_Border_Red.png");
-	this->addChild(box, 2);
-	box->setPosition(0, 0);
-	box->setScale(.2f);
-	box->setOpacity(170);
-	menuSprites.insert(std::pair<std::string, Sprite*>("box", box));
-
-	// arrow sprite for selection
-	auto sprite = Sprite::create("Right_Arrow.png");
-	sprite->setPosition(-2 * MENU_SPACING, 2 * MENU_SPACING);
-	this->addChild(sprite, 3);
-	sprite->setScale(2.0f);
-	menuSprites.insert(std::pair<std::string, Sprite*>("sprite", sprite));
+	constructSelectionMenu();
 
 	// Pause option
 	auto pause = Label::createWithTTF("The waters give off a strange aura. Take a drink from the fountain?", "fonts/Marker Felt.ttf", 40);
@@ -2223,7 +2189,7 @@ void HUDLayer::devilsWaters(cocos2d::EventListenerKeyboard* listener, Dungeon &d
 	// add event listener for selecting
 	auto eventListener = EventListenerKeyboard::create();
 	eventListener->onKeyPressed = CC_CALLBACK_2(HUDLayer::devilKeyPressed, this, &dungeon);
-	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(eventListener, sprite);
+	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(eventListener, menuSprites.find("Selector")->second);
 }
 void HUDLayer::devilKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, Dungeon *dungeon) {
 	Vec2 pos = event->getCurrentTarget()->getPosition();
@@ -2251,7 +2217,8 @@ void HUDLayer::devilKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d:
 	case EventKeyboard::KeyCode::KEY_ENTER:
 	case EventKeyboard::KeyCode::KEY_SPACE:
 		switch (index) {
-		case 0: { // NO
+			// NO
+		case 0: {
 			playInterfaceSound("Confirm 1.mp3");
 
 			index = 0;
@@ -2263,7 +2230,8 @@ void HUDLayer::devilKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d:
 			enableListener();
 			return;
 		}
-		case 1: // YES
+			// YES
+		case 1: 
 			playSound("Devils_Gift.mp3");
 
 			SecondFloor* second = dynamic_cast<SecondFloor*>(dungeon);
@@ -2300,13 +2268,13 @@ void HUDLayer::shrineChoice(cocos2d::EventListenerKeyboard* listener, std::strin
 
 		choices = 4;
 	}
-	else if (shrine == TRINKET_CHOICE) {
+	else if (shrine == RELIC_CHOICE) {
 		addLabel(0, 4.5f * MENU_SPACING, "Gain Powerful Relic?", "Relic", 42);
 
 		addLabel(0, 2 * MENU_SPACING, "Obtain Relic", "Obtain Relic", 29);
 		choices = 1;
 
-		if (dungeon.getPlayer()->hasTrinket()) {
+		if (dungeon.getPlayer()->hasRelic()) {
 			updateLabel("Obtain Relic", "Upgrade Relic");
 			addLabel(0, 1 * MENU_SPACING, "Change Relic", "Change Relic", 29);
 
@@ -2438,7 +2406,7 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 	//    0 - 1:  Weapons
 	//    2 - 6:  Usable items
 	//    7:      Spacebar Item
-	//    8:      Trinket
+	//    8:      Relic
 	//    9 - 23: Passive Items
 	//
 	//    0   1  |  2   3   4   5   6
@@ -2534,18 +2502,18 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 		inventoryMenuSprites.insert(std::pair<std::string, Sprite*>("currentshield", currentshield));
 	}
 
-	if (p->hasTrinket()) {
-		std::string trinket = p->getTrinket()->getName();
-		inventoryText[8] = std::make_pair(trinket, p->getTrinket()->getDescription());
+	if (p->hasRelic()) {
+		std::string relic = p->getRelic()->getName();
+		inventoryText[8] = std::make_pair(relic, p->getRelic()->getDescription());
 
-		image = p->getTrinket()->getImageName();
+		image = p->getRelic()->getImageName();
 
 		// trinket sprite
-		Sprite* currentTrinket = Sprite::createWithSpriteFrameName(image);
-		this->addChild(currentTrinket, 4, trinket);
-		currentTrinket->setPosition(-250 * RES_ADJUST, 50 * RES_ADJUST);
-		currentTrinket->setScale(1.0);
-		inventoryMenuSprites.insert(std::pair<std::string, Sprite*>("current trinket", currentTrinket));
+		Sprite* currentRelic = Sprite::createWithSpriteFrameName(image);
+		this->addChild(currentRelic, 4, relic);
+		currentRelic->setPosition(-250 * RES_ADJUST, 50 * RES_ADJUST);
+		currentRelic->setScale(1.0);
+		inventoryMenuSprites.insert(std::pair<std::string, Sprite*>("Current Relic", currentRelic));
 
 	}
 
@@ -2579,7 +2547,7 @@ void HUDLayer::inventoryMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, 
 	// 
 	//    0 - 1:  Weapons
 	//    2 - 6:  Usable items
-	//    7:      Trinket
+	//    7:      Relic
 	//    8:      Spacebar Item
 	//    9 - 23: Passive Items
 	//
@@ -3197,6 +3165,9 @@ void HUDLayer::gameOverKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 
 			auto visibleSize = Director::getInstance()->getVisibleSize();
 
+			// Needed to reset passives obtained
+			GameTable::initializeTables();
+
 			// generate a new level 1 scene
 			std::shared_ptr<Player> newPlayer(nullptr);
 			if (p->getName() == ADVENTURER)
@@ -3314,6 +3285,9 @@ void HUDLayer::winnerKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d
 			playInterfaceSound("Confirm 1.mp3");
 
 			auto visibleSize = Director::getInstance()->getVisibleSize();
+
+			// Needed to reset passives obtained
+			GameTable::initializeTables();
 
 			// generate a new level 1 scene
 			std::shared_ptr<Player> newPlayer(nullptr);
@@ -3535,16 +3509,34 @@ void HUDLayer::deconstructItemHUD() {
 	}
 }
 
-void HUDLayer::deconstructTrinketHUD() {
-	if (HUD.find("trinketbox") != HUD.end()) {
-		// deconstruct the trinket HUD because there's no trinket equipped
-		HUD.find("current trinket")->second->removeFromParent();
-		HUD.find("trinketbox")->second->removeFromParent();
+void HUDLayer::constructRelicHUD() {
+	// Relic HUD box
+	Sprite* trinketbox = Sprite::createWithSpriteFrameName("Current_Weapon_Box_1.png");
+	trinketbox->setPosition(-570 * RES_ADJUST, 110 * RES_ADJUST);
+	trinketbox->setScale(.2f * RES_ADJUST);
+	trinketbox->setOpacity(200);
+	trinketbox->setColor(cocos2d::Color3B(200, 20, 0));
+	this->addChild(trinketbox, 2, "Relic Box");
+	HUD.insert(std::pair<std::string, Sprite*>("Relic Box", trinketbox));
 
-		HUD.erase(HUD.find("current trinket"));
-		HUD.erase(HUD.find("trinketbox"));
+	// Relic sprite
+	Sprite* currentTrinket = Sprite::createWithSpriteFrameName(p->getRelic()->getImageName());
+	this->addChild(currentTrinket, 3, p->getRelic()->getName());
+	currentTrinket->setPosition(-570 * RES_ADJUST, 110 * RES_ADJUST);
+	currentTrinket->setScale(0.5);
+	HUD.insert(std::pair<std::string, Sprite*>("Current Relic", currentTrinket));
+}
+void HUDLayer::deconstructRelicHUD() {
+	if (HUD.find("Relic Box") != HUD.end()) {
+		// deconstruct the trinket HUD because there's no trinket equipped
+		HUD.find("Current Relic")->second->removeFromParent();
+		HUD.find("Relic Box")->second->removeFromParent();
+
+		HUD.erase(HUD.find("Current Relic"));
+		HUD.erase(HUD.find("Relic Box"));
 	}
 }
+
 void HUDLayer::deconstructShopHUD() {
 	itemprice->removeFromParent();
 	itemprice = nullptr;
@@ -3679,19 +3671,18 @@ bool LevelScene::init()
 	
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
-	// Determine the current level and create the correct dungeon
+	// Create the dungeon
 	setCurrentDungeon(m_level, p);
 
-	// Update HUD
 	m_hud->updateHUD(*m_currentDungeon);
 
-	// Music
-	setMusic(getCurrentDungeon()->getLevel());
+	setMusic(m_currentDungeon->getLevel());
 
 	// Reveal boss hp bar, if necessary
-	if (getCurrentDungeon()->getLevel() == FIRST_BOSS)
+	if (m_currentDungeon->getLevel() == FIRST_BOSS)
 		m_hud->showBossHP();
 	
+	createPlayerSpriteAndCamera();
 
 	///lighting garbage
 	//m_lighting = LightEffect::create();
@@ -3703,13 +3694,6 @@ bool LevelScene::init()
 	////m_lighting->setLightHalfRadius(0.5);
 	//m_lighting->setBrightness(3.0);
 	//m_lighting->setLightColor(Color3B(200, 170, 200));
-
-
-	createPlayerSpriteAndCamera();
-
-	// Render all the sprites on the first floor
-	renderDungeon(*m_currentDungeon);
-
 
 	// new effect sprite
 	/*
@@ -3734,7 +3718,6 @@ bool LevelScene::init()
 	//this->addChild(gameCamera);
 
 
-	setSprites(m_currentDungeon);
 	updateLevelLighting();
 		
 
@@ -3749,235 +3732,6 @@ bool LevelScene::init()
 	return true;
 }
 
-void LevelScene::renderDungeon(Dungeon &dungeon) {
-
-	int rows = dungeon.getRows();
-	int cols = dungeon.getCols();
-	std::vector<_Tile> maze = dungeon.getDungeon();
-	_Tile *tile;
-
-	auto visibleSize = Director::getInstance()->getVisibleSize();
-	Vec2 origin = Director::getInstance()->getVisibleOrigin();
-
-
-	// :::: HIERARCHY OF TILE LAYER CONTENTS ::::
-	//		-----------------------------
-	//		Smasher		: TOP			 2
-	//		Actors/Walls				 1
-	//		Projectiles					 0
-	//		Items						-1
-	//		Extras						 x
-	//	    Gold/Money					-3
-	//		Stairs/Traps				-4
-	//		Floor		: BOTTOM		-5
-	//
-
-	int x, y;
-	std::string image;
-	
-	// BEGIN DUNGEON RENDER
-	std::vector<std::shared_ptr<Monster>> monster = dungeon.getMonsters();
-	std::vector<std::shared_ptr<Traps>> dungeonTraps = dungeon.getTraps();
-	int rand;
-	int z;
-	for (int i = 0; i < rows; i++) {
-		for (int j = 0; j < cols; j++) {
-			tile = &maze[i*cols + j];
-
-			rand = randInt(8) + 1;
-			switch (rand) {
-			case 1: image = "FloorTile1_48x48.png"; break;
-			case 2: image = "FloorTile2_48x48.png"; break;
-			case 3: image = "FloorTile3_48x48.png"; break;
-			case 4: image = "FloorTile4_48x48.png"; break;
-			case 5: image = "FloorTile5_48x48.png"; break;
-			case 6: image = "FloorTile6_48x48.png"; break;
-			case 7: image = "FloorTile7_48x48.png"; break;
-			case 8: image = "FloorTile8_48x48.png"; break;
-			}
-
-			Sprite* floor = createSprite(image, j, i, -10);
-			floor->setOpacity(252);
-			if (!(/*m_level == 2 || m_level == 4 ||*/ m_level == FIRST_BOSS))
-				floor->setColor(Color3B(0, 0, 0));
-		
-			dungeon[i*cols + j].floor = floor;
-
-			if (tile->upper == SMASHER && j == BOSSCOLS / 2 && i == 3) {
-				// smasher position hardcoded to begin with
-				image = "C_Wall_Terrain1_48x48.png";
-				Sprite* smasher = createSprite(image, j, i, 2);
-				smasher->setScale(3.0f * GLOBAL_SPRITE_SCALE);
-				smasher->setColor(Color3B(55, 30, 40));
-
-				int pos = dungeon.findMonster(j, i);
-				dungeon.getMonsters()[pos]->setSprite(smasher);
-			}
-			if (tile->hero) {
-				x = j * SPACING_FACTOR - X_OFFSET;
-				y = SPACING_FACTOR * (rows - i) - Y_OFFSET;
-			}
-			if (tile->npc) {
-				int pos = dungeon.findNPC(j, i);
-
-				if (pos != -1) {
-
-					int offset = 0;
-					// Move the shopkeeper's sprite up one tile since they are behind the counter
-					if (dungeon.getNPCs()[pos]->getName() == SHOPKEEPER)
-						offset = -1;
-					
-
-					image = dungeon.getNPCs()[pos]->getImageName();
-					Sprite* npc = createSprite(image, j, i + offset, 1);
-					dungeon.getNPCs()[pos]->setSprite(npc);
-				}
-			}
-			if (tile->shop_action != "") {
-
-				if (tile->shop_action == "countertop") image = "Countertop_48x48.png";
-				else if (tile->shop_action == "shopkeeper") image = "Shopkeeper_48x48.png";
-				else if (tile->shop_action == "breakable") image = "Breakable_Crate_48x48.png";
-				else if (tile->shop_action == "secret") image = "Stairs_48x48.png";
-				// if tile is labeled shop_item, puts a countertop image underneath the item, as a shop does
-				else if (tile->shop_action == "shop_item") image = "Countertop_48x48.png";
-
-				if (tile->shop_action != "purchase") {
-					Sprite* object = createSprite(image, j, i, 1);
-					dungeon.misc_sprites.push_back(object);
-				}
-			}
-			if (tile->wall) {
-
-				if (tile->wall_type == REG_WALL) {
-					rand = randInt(13) + 1;
-					switch (rand) {
-					case 1: image = "D_Wall_Terrain1_48x48.png"; break;
-					case 2: image = "D_Wall_Terrain2_48x48.png"; break;
-					case 3: image = "D_Wall_Terrain3_48x48.png"; break;
-					case 4: image = "D_Wall_Terrain4_48x48.png"; break;
-					case 5: image = "D_Wall_Terrain5_48x48.png"; break;
-					case 6: image = "D_Wall_Terrain6_48x48.png"; break;
-					case 7: image = "D_Wall_Terrain7_48x48.png"; break;
-					case 8: image = "D_Wall_Terrain8_48x48.png"; break;
-					case 9: image = "D_Wall_Terrain9_48x48.png"; break;
-					case 10: image = "D_Wall_Terrain10_48x48.png"; break;
-					case 11: image = "D_Wall_Terrain11_48x48.png"; break;
-					case 12: image = "D_Wall_Terrain12_48x48.png"; break;
-					case 13: image = "D_Wall_Terrain13_48x48.png"; break;
-					}
-
-					Sprite* wall = createSprite(image, j, i, 1);
-
-					//wall->setColor(Color3B(210, 200, 255));
-					wall->setColor(Color3B(0, 0, 0));
-					walls.push_back(wall);
-				}
-				else if (tile->wall_type == UNB_WALL) {
-
-					if (i == 0) rand = randInt(3) + 1 + (randInt(2) * 12); // upper border
-					else if (j == cols - 1) rand = randInt(3) + 4;// + (randInt(2) * 9); // right border
-					else if (i == rows - 1) rand = randInt(3) + 7 + (randInt(2) * 6); // lower border
-					else if (j == 0) rand = randInt(3) + 10;// + (randInt(2) * 3); // left border
-
-					switch (rand) {
-					case 1: image = "C_Wall_Terrain1_48x48.png"; break;
-					case 2: image = "C_Wall_Terrain2_48x48.png"; break;
-					case 3: image = "C_Wall_Terrain3_48x48.png"; break;
-					case 4: image = "C_Wall_Terrain4_48x48.png"; break;
-					case 5: image = "C_Wall_Terrain5_48x48.png"; break;
-					case 6: image = "C_Wall_Terrain6_48x48.png"; break;
-					case 7: image = "C_Wall_Terrain7_48x48.png"; break;
-					case 8: image = "C_Wall_Terrain8_48x48.png"; break;
-					case 9: image = "C_Wall_Terrain9_48x48.png"; break;
-					case 10: image = "C_Wall_Terrain10_48x48.png"; break;
-					case 11: image = "C_Wall_Terrain11_48x48.png"; break;
-					case 12: image = "C_Wall_Terrain12_48x48.png"; break;
-						//
-					case 13: image = "C_Wall_Terrain13_48x48.png"; break;
-					case 14: image = "C_Wall_Terrain14_48x48.png"; break;
-					case 15: image = "C_Wall_Terrain15_48x48.png"; break;
-					}
-
-					Sprite* wall = createSprite(image, j, i, 1);
-					wall->setColor(Color3B(170, 90, 40));
-					//wall->setColor(Color3B(0, 0, 0));
-					walls.push_back(wall);
-				}
-				else if (tile->wall_type == FOUNTAIN) {
-					image = "Fountain_Down_48x48.png";
-					Sprite* fountain = createSprite(image, j, i, 1);
-					//Sprite* fountain = Sprite::createWithSpriteFrameName(image);
-					//this->addChild(fountain, 1);
-					//fountain->setPosition(j * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (rows - i) - Y_OFFSET);
-					walls.push_back(fountain); // fountain is a wall
-				}
-				else if (tile->wall_type == DOOR_VERTICAL) {
-					image = "Door_Vertical_Closed_48x48.png";
-					Sprite* door = createSprite(image, j, i, 1);
-					doors.push_back(door);
-				}
-				else if (tile->wall_type == DOOR_HORIZONTAL) {
-					image = "Door_Horizontal_Closed_48x48.png";
-					Sprite* door = createSprite(image, j, i, 1);
-					doors.push_back(door);
-				}
-
-			}
-			if (tile->enemy && tile->upper != SMASHER) {
-		
-				int pos = dungeon.findMonster(j, i);
-				image = monster.at(pos)->getImageName();
-
-				if (monster.at(pos)->hasAnimation()) {
-					cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation(monster.at(pos)->getAnimationFrames(), monster.at(pos)->getAnimationFrameCount());
-					Sprite* monsterSprite = createAnimation(frames, monster.at(pos)->getFrameInterval(), j, i, 1);
-					dungeon.getMonsters()[pos]->setSprite(monsterSprite);
-				}
-				else {
-					Sprite* monsterSprite = createSprite(image, j, i, 1);
-					dungeon.getMonsters()[pos]->setSprite(monsterSprite);
-				}
-
-			}
-			if (tile->item) {
-				image = tile->object->getImageName();
-
-				int z = -1;
-				switch (m_level) {
-				case 2:
-				case 4: z = 2; break;
-				}
-
-				Sprite* object = createSprite(image, j, i, z);
-				items.push_back(object);
-			}
-			if (tile->trap) {
-
-				if (tile->trap_name == LOCKED_STAIRCASE) {
-					image = "Locked_Stairs_48x48.png";
-					z = -4;
-				}
-				else if (tile->trap_name == BUTTON_UNPRESSED) {
-					image = "Button_Unpressed_48x48.png";
-					z = -4;
-				}
-				else
-					continue;
-				
-				
-				Sprite* trap = createSprite(image, j, i, z);
-
-				int pos = dungeon.findTrap(j, i);
-				if (pos != -1)
-					dungeonTraps.at(pos)->setSprite(trap);
-			}
-
-		}
-	}
-
-	m_player->setPosition(x, y);
-}
 cocos2d::Sprite* LevelScene::createSprite(std::string image, int x, int y, int z) {
 	// Screen real dimensions
 	auto vSize = Director::getInstance()->getVisibleSize();
@@ -3999,7 +3753,7 @@ cocos2d::Sprite* LevelScene::createSprite(std::string image, int x, int y, int z
 
 	//// Create new Sprite without scale, which perfoms much better
 	//auto newSprite = Sprite::createWithTexture(renderTexture->getSprite()->getTexture());
-	//newSprite->setPosition(x * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (maxrows - y) - Y_OFFSET);
+	//newSprite->setPosition(x * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (rows - y) - Y_OFFSET);
 	//addChild(newSprite, z);
 }
 cocos2d::Sprite* LevelScene::createAnimation(cocos2d::Vector<cocos2d::SpriteFrame*> frames, int frameInterval, int x, int y, int z) {
@@ -4049,8 +3803,9 @@ EffectSprite* LevelScene::createEffectSprite(std::string image, int x, int y, in
 }
 
 void LevelScene::LevelKeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
-	// unschedule the inaction timer
-	Director::getInstance()->getScheduler()->unschedule("timer", this);
+	// Unschedule the inaction timer
+	if (keyCode != INVENTORY_KEY && keyCode != ITEM_KEY)
+		unscheduleTimer();
 
 	int x, y;
 
@@ -4118,6 +3873,7 @@ void LevelScene::LevelKeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
 	else if (keyCode == INVENTORY_KEY) {
 		kbListener->setEnabled(false);
 		m_hud->inventoryMenu(kbListener, *m_currentDungeon);
+		return;
 	}
 	else if (keyCode == WEAPON_KEY) {
 		m_currentDungeon->peekDungeon(x, y, 'w');
@@ -4125,6 +3881,7 @@ void LevelScene::LevelKeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
 	else if (keyCode == ITEM_KEY) {
 		kbListener->setEnabled(false);
 		m_hud->itemMenu(kbListener, *m_currentDungeon);
+		return;
 	}
 	else if (keyCode == EventKeyboard::KeyCode::KEY_M) {
 		if (cocos2d::experimental::AudioEngine::getVolume(bg_music_id) > 0)
@@ -4235,7 +3992,7 @@ void LevelScene::LevelKeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
 		m_hud->updateBossHUD(*m_currentDungeon);
 
 	// Check if player is dead, if so, run game over screen
-	if (m_currentDungeon->getPlayer()->getHP() <= 0) {
+	if (m_currentDungeon->getPlayer()->isDead()) {
 		cocos2d::experimental::AudioEngine::stop(bg_music_id);
 		m_hud->gameOver();
 		return; // prevents timer from being scheduled
@@ -4249,7 +4006,6 @@ void LevelScene::LevelKeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
 
 	// reschedule the inaction timer
 	scheduleTimer();
-
 }
 void LevelScene::scheduleTimer() {
 	Director::getInstance()->getScheduler()->schedule([this](float) {
@@ -4276,32 +4032,12 @@ void LevelScene::scheduleTimer() {
 		if (m_currentDungeon->getPlayer()->getHP() <= 0)
 			m_hud->gameOver(*this);
 		
-	}, this, getTimerSpeed(), false, "timer");
+	}, this, getTimerSpeed(), false, "Timer");
+}
+void LevelScene::unscheduleTimer() {
+	Director::getInstance()->getScheduler()->unschedule("Timer", this);
 }
 
-void LevelScene::createPlayerSpriteAndCamera() {
-	auto visibleSize = Director::getInstance()->getVisibleSize();
-	float vsw = visibleSize.width / 2;
-	float vsh = visibleSize.height / 2;
-
-	m_player = Sprite::createWithSpriteFrameName(p->getImageName());
-	m_player->setPosition(0, 0);
-	m_player->setScale(GLOBAL_SPRITE_SCALE);
-	this->addChild(m_player, 2);
-	
-	switch (m_currentDungeon->getLevel()) {
-	case FIRST_BOSS:
-		this->setScale(0.4f);
-		this->setPosition((-vsw) * .7, (-vsh) * 1.2);
-		break;
-
-	default:
-		this->runAction(cocos2d::Follow::createWithOffset(m_player, -vsw, -vsh, cocos2d::Rect::ZERO));
-		break;
-	}
-
-	m_player->visit();
-}
 void LevelScene::setCurrentDungeon(int level, std::shared_ptr<Player> player) {
 	switch (level) {
 	case TUTORIAL: m_currentDungeon = new TutorialFloor(this, player); break; // Intro/Tutorial
@@ -4314,9 +4050,35 @@ void LevelScene::setCurrentDungeon(int level, std::shared_ptr<Player> player) {
 	case THIRD_FLOOR: m_currentDungeon = new ThirdFloor(this, player); break;
 	case FIRST_BOSS: m_currentDungeon = new FirstBoss(this, player); break;
 	}
+
+	player->setDungeon(m_currentDungeon);
 }
-Dungeon* LevelScene::getCurrentDungeon() {
-	return m_currentDungeon;
+void LevelScene::createPlayerSpriteAndCamera() {
+	auto visibleSize = Director::getInstance()->getVisibleSize();
+	float vsw = visibleSize.width / 2;
+	float vsh = visibleSize.height / 2;
+
+	float x, y;
+	m_currentDungeon->transformDungeonToSpriteCoordinates(m_currentDungeon->getPlayer()->getPosX(), m_currentDungeon->getPlayer()->getPosY(), x, y);
+
+	m_player = Sprite::createWithSpriteFrameName(p->getImageName());
+	m_player->setPosition(x, y);
+	m_player->setScale(GLOBAL_SPRITE_SCALE);
+	this->addChild(m_player, 2);
+
+	switch (m_currentDungeon->getLevel()) {
+	case FIRST_BOSS:
+		this->setScale(0.4f);
+		this->setPosition((-vsw) * .7, (-vsh) * 1.2);
+		break;
+
+	default:
+		this->runAction(cocos2d::Follow::createWithOffset(m_player, -vsw, -vsh, cocos2d::Rect::ZERO));
+		break;
+	}
+
+	m_player->visit();
+	m_currentDungeon->getPlayerVector().at(0)->setSprite(m_player);
 }
 void LevelScene::setMusic(int level) {
 	//cocos2d::experimental::AudioEngine::setMaxAudioInstance(32);
@@ -4331,13 +4093,6 @@ void LevelScene::setMusic(int level) {
 	case FIRST_BOSS: music = "Zero Respect.mp3"; break;
 	}
 	bg_music_id = playMusic(music, true);
-}
-void LevelScene::setSprites(Dungeon *dungeon) {
-	dungeon->getPlayerVector().at(0)->setSprite(m_player);
-
-	dungeon->setItemSprites(items);
-	dungeon->setWallSprites(walls);
-	dungeon->setDoorSprites(doors);
 }
 void LevelScene::updateLevelLighting() {
 	switch (m_currentDungeon->getLevel()) {
@@ -4354,10 +4109,15 @@ void LevelScene::updateLevelLighting() {
 float LevelScene::getTimerSpeed() {
 	float speed;
 	switch (m_currentDungeon->getLevel()) {
-	case 1: speed = 0.70f; break;
-	case 3: speed = 0.60f; break;
-	case 5: speed = 0.50f; break;
-	case 6: speed = 0.40f; break;
+	case FIRST_FLOOR: speed = 0.70f; break;
+	case SECOND_FLOOR: speed = 0.65f; break;
+	case THIRD_FLOOR: speed = 0.60f; break;
+	case FOURTH_FLOOR: speed = 0.55f; break;
+	case FIFTH_FLOOR: speed = 0.50f; break;
+	case SIXTH_FLOOR: speed = 0.45f; break;
+	case SEVENTH_FLOOR: speed = 0.40f; break;
+	case EIGHTH_FLOOR: speed = 0.35f; break;
+	case FIRST_BOSS: speed = 0.30f; break;
 	default: speed = 0.70f; break;
 	}
 
@@ -4378,7 +4138,7 @@ void LevelScene::advanceLevel() {
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
 	// Unschedule the inaction timer and event listener
-	Director::getInstance()->getScheduler()->unschedule("timer", this);
+	unscheduleTimer();
 	kbListener->setEnabled(false);
 
 	// stop music
@@ -4424,7 +4184,7 @@ inline bool LevelScene::playerAdvanced(int level) {
 void LevelScene::returnToMainMenu() {
 
 	// Unschedule the inaction timer and event listener
-	Director::getInstance()->getScheduler()->unschedule("timer", this);
+	unscheduleTimer();
 	kbListener->setEnabled(false);
 
 	// stop music
@@ -4482,7 +4242,7 @@ void ShopScene::showShopHUD(Dungeon &dungeon, int x, int y) {
 
 	// pricing symbols, prices themselves, etc.
 	itemprice = Label::createWithTTF("$", "fonts/Marker Felt.ttf", 24);
-	itemprice->setPosition(x * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (dungeon.getRows() - (y-2)) - Y_OFFSET);
+	itemprice->setPosition(x * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (dungeon.getRows() - (y - 2)) - Y_OFFSET);
 	this->addChild(itemprice, 3);
 	itemprice->setColor(cocos2d::Color3B(255, 215, 0));
 	itemprice->setString("$" + std::to_string(dungeon[(y - 1)*dungeon.getCols() + x].price));
@@ -4671,6 +4431,9 @@ void PauseMenuScene::pauseMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode
 			experimental::AudioEngine::stopAll(); // remove all sound before creating the next scene
 
 			auto visibleSize = Director::getInstance()->getVisibleSize();
+
+			// Needed to reset passives obtained
+			GameTable::initializeTables();
 			
 			// generate a new level 1 scene
 			std::shared_ptr<Player> newPlayer(nullptr);
@@ -4909,10 +4672,6 @@ void PauseMenuScene::helpMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode,
 }
 
 
-// Return a uniformly distributed random integer from 0 to limit-1 inclusive
-int randInt(int limit) {
-	return std::rand() % limit;
-}
 
 // Converts Key Code to string for use in labels
 std::string convertKeycodeToStr(cocos2d::EventKeyboard::KeyCode keyCode) {

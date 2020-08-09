@@ -1,10 +1,10 @@
 #include "cocos2d.h"
+#include "AudioEngine.h"
 #include "global.h"
 #include "FX.h"
-#include "AudioEngine.h"
-#include "GUI.h"
 #include "Dungeon.h"
 #include "Actors.h"
+#include "GameObjects.h"
 #include <string>
 
 float GLOBAL_MUSIC_VOLUME = 0.5f;
@@ -65,7 +65,9 @@ void tintStunned(cocos2d::Sprite* sprite) {
 }
 void tintPoisoned(cocos2d::Sprite* sprite) {
 	auto tintGreen = cocos2d::TintTo::create(0.0f, cocos2d::Color3B(173, 255, 47));
-	sprite->runAction(tintGreen);
+	auto reveal = cocos2d::Show::create();
+	auto action = sprite->runAction(cocos2d::Sequence::createWithTwoActions(tintGreen, reveal));
+	action->setTag(1);
 }
 void tintItemCast(cocos2d::Sprite* sprite) {
 	auto tintGold = cocos2d::TintTo::create(0.0f, cocos2d::Color3B(255, 215, 0));
@@ -147,11 +149,10 @@ void showShieldBlock(Dungeon& dungeon, const Player& p) {
 
 void poisonCloud(Dungeon &dungeon, int x, int y, int time, cocos2d::Color3B color) {
 	int cols = dungeon.getCols();
-	int rows = dungeon.getRows();
 
 	for (int i = y - 2; i < y + 3; i++) {
 		for (int j = x - 2; j < x + 3; j++) {
-			if (i != -1 && i != rows && !(j == -1 && i <= 0) && !(j == cols && i >= rows - 1) &&
+			if (dungeon.withinBounds(j, i) &&
 				!(i == y - 2 && j == x - 2) && !(i == y - 2 && j == x + 2) && !(i == y + 2 && j == x - 2) && !(i == y + 2 && j == x + 2)) { // boundary check
 				auto tintGreen = cocos2d::TintTo::create(time, color);
 				dungeon[i*cols + j].floor->runAction(tintGreen);
@@ -206,6 +207,20 @@ void playSound(std::string sound, int px, int py, int x, int y, bool loop) {
 		cocos2d::experimental::AudioEngine::play2d(sound, loop, volume * GLOBAL_SOUND_VOLUME);
 	}
 }
+void playSound(std::string sound, const Player &p, int x, int y, bool loop) {
+	// Reserve one sound for game over music
+	if (cocos2d::experimental::AudioEngine::getPlayingAudioCount() == cocos2d::experimental::AudioEngine::getMaxAudioInstance() - 1)
+		return;
+
+	int px = p.getPosX();
+	int py = p.getPosY();
+
+	float range = abs(px - x) + abs(py - y);
+	if (range <= 12) {
+		float volume = exp(-(range / 3));
+		cocos2d::experimental::AudioEngine::play2d(sound, loop, volume * GLOBAL_SOUND_VOLUME);
+	}
+}
 void playSound(std::string sound, float volume, bool loop) {
 	// Reserve one sound for game over music
 	if (cocos2d::experimental::AudioEngine::getPlayingAudioCount() == cocos2d::experimental::AudioEngine::getMaxAudioInstance() - 1)
@@ -232,14 +247,14 @@ void playBleed(float volume) {
 
 	playSound(sound);
 }
-void playPoison(float volume) {
+void playPoison(const Player& p, int x, int y) {
 	std::string sound;
 	switch (1 + randInt(2)) {
 	case 1: sound = "Poison_Damage1.mp3"; break;
 	case 2: sound = "Poison_Damage2.mp3"; break;
 	}
 
-	playSound(sound);
+	playSound(sound, p.getPosX(), p.getPosY(), x, y);
 }
 void playBirdSound(float volume) {
 	std::string sound;
@@ -284,17 +299,14 @@ void playMonsterDeathByPit(const Player& p, const Monster& m) {
 	int my = m.getPosY();
 
 	std::string monster = m.getName();
-	if (monster == "goblin") {
+	if (monster == GOBLIN) {
 		playSound("Goblin_Falling.mp3", px, py, mx, my);
-		//cocos2d::experimental::AudioEngine::play2d("Goblin_Falling.mp3", false, (float)exp(-(abs(px - mx) + abs(py - my)) / 2));
 	}
-	else if (monster == "mounted knight") {
+	else if (monster == PIKEMAN) {
 		playSound("Knight_Falling.mp3", px, py, mx, my);
-		//cocos2d::experimental::AudioEngine::play2d("Knight_Falling.mp3", false, (float)exp(-(abs(px - mx) + abs(py - my)) / 2));
 	}
 
 	playSound("Falling_In_A_Hole.mp3", px, py, mx, my);
-	//cocos2d::experimental::AudioEngine::play2d("Falling_In_A_Hole.mp3", false, (float)exp(-(abs(px - mx) + abs(py - my)) / 2));
 }
 void playArcherDaggerSwipe() {
 	std::string sound;

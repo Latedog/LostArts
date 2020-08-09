@@ -1,10 +1,31 @@
 #ifndef DUNGEON_H
 #define DUNGEON_H
 
-#include "cocos2d.h"
-#include "GameObjects.h"
-#include "Actors.h"
 #include <vector>
+
+class cocos2d::Sprite;
+class cocos2d::SpriteFrame;
+class cocos2d::FiniteTimeAction;
+enum class DamageType;
+class LevelScene;
+class Afflictions;
+class Player;
+class NPC;
+class Monster;
+class Objects;
+class Wall;
+class Door;
+class Drops;
+class Spell;
+class Passive;
+class Relic;
+class Weapon;
+class Shield;
+class Traps;
+class Stairs;
+class Decoy;
+class Brazier;
+class Gold;
 
 // :::: Level boundaries ::::
 const int MAXROWS = 38;// 18;
@@ -36,25 +57,19 @@ struct _Tile {
 	//		Extras						 x
 	//	    Gold/Money					-3
 	//		Stairs/Traps				-4
-	//		Floor		: BOTTOM		-5
+	//		Floor		: BOTTOM		-10
 	//
 
 
-	char upper;			//	  ^    layer for smasher to sit in
-	char top;			//	/ | \  walls, player, monsters, etc.; Also used for doors
-	char projectile;	//	  |	   objects that fly through the air
-	char bottom;		//	  |	   items, weapons, etc.
-	int gold;			//	  |	   exclusively for gold and money
-	char traptile;		//	  |	   stairs, traps, lava, etc.; Also used to save door type.
-	char extra;			//	  |	   for things like active bombs, or other odds and ends
-
-
-	// tells if there is already something present in a particular spot
+	char upper;	// Layer for Smasher
+	
+	// Flags
 	bool boundary = false;
 	bool wall;
 	bool item;
 	bool trap;
 	bool enemy;
+	bool underEnemy = false;
 	bool hero; // The player
 	bool npc;
 	bool exit;
@@ -63,24 +78,19 @@ struct _Tile {
 	bool noSpawn; // nothing allowed to spawn here during level creation if true
 	bool menu = false; // Used only in World Hub to return to the menu
 
-	// shop information
+	int gold;
+
+	// For shop
 	int price;
 
 	// saves floor tile sprite for easy access
 	cocos2d::Sprite* floor = nullptr;
 
-	// wall identifier
-	std::string wall_type;
+	// Wall Object
+	std::shared_ptr<Wall> wallObject;
 
-	// monster identifier
-	std::string monster_name;
-
-	// item information
-	std::string item_name;
+	// Item Object
 	std::shared_ptr<Objects> object;
-
-	// trap identifier
-	std::string trap_name;
 
 	// shop item identifier
 	std::string shop_action;
@@ -88,28 +98,17 @@ struct _Tile {
 	// For Shrines
 	std::string shrine_action;
 
-	// tells if there's overlap of multiple objects(spikes atm), and counts how many instances
-	bool overlap;
-	int overlap_count;
-
-	// Normally, monsters cannot overlap, but this frequently can happen during the smasher boss fight.
-	// So this is used for telling if smasher was on top of an enemy and prevents enemy overlap bug.
-	// :::: currently unused, replaced with pushing instead of overlapping ::::
-	bool enemy_overlap = false;
-	int enemy_overlap_count = 0;
-
 	// for recursive backtracking optimization in shortest path algorithm
 	bool marked;
 };
 
 class Dungeon {
 public:
-	Dungeon(cocos2d::Scene* scene, int level, int rows, int cols);
-	virtual Dungeon& operator=(Dungeon const &dungeon);
+	Dungeon(LevelScene* scene, std::shared_ptr<Player> p, int level, int rows, int cols);
 	_Tile& operator[](int index);
 	virtual ~Dungeon();
 
-	virtual void peekDungeon(int x, int y, char move); // Core gameplay loop
+	void peekDungeon(int x, int y, char move); // Core gameplay loop
 	virtual void specialActions() { return; }; // unique checks made in peekDungeon
 	virtual bool specialTrapCheck(int x, int y) { return false; }; // unique trap checks made when player moves onto a trap
 
@@ -122,10 +121,13 @@ public:
 	void interactWithNPC(int x, int y);
 	void playNPCDialogue(NPC &npc, std::vector<std::string> dialogue);
 
-	// :::: Doors ::::
-	void openDoor(int x, int y);
+	// :::: Walls/Doors ::::
+	void destroyWall(int x, int y);
+	void removeWall(int x, int y);
 
 	// :::: Trap Handling ::::
+	void addTrap(std::shared_ptr<Traps> trap) { m_traps.push_back(trap); };
+	std::vector<int> findTraps(int x, int y) const;
 	int findTrap(int x, int y, bool endFirst = false) const;
 	int countTrapNumber(int x, int y); // returns the number of traps with this (x, y) pair
 	void trapEncounter(int x, int y, bool endFirst = false); // endFirst is used to find traps that we know were spawned after the initial construction (such as RockSummon)
@@ -135,30 +137,42 @@ public:
 	void addDecoy(std::shared_ptr<Decoy> decoy) { m_decoys.push_back(decoy); };
 
 	// :::: Actor Handling ::::
+	void addMonster(std::shared_ptr<Monster> monster) { m_monsters.push_back(monster); };
 	void damagePlayer(int damage);
 	int findMonster(int mx, int my) const;
-	virtual void fight(int x, int y);
-	void damageMonster(int index, int damage);
+	int findUndergroundMonster(int x, int y) const;
+	virtual void fight(int x, int y, DamageType type);
+	void damageMonster(int index, int damage, DamageType type);
+	void damageMonster(int x, int y, int damage, DamageType type);
 	void giveAffliction(int index, std::shared_ptr<Afflictions> affliction);
 	virtual void monsterDeath(int pos);
 
 	void pushMonster(int &mx, int &my, char move, int cx = 0, int cy = 0, bool strict = false);
-	virtual void pushPlayer(char move, bool strict = false);
 
 	// For pushing players/monsters in straight lines properly (i.e. no weird skipping through enemies)
-	// @x and @y is the target to be pushed. @lethal indicates that the actor should die if pushed against a wall
-	void linearActorPush(int x, int y, int limit, char move, bool pulling = false, bool lethal = false);
+	// @x and @y is the initial target to be pushed. @lethal indicates that the actor should die if pushed against a wall
+	// @limit is how far it will attempt to push. @range is how far away it works.
+	//void linearActorPush(int x, int y, int limit, char move, bool pulling = false, bool lethal = false);
+	void linearActorPush(int x, int y, int limit, int range, char move, bool pulling = false, bool lethal = false);
 
 	// @sx and @sy are the source or start point. @tx and @ty is the target to be moved.
 	// Can be used in conjunction with linearActorPush.
 	char getDirectionRelativeTo(int sx, int sy, int tx, int ty, bool pulling = false);
 
 	// :::: Item Collection ::::
+	void addItem(std::shared_ptr<Objects> item) { m_items.push_back(item); };
+	void createItem(std::shared_ptr<Objects> item);
+	void removeItem(int x, int y);
+	void removeItemWithActions(int x, int y, cocos2d::Vector<cocos2d::FiniteTimeAction*> actions);
 	void itemHash(int &x, int &y);
 	virtual void purchaseItem(int x, int y) { return; };
 	virtual void collectItem(int x, int y);
 	void goldPickup(int x, int y);
+	void addGold(int x, int y, int amount);
+	void removeGold(int x, int y);
+	void removeGoldWithActions(int x, int y, cocos2d::Vector<cocos2d::FiniteTimeAction*> actions);
 
+	void advanceLevel() { m_level++; };
 
 	//	:::: Getters ::::
 	std::vector<std::shared_ptr<Player>>& getPlayerVector() { return player; };
@@ -166,16 +180,28 @@ public:
 	int getLevel() const { return m_level; };
 	bool returnedToMenu() const { return m_return; };
 
-	std::vector<_Tile>& getDungeon() { return m_maze; };
+	std::vector<_Tile> getDungeon() { return m_maze; };
 	int getRows() const { return m_rows; };
 	int getCols() const { return m_cols; };
-	std::vector<std::shared_ptr<NPC>>& getNPCs() { return m_npcs; };
 	std::vector<std::shared_ptr<Monster>>& getMonsters() { return m_monsters; };
 	std::vector<std::shared_ptr<Traps>>& getTraps() { return m_traps; };
-	std::vector<std::shared_ptr<Door>>& getDoors() { return m_doors; };
 
 	// Helper
 	bool withinBounds(int x, int y) const;
+	int gold(int x, int y) const { return m_maze[y*m_cols + x].gold; };
+	bool boundary(int x, int y) const { return m_maze[y*m_cols + x].boundary; };
+	bool wall(int x, int y) const { return m_maze[y*m_cols + x].wall; };
+	bool item(int x, int y) const { return m_maze[y*m_cols + x].item; };
+	bool enemy(int x, int y) const { return m_maze[y*m_cols + x].enemy; };
+	bool underEnemy(int x, int y) const { return m_maze[y*m_cols + x].underEnemy; };
+	bool hero(int x, int y) const { return m_maze[y*m_cols + x].hero; };
+	bool npc(int x, int y) const { return m_maze[y*m_cols + x].npc; };
+	bool trap(int x, int y) const { return m_maze[y*m_cols + x].trap; };
+	bool exit(int x, int y) const { return m_maze[y*m_cols + x].exit; };
+	bool noSpawn(int x, int y) const { return m_maze[y*m_cols + x].noSpawn; };
+	bool marked(int x, int y) const { return m_maze[y*m_cols + x].marked; };
+	std::shared_ptr<Objects> itemObject(int x, int y) { return m_maze[y*m_cols + x].object; };
+	std::shared_ptr<Wall> wallObject(int x, int y) { return m_maze[y*m_cols + x].wallObject; };
 
 	// For shops prices
 	virtual bool isShop() const { return false; };
@@ -185,27 +211,13 @@ public:
 	// For Shrines
 	virtual bool isShrine() const { return false; };
 
-	// .......deprecated.......
-	bool wallCollision(char direction, int p_move, int m_move);
-	void showText();
-
-
-	// :::: SPRITE SETTING ::::
-	void setMoneySprites(std::vector<cocos2d::Sprite*> sprites) { money_sprites = sprites; };
-	void setItemSprites(std::vector<cocos2d::Sprite*> sprites) { item_sprites = sprites; };
-	void setWallSprites(std::vector<cocos2d::Sprite*> sprites) { wall_sprites = sprites; };
-	void setDoorSprites(std::vector<cocos2d::Sprite*> sprites) { door_sprites = sprites; };
-
-	void setScene(cocos2d::Scene* scene) { m_scene = scene; };
-
 
 	// :::: SPRITE MANIPULATION ::::
-	
-	// Converts a sprite's coordinates to the Dungeon's grid coordinates
-	void transformSpriteToDungeonCoordinates(float x, float y, int &fx, int &fy);
-	void transformDungeonToSpriteCoordinates(int x, int y, float &fx, float &fy);
-	void transformDungeonToSpriteCoordinates(float x, float y, float &fx, float &fy);
-	int findSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y);
+
+	// Converts a sprite's coordinates to the Dungeon's grid coordinates and vice versa.
+	void transformSpriteToDungeonCoordinates(float x, float y, int &fx, int &fy) const;
+	void transformDungeonToSpriteCoordinates(int x, int y, float &fx, float &fy) const;
+	void transformDungeonToSpriteCoordinates(float x, float y, float &fx, float &fy) const;
 	
 	void teleportSprite(cocos2d::Sprite* sprite, int x, int y);
 
@@ -214,34 +226,31 @@ public:
 	void queueMoveSprite(cocos2d::Sprite* sprite, int cx, int cy, float time = .1f, bool front = false);
 	void queueMoveSprite(cocos2d::Sprite* sprite, float cx, float cy, float time = .1f, bool front = false);
 
-	// Moves sprites to a certain spot using @cx and @cy to specify the position
-	void moveSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y, int cx, int cy);
-
-	// No difference from addSprite, just returns the sprite
 	cocos2d::Sprite* createSprite(int x, int y, int z, std::string image);
 	cocos2d::Sprite* createSprite(float x, float y, int z, std::string image);
 	cocos2d::Sprite* createSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y, int z, std::string image);
 	void addSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y, int z, std::string image);
-	void addGoldSprite(int x, int y);
+
+	// Wall sprite creation
+	cocos2d::Sprite* createWallSprite(int x, int y, int z, std::string type);
 
 	void queueRemoveSprite(cocos2d::Sprite* sprite);
-	void queueRemoveSpriteWithAction(std::vector<cocos2d::Sprite*> &sprites, int x, int y, cocos2d::FiniteTimeAction* action);
-	void queueRemoveSpriteWithMultipleActions(std::vector<cocos2d::Sprite*> &sprites, int x, int y, cocos2d::Vector<cocos2d::FiniteTimeAction*> actions);
+	void queueRemoveSpriteWithMultipleActions(cocos2d::Sprite* sprite, cocos2d::Vector<cocos2d::FiniteTimeAction*> actions);
 	void removeSprite(cocos2d::Sprite* sprite);
-	void removeSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y);
 
+	void queueCustomAction(cocos2d::Sprite* sprite, cocos2d::FiniteTimeAction* action);
+	void queueCustomActions(cocos2d::Sprite* sprite, cocos2d::Vector<cocos2d::FiniteTimeAction*> actions);
+	void queueCustomSpawnActions(cocos2d::Sprite* sprite, const cocos2d::Vector<cocos2d::FiniteTimeAction*> &actions);
+
+	// Sprite lighting
 	void updateLighting();
-	void updateSecondaryLighting();
 
 	// @strength is how much light is to be provided
 	void addLightSource(int x, int y, double strength, std::string name);
 	void removeLightSource(int x, int y, std::string name);
 
-	cocos2d::Vector<cocos2d::SpriteFrame*> getAnimation(const char* format, int count);
-	cocos2d::Vector<cocos2d::SpriteFrame*> getAnimation(std::string format, int count);
 	cocos2d::Sprite* runAnimationForever(cocos2d::Vector<cocos2d::SpriteFrame*> frames, int frameInterval, int x, int y, int z);
 	void runSingleAnimation(cocos2d::Vector<cocos2d::SpriteFrame*> frames, int frameInterval, int x, int y, int z);
-	void runAnimationForever(cocos2d::Vector<cocos2d::SpriteFrame*> frames, int x, int y);
 
 	// This runs the animation and then leaves the final frame remaining.
 	// Allows things such as debris to be left and have their sprites updated with proper lighting.
@@ -249,13 +258,6 @@ public:
 		std::function<void(Dungeon&, std::vector<cocos2d::Sprite*>&, int, int, int, std::string)> cb, std::string image);
 
 	// :::: Member variables ::::
-	std::vector<std::string> dungeonText;
-
-	std::vector<cocos2d::Sprite*> money_sprites;
-	std::vector<cocos2d::Sprite*> item_sprites;
-	std::vector<cocos2d::Sprite*> wall_sprites;
-	std::vector<cocos2d::Sprite*> door_sprites;
-
 	std::vector<cocos2d::Sprite*> misc_sprites; // For decorations, debris, etc.
 
 protected:
@@ -267,14 +269,20 @@ protected:
 
 	int findSegmentedMonster(int index) const;
 
+	void addDoor(std::shared_ptr<Door> door);
 	int findDoor(int x, int y) const;
 	virtual void checkDoors();
+
+	int findWall(int x, int y) const;
+
+	int findItem(int x, int y) const;
+	int findGold(int x, int y) const;
 
 	void insertActorForRemoval(int index);
 	void actorRemoval();
 
 	void insertTrapForRemoval(int index);
-	void trapRemoval(); // for removing any destroyed traps after iterating through actives
+	void trapRemoval();
 	void monsterTrapEncounter();
 
 	// finds a valid spot for a monster after being pushed
@@ -283,6 +291,8 @@ protected:
 	void setPlayer(std::shared_ptr<Player> p) { player.at(0) = p; };
 	void setLevel(int level) { m_level = level; };
 
+	int findSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y);
+
 	int spriteFound(cocos2d::Sprite* sprite);
 	void insertActionIntoSpawn(cocos2d::Sprite* sprite, cocos2d::FiniteTimeAction* action, bool front = false);
 	void runSpawn();
@@ -290,18 +300,24 @@ protected:
 	int findLightSource(int x, int y, std::string name);
 
 	// :::: LEVEL GENERATION ::::
-	void fillLevel(std::vector<std::string> finalvec, std::shared_ptr<Player> p, int start = 1, int end = -1);
+	void generateNPCs();
+	void generateMonsters();
+	void generateTraps();
+	void generateItems();
+	void fillLevel(std::vector<std::string> finalvec, int start = 1, int end = -1);
 
 	std::vector<std::shared_ptr<Player>> player;
-
-	// protected to allow assignment operators access
+	std::shared_ptr<Stairs> m_exit;
 	int m_level;
 
 	std::vector<std::shared_ptr<NPC>> m_npcs;
 	std::vector<std::shared_ptr<Monster>> m_monsters;
+	std::vector<std::shared_ptr<Objects>> m_items;
 	std::vector<std::shared_ptr<Traps>> m_traps;
 	std::vector<std::shared_ptr<Door>> m_doors;
+	std::vector<std::shared_ptr<Wall>> m_walls;
 	std::vector<std::shared_ptr<Decoy>> m_decoys; // Decoys attract monsters that normally chase the player
+	std::vector<std::shared_ptr<Gold>> m_money;
 
 	std::set<int> m_trapIndexes;
 	std::set<int> m_deadActorIndexes;
@@ -314,7 +330,7 @@ protected:
 	// Vector containing the sprite movement actions
 	std::vector<std::pair<cocos2d::Sprite*, cocos2d::Vector<cocos2d::FiniteTimeAction*>>> m_seq;
 
-	cocos2d::Scene* m_scene; // scene needed to create sprites within dungeon
+	LevelScene* m_scene;
 
 	bool m_return = false; // Flag indicating that the player return to main menu from world hub
 
@@ -323,6 +339,9 @@ protected:
 private:
 	// Sets the defaults for all _Tiles
 	void initializeTiles();
+	void createFlooring(int x, int y);
+
+	void updateSecondaryLighting();
 
 	int m_rows;
 	int m_cols;
@@ -333,7 +352,7 @@ private:
 
 class TutorialFloor : public Dungeon {
 public:
-	TutorialFloor(cocos2d::Scene* scene, std::shared_ptr<Player> p);
+	TutorialFloor(LevelScene* scene, std::shared_ptr<Player> p);
 
 private:
 	std::vector<char> generate();
@@ -341,7 +360,7 @@ private:
 
 class WorldHub : public Dungeon {
 public:
-	WorldHub(cocos2d::Scene* scene, std::shared_ptr<Player> p);
+	WorldHub(LevelScene* scene, std::shared_ptr<Player> p);
 
 	void specialActions();
 
@@ -351,8 +370,7 @@ private:
 
 class Shop : public Dungeon {
 public:
-	Shop(cocos2d::Scene* scene, std::shared_ptr<Player> p, int level);
-	Shop& operator=(Shop const &dungeon);
+	Shop(LevelScene* scene, std::shared_ptr<Player> p, int level);
 
 	bool isShop() const { return true; };
 	void constructShopHUD(int x, int y);
@@ -374,7 +392,8 @@ public:
 	// a shrine will increase the player's 'Curse' stat which will have negative effects
 	// for the player. But with enough Curse, the player can access the bonus floors, assuming
 	// other appropirate conditions are also filled.
-	Shrine(cocos2d::Scene* scene, std::shared_ptr<Player> p, int level);
+	Shrine(LevelScene* scene, std::shared_ptr<Player> p, int level);
+	~Shrine();
 
 	void specialActions();
 
@@ -401,7 +420,7 @@ private:
 
 class FirstFloor : public Dungeon {
 public:
-	FirstFloor(cocos2d::Scene* scene, std::shared_ptr<Player> p);
+	FirstFloor(LevelScene* scene, std::shared_ptr<Player> p);
 
 private:
 	// :::: LEVEL GENERATION ::::
@@ -426,8 +445,7 @@ private:
 
 class SecondFloor : public Dungeon {
 public:
-	SecondFloor(cocos2d::Scene* scene, std::shared_ptr<Player> p);
-	SecondFloor& operator=(SecondFloor const &dungeon);
+	SecondFloor(LevelScene* scene, std::shared_ptr<Player> p);
 
 	void specialActions();
 	bool specialTrapCheck(int x, int y);
@@ -436,7 +454,8 @@ public:
 	void devilsGift();
 	void guardiansDefeated();
 	void devilsWaterPrompt();
-	bool getWaterPrompt() { return m_waterPrompt; };
+	bool getWaterPrompt() const { return m_waterPrompt; };
+	bool watersUsed() const { return m_watersUsed; };
 
 	void monsterDeath(int pos);
 
@@ -457,15 +476,10 @@ protected:
 private:
 	std::vector<std::shared_ptr<Monster>> m_f2guardians;
 
-	bool m_openexit;
-
 	bool m_waterPrompt = false;
-	bool m_watersUsed;
+	bool m_watersUsed = false;
 	bool m_watersCleared;
 	int m_guardians;
-
-	int m_stairsX;
-	int m_stairsY;
 
 	int layer = 1;
 	int specialChunkLayer1;
@@ -474,8 +488,7 @@ private:
 
 class ThirdFloor : public Dungeon {
 public:
-	ThirdFloor(cocos2d::Scene* scene, std::shared_ptr<Player> p);
-	ThirdFloor& operator=(ThirdFloor const &dungeon);
+	ThirdFloor(LevelScene* scene, std::shared_ptr<Player> p);
 
 	void hideRooms();
 
@@ -487,7 +500,7 @@ protected:
 
 private:
 	bool roomCleared();
-	void toggleDoorLocks(int dx, int dy, std::string doortype);
+	void toggleDoorLocks(int dx, int dy);
 	void revealRoom();
 
 
@@ -592,16 +605,9 @@ private:
 
 class FirstBoss : public Dungeon {
 public:
-	FirstBoss(cocos2d::Scene* scene, std::shared_ptr<Player> p);
-	FirstBoss& operator=(FirstBoss const &dungeon);
+	FirstBoss(LevelScene* scene, std::shared_ptr<Player> p);
 
-	void peekDungeon(int x, int y, char move);
-
-	void fight(int x, int y);
-	
-	bool monsterHash(int &x, int &y, bool &switched, char move);
-	void pushMonster(std::vector<_Tile> &dungeon, int mx, int my, char move, int cx = 0, int cy = 0);
-	void pushPlayer(char move);
+	void fight(int x, int y, DamageType type);
 
 protected:
 	void checkMonsters();

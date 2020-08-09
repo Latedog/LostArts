@@ -1,30 +1,23 @@
 #include "cocos2d.h"
 #include "AudioEngine.h"
 #include "global.h"
-#include "GUI.h"
+#include "FX.h"
 #include "GameObjects.h"
 #include "Actors.h"
 #include "Dungeon.h"
 #include "Afflictions.h"
-#include "FX.h"
+#include "GameUtils.h"
 #include <string>
+#include <vector>
 #include <iostream>
 #include <memory>
-
-using std::string;
 
 
 //		OBJECT FUNCTIONS
 Objects::Objects() : m_x(0), m_y(0), m_name("") {
 
 }
-Objects::Objects(std::string status) : m_name(status) {
-
-}
-Objects::Objects(std::string item, std::string image) : m_name(item), m_image(image) {
-
-}
-Objects::Objects(int x, int y, string item) : m_x(x), m_y(y), m_name(item) {
+Objects::Objects(int x, int y, std::string item) : m_x(x), m_y(y), m_name(item) {
 
 }
 Objects::Objects(int x, int y, std::string item, std::string image) : m_x(x), m_y(y), m_name(item), m_image(image) {
@@ -40,25 +33,121 @@ Idol::Idol(int x, int y) : Objects(x, y, "Idol") {
 
 }
 
+//		GOLD
+Gold::Gold(Dungeon &dungeon, int x, int y, std::string image) : Objects(x, y, GOLD) {
+	setSprite(dungeon.createSprite(x, y, -3, image));
+}
+
 //		STAIRS
-Stairs::Stairs(Dungeon &dungeon, int x, int y) : Traps(x, y, STAIRCASE, "Stairs_48x48.png", 0) {
-	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
+Stairs::Stairs(Dungeon &dungeon, int x, int y, bool locked) : Traps(&dungeon, x, y, STAIRCASE, "Stairs_48x48.png", 0), m_locked(locked) {
+	dungeon[y*dungeon.getCols() + x].exit = true;
+	dungeon[y*dungeon.getCols() + x].trap = true;
+
+	if (!locked)
+		setSprite(dungeon.createSprite(x, y, -4, getImageName()));
+	else
+		setSprite(dungeon.createSprite(x, y, -4, "Locked_Stairs_48x48.png"));
+}
+
+void Stairs::interact() {
+	if (m_locked) {
+		playSound("Locked.mp3");
+		return;
+	}
+
+	m_dungeon->advanceLevel();
+}
+
+
+//		WALLS
+Wall::Wall(Dungeon *dungeon, int x, int y, std::string type) : Objects(x, y, type) {
+	m_dungeon = dungeon;
+
+	int cols = m_dungeon->getCols();
+
+	(*m_dungeon)[y*cols + x].wall = true;
+
+	if (!isDoor())
+		setSprite(m_dungeon->createWallSprite(x, y, 1, type));
+}
+void Wall::destroy() {
+	int cols = m_dungeon->getCols();
+
+	int x = getPosX();
+	int y = getPosY();
+
+	(*m_dungeon)[y*cols + x].wall = false;
+	(*m_dungeon)[y*cols + x].wallObject.reset();
+	(*m_dungeon)[y*cols + x].wallObject = nullptr;
+
+	m_dungeon->queueRemoveSprite(getSprite());
+	m_dungeon->removeWall(x, y);
+}
+
+Boundary::Boundary(Dungeon *dungeon, int x, int y) : Wall(dungeon, x, y, UNB_WALL) {
+	(*dungeon)[y*dungeon->getCols() + x].boundary = true;
+}
+
+RegularWall::RegularWall(Dungeon *dungeon, int x, int y) : Wall(dungeon, x, y, REG_WALL) {
+
+}
+
+UnbreakableWall::UnbreakableWall(Dungeon *dungeon, int x, int y) : Wall(dungeon, x, y, UNB_WALL) {
+
+}
+
+Fountain::Fountain(Dungeon *dungeon, int x, int y) : Wall(dungeon, x, y, FOUNTAIN) {
+
 }
 
 //		DOORS
-Door::Door(int x, int y) : Objects(x, y, DOOR), m_open(false), m_hold(true), m_lock(false) {
+Door::Door(Dungeon *dungeon, int x, int y, std::string type) : Wall(dungeon, x, y, type), m_open(false), m_hold(true), m_lock(false) {
+	
+}
+void Door::interact() {
+	int cols = m_dungeon->getCols();
 
+	int x = getPosX();
+	int y = getPosY();
+
+	if (!(m_open || m_lock)) {
+		playSound("Door_Opened.mp3");
+
+		getSprite()->setVisible(false);
+
+		toggleOpen();
+		(*m_dungeon)[y*cols + x].wall = false;
+	}
+	else if (m_open) {
+		m_dungeon->getPlayer()->moveTo(x, y);
+	}
+	else if (m_lock) {
+		playSound("Locked.mp3");
+	}
 }
 
+RegularDoor::RegularDoor(Dungeon *dungeon, int x, int y, std::string type) : Door(dungeon, x, y, type) {
+	if (type == DOOR_VERTICAL) 
+		setSprite(m_dungeon->createSprite(x, y, 1, "Door_Vertical_Closed_48x48.png"));	
+	else if (type == DOOR_HORIZONTAL)
+		setSprite(m_dungeon->createSprite(x, y, 1, "Door_Horizontal_Closed_48x48.png"));
+}
+
+BlastDoor::BlastDoor(Dungeon *dungeon, int x, int y, std::string type) : Door(dungeon, x, y, type) {
+	if (type == DOOR_VERTICAL)
+		setSprite(m_dungeon->createSprite(x, y, 1, "Door_Vertical_Closed_48x48.png"));
+	else if (type == DOOR_HORIZONTAL)
+		setSprite(m_dungeon->createSprite(x, y, 1, "Door_Horizontal_Closed_48x48.png"));
+}
 
 //		BUTTON
-Button::Button(int x, int y) : Traps(x, y, BUTTON_UNPRESSED, "Button_Unpressed_48x48.png", 0) {
-
+Button::Button(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, BUTTON_UNPRESSED, "Button_Unpressed_48x48.png", 0) {
+	dungeon[y*dungeon.getCols() + x].trap = true;
+	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
 }
 
 
 //	:::: DROPS ::::
-
 Drops::Drops(int x, int y, std::string item, std::string image) : Objects(x, y, item, image) {
 	
 }
@@ -68,12 +157,12 @@ HeartPod::HeartPod(int x, int y) : Drops(x, y, HEART_POD, "Heart_Pod_48x48.png")
 	setAutoFlag(true);
 	setSoundName("Heart_Pod_Pickup2.mp3");
 }
-void HeartPod::useItem(Player &p) {
-	if (p.getHP() < p.getMaxHP()) {			// if player hp is less than their max
-		if (p.getHP() + 1 <= p.getMaxHP()) // if player hp + effect of heart pod will refill less than or equal to max
-			p.setHP(p.getHP() + 1);
+void HeartPod::useItem(Dungeon &dungeon) {
+	if (dungeon.getPlayer()->getHP() < dungeon.getPlayer()->getMaxHP()) {			// if player hp is less than their max
+		if (dungeon.getPlayer()->getHP() + 1 <= dungeon.getPlayer()->getMaxHP()) // if player hp + effect of heart pod will refill less than or equal to max
+			dungeon.getPlayer()->setHP(dungeon.getPlayer()->getHP() + 1);
 		else	// just set player hp to max
-			p.setHP(p.getMaxHP());
+			dungeon.getPlayer()->setHP(dungeon.getPlayer()->getMaxHP());
 	}
 }
 
@@ -83,16 +172,16 @@ LifePotion::LifePotion(int x, int y) : Drops(x, y, LIFEPOT, "Life_Potion_48x48.p
 
 	setDescription("A red elixir which seems to keep well. Gives you life.");
 }
-void LifePotion::useItem(Player &p) {
+void LifePotion::useItem(Dungeon &dungeon) {
 	// sound effect
 	playSound("Life_Potion_Used.mp3");
 
-	int healing = 15 + (p.hasPotentPotions() ? 8 : 0);
-	if (p.getHP() < p.getMaxHP()) {			// if player hp is less than their max
-		if (p.getHP() + healing <= p.getMaxHP()) // if player hp + effect of lifepot will refill less than or equal to max
-			p.setHP(p.getHP() + healing);
+	int healing = 15 + (dungeon.getPlayer()->hasPotentPotions() ? 8 : 0);
+	if (dungeon.getPlayer()->getHP() < dungeon.getPlayer()->getMaxHP()) {			// if player hp is less than their max
+		if (dungeon.getPlayer()->getHP() + healing <= dungeon.getPlayer()->getMaxHP()) // if player hp + effect of lifepot will refill less than or equal to max
+			dungeon.getPlayer()->setHP(dungeon.getPlayer()->getHP() + healing);
 		else	// just set player hp to max
-			p.setHP(p.getMaxHP());
+			dungeon.getPlayer()->setHP(dungeon.getPlayer()->getMaxHP());
 	}
 
 }
@@ -103,16 +192,16 @@ BigLifePotion::BigLifePotion(int x, int y) : Drops(x, y, BIG_LIFEPOT, "Big_Healt
 
 	setDescription("The alchemist's improved formula. Gives you more life.");
 }
-void BigLifePotion::useItem(Player &p) {
+void BigLifePotion::useItem(Dungeon &dungeon) {
 	// sound effect
 	playSound("Life_Potion_Used.mp3");
 
-	int healing = 25 + (p.hasPotentPotions() ? 13 : 0);
-	if (p.getHP() < p.getMaxHP()) {			// if player hp is less than their max
-		if (p.getHP() + healing <= p.getMaxHP()) // if player hp + effect of lifepot will refill less than or equal to max
-			p.setHP(p.getHP() + healing);
+	int healing = 25 + (dungeon.getPlayer()->hasPotentPotions() ? 13 : 0);
+	if (dungeon.getPlayer()->getHP() < dungeon.getPlayer()->getMaxHP()) {			// if player hp is less than their max
+		if (dungeon.getPlayer()->getHP() + healing <= dungeon.getPlayer()->getMaxHP()) // if player hp + effect of lifepot will refill less than or equal to max
+			dungeon.getPlayer()->setHP(dungeon.getPlayer()->getHP() + healing);
 		else	// just set player hp to max
-			p.setHP(p.getMaxHP());
+			dungeon.getPlayer()->setHP(dungeon.getPlayer()->getMaxHP());
 	}
 
 }
@@ -123,12 +212,12 @@ SteadyLifePotion::SteadyLifePotion(int x, int y) : Drops(x, y, STEADY_LIFEPOT, "
 
 	setDescription("A slow, but powerful acting mixture to heal your wounds.");
 }
-void SteadyLifePotion::useItem(Player &p) {
+void SteadyLifePotion::useItem(Dungeon &dungeon) {
 	// sound effect
 	playSound("Life_Potion_Used.mp3");
 
-	int turns = 25 + (p.hasPotentPotions() ? 10 : 0);
-	p.addAffliction(std::make_shared<HealOverTime>(turns));
+	int turns = 25 + (dungeon.getPlayer()->hasPotentPotions() ? 10 : 0);
+	dungeon.getPlayer()->addAffliction(std::make_shared<HealOverTime>(turns));
 }
 
 HalfLifePotion::HalfLifePotion(int x, int y) : Drops(x, y, HALF_LIFE_POTION, "Star_Potion_32x32.png") {
@@ -137,15 +226,15 @@ HalfLifePotion::HalfLifePotion(int x, int y) : Drops(x, y, HALF_LIFE_POTION, "St
 
 	setDescription("A powerful potion, but only restores up to half of\nyour maximum health.");
 }
-void HalfLifePotion::useItem(Player &p) {
+void HalfLifePotion::useItem(Dungeon &dungeon) {
 	// sound effect
 	playSound("Life_Potion_Used.mp3");
 
-	int healing = (p.getMaxHP() / 2) + (p.hasPotentPotions() ? 10 : 0);
+	int healing = (dungeon.getPlayer()->getMaxHP() / 2) + (dungeon.getPlayer()->hasPotentPotions() ? 10 : 0);
 
 	// If player hp is less than half their max, then restore it to the healing value
-	if (p.getHP() <= p.getMaxHP() / 2) {
-		p.setHP(healing);
+	if (dungeon.getPlayer()->getHP() <= dungeon.getPlayer()->getMaxHP() / 2) {
+		dungeon.getPlayer()->setHP(healing);
 	}
 }
 
@@ -155,32 +244,32 @@ SoulPotion::SoulPotion(int x, int y) : Drops(x, y, SOUL_POTION, "Gold_Coin_48x48
 
 	setDescription("Converts your currency into health. The mages of old\nknew of methods to trade greed for well-being.");
 }
-void SoulPotion::useItem(Player &p) {
+void SoulPotion::useItem(Dungeon &dungeon) {
 	// Every 50 gold = 5% of health refilled
 
 	playSound("Life_Potion_Used.mp3");
 
-	if (p.getHP() == p.getMaxHP())
+	if (dungeon.getPlayer()->getHP() == dungeon.getPlayer()->getMaxHP())
 		return;
 
 	float healing = 0;
 
 	int i;
-	for (i = p.getMoney(); i >= 50; i -= 50) {
+	for (i = dungeon.getPlayer()->getMoney(); i >= 50; i -= 50) {
 		healing += 0.05f;
 
 		// Stop if this would heal the player fully already
-		if (p.getHP() + p.getMaxHP() * healing >= p.getMaxHP())
+		if (dungeon.getPlayer()->getHP() + dungeon.getPlayer()->getMaxHP() * healing >= dungeon.getPlayer()->getMaxHP())
 			break;
 	}
 
-	int amount = p.getMaxHP() * healing;
-	if (p.getHP() + amount < p.getMaxHP())
-		p.setHP(p.getHP() + amount);
+	int amount = dungeon.getPlayer()->getMaxHP() * healing;
+	if (dungeon.getPlayer()->getHP() + amount < dungeon.getPlayer()->getMaxHP())
+		dungeon.getPlayer()->setHP(dungeon.getPlayer()->getHP() + amount);
 	else
-		p.setHP(p.getMaxHP());
+		dungeon.getPlayer()->setHP(dungeon.getPlayer()->getMaxHP());
 
-	p.setMoney(i);
+	dungeon.getPlayer()->setMoney(i);
 }
 
 BinaryLifePotion::BinaryLifePotion(int x, int y) : Drops(x, y, BINARY_LIFE_POTION, "Star_Potion_32x32.png") {
@@ -189,14 +278,14 @@ BinaryLifePotion::BinaryLifePotion(int x, int y) : Drops(x, y, BINARY_LIFE_POTIO
 
 	setDescription("A failed experiment led to this potion's creation.\nOnly restores half of your missing health.");
 }
-void BinaryLifePotion::useItem(Player &p) {
+void BinaryLifePotion::useItem(Dungeon &dungeon) {
 	playSound("Life_Potion_Used.mp3");
 
-	int healing = (p.getMaxHP() - p.getHP()) / 2;
-	if (p.getHP() + healing < p.getMaxHP())
-		p.setHP(p.getHP() + healing);
+	int healing = (dungeon.getPlayer()->getMaxHP() - dungeon.getPlayer()->getHP()) / 2;
+	if (dungeon.getPlayer()->getHP() + healing < dungeon.getPlayer()->getMaxHP())
+		dungeon.getPlayer()->setHP(dungeon.getPlayer()->getHP() + healing);
 	else
-		p.setHP(p.getMaxHP());
+		dungeon.getPlayer()->setHP(dungeon.getPlayer()->getMaxHP());
 }
 
 StatPotion::StatPotion(int x, int y) : Drops(x, y, STATPOT, "Stat_Potion_48x48.png") {
@@ -205,15 +294,15 @@ StatPotion::StatPotion(int x, int y) : Drops(x, y, STATPOT, "Stat_Potion_48x48.p
 
 	setDescription("Increases your combat abilities, but strangely it removes\n the taste from your mouth.");
 }
-void StatPotion::useItem(Player &p) {
+void StatPotion::useItem(Dungeon &dungeon) {
 	// sound effect
 	playSound("Potion_Used.mp3");
 
-	p.setMaxHP(p.getMaxHP() + 5);
+	dungeon.getPlayer()->setMaxHP(dungeon.getPlayer()->getMaxHP() + 5);
 
-	int turns = 30 + (p.hasPotentPotions() ? 20 : 0);
-	int stats = 2 + (p.hasPotentPotions() ? 1 : 0);
-	p.addAffliction(std::make_shared<Buff>(turns, stats, stats, stats));
+	int turns = 30 + (dungeon.getPlayer()->hasPotentPotions() ? 20 : 0);
+	int stats = 2 + (dungeon.getPlayer()->hasPotentPotions() ? 1 : 0);
+	dungeon.getPlayer()->addAffliction(std::make_shared<Buff>(turns, stats, stats, stats));
 }
 
 RottenApple::RottenApple(int x, int y) : Drops(x, y, ROTTEN_APPLE, "Apple_Worm_48x48.png") {
@@ -222,12 +311,12 @@ RottenApple::RottenApple(int x, int y) : Drops(x, y, ROTTEN_APPLE, "Apple_Worm_4
 
 	setDescription("Uhh... it might not be the best idea to consume this.");
 }
-void RottenApple::useItem(Player &p) {
+void RottenApple::useItem(Dungeon &dungeon) {
 	// sound effect
 	playSound("Life_Potion_Used.mp3");
 
-	p.setHP(p.getMaxHP());
-	p.addAffliction(std::make_shared<Poison>(40, 5, 2, 2));
+	dungeon.getPlayer()->setHP(dungeon.getPlayer()->getMaxHP());
+	dungeon.getPlayer()->addAffliction(std::make_shared<Poison>(*dungeon.getPlayer(), 40, 5, 2, 2));
 }
 
 Antidote::Antidote(int x, int y) : Drops(x, y, ANTIDOTE, "Star_Potion_32x32.png") {
@@ -236,31 +325,31 @@ Antidote::Antidote(int x, int y) : Drops(x, y, ANTIDOTE, "Star_Potion_32x32.png"
 
 	setDescription("Puts an end to what would otherwise be your end.\n Cures poison.");
 }
-void Antidote::useItem(Player &p) {
+void Antidote::useItem(Dungeon &dungeon) {
 	playSound("Relief_Female.mp3");
 
-	if (p.isPoisoned())
-		p.removeAffliction(POISON);
+	if (dungeon.getPlayer()->isPoisoned())
+		dungeon.getPlayer()->removeAffliction(POISON);
 }
 
 ArmorDrop::ArmorDrop(int x, int y) : Drops(x, y, ARMOR, "Armor_48x48.png") {
 	setItemFlag(true);
-	setSoundName("Armor_Pickup.mp3");
+	setSoundName("Armor_Pickudungeon.getPlayer()->mp3");
 
 	setDescription("Just what a lost adventurer needs to help protect\nthemselves. A little more armor to keep you in one piece.");
 }
-void ArmorDrop::useItem(Player &p) {
+void ArmorDrop::useItem(Dungeon &dungeon) {
 	playSound("Armor_Use.mp3");
 
-	p.setArmor(p.getArmor() + 1);
+	dungeon.getPlayer()->setArmor(dungeon.getPlayer()->getArmor() + 1);
 }
 
 ShieldRepair::ShieldRepair(int x, int y) : Drops(x, y, SHIELD_REPAIR, "Shield_Repair_48x48.png") {
 	setAutoFlag(true);
-	setSoundName("Armor_Pickup.mp3");
+	setSoundName("Armor_Pickudungeon.getPlayer()->mp3");
 }
-void ShieldRepair::useItem(Player &p) {
-	p.restoreActive(10);
+void ShieldRepair::useItem(Dungeon &dungeon) {
+	dungeon.getPlayer()->restoreActive(10);
 }
 
 DizzyElixir::DizzyElixir(int x, int y) : Drops(x, y, DIZZY_ELIXIR, "Dizzy_Elixir_48x48.png") {
@@ -269,35 +358,41 @@ DizzyElixir::DizzyElixir(int x, int y) : Drops(x, y, DIZZY_ELIXIR, "Dizzy_Elixir
 
 	setDescription("A strange concoction that makes you feel good, but...");
 }
-void DizzyElixir::useItem(Player &p) {
+void DizzyElixir::useItem(Dungeon &dungeon) {
 	// sound effect
 	playSound("Potion_Used.mp3");
 
-	int dexBoost = 3 + (p.hasPotentPotions() ? 2 : 0);
-	p.addAffliction(std::make_shared<Confusion>(20 + p.getInt(), dexBoost));
+	int dexBoost = 3 + (dungeon.getPlayer()->hasPotentPotions() ? 2 : 0);
+	int turns = 20 + dungeon.getPlayer()->getInt();
+	dungeon.getPlayer()->addAffliction(std::make_shared<Confusion>(turns));
+	dungeon.getPlayer()->addAffliction(std::make_shared<Buff>(turns + 10, 0, dexBoost, 0));
 }
 
-PoisonCloud::PoisonCloud(int x, int y) : Drops(x, y, POISON_CLOUD, "Poison_Bomb_48x48.png") {
+PoisonBomb::PoisonBomb(int x, int y) : Drops(x, y, POISON_BOMB, "Poison_Bomb_48x48.png") {
 	setItemFlag(true);
 	setForPlayer(false);
 	setSoundName("Potion_Pickup2.mp3");
 
 	setDescription("WARNING: Do NOT ingest. Handle with care!");
 }
-void PoisonCloud::useItem(Dungeon &dungeon) {
+void PoisonBomb::useItem(Dungeon &dungeon) {
 	playSound("Bomb_Placed.mp3");
 
-	setPosX(dungeon.getPlayer()->getPosX());
-	setPosY(dungeon.getPlayer()->getPosY());
+	int px = dungeon.getPlayer()->getPosX();
+	int py = dungeon.getPlayer()->getPosY();
 
-	dungeon[getPosY()*dungeon.getCols() + getPosX()].trap = true;
+	setPosX(px);
+	setPosY(py);
+
+	if (dungeon.trap(px, py)) {
+		std::vector<int> indexes = dungeon.findTraps(px, py);
+		for (int i = 0; i < (int)indexes.size(); i++)
+			if (dungeon.getTraps().at(indexes.at(i))->canBePoisoned())
+				dungeon.getTraps().at(indexes.at(i))->poison();
+	}
 
 	// add poison cloud bomb to the traps vector, as it only goes off when something walks over it
-	std::shared_ptr<PoisonBomb> bomb = std::make_shared<PoisonBomb>(getPosX(), getPosY(), 10);
-	dungeon.getTraps().push_back(bomb);
-
-	// add bomb sprite
-	dungeon.getTraps().back()->setSprite(dungeon.createSprite(dungeon.getPlayer()->getPosX(), dungeon.getPlayer()->getPosY(), -1, bomb->getImageName()));
+	dungeon.addTrap(std::make_shared<ActivePoisonBomb>(dungeon, getPosX(), getPosY()));
 }
 
 RottenMeat::RottenMeat(int x, int y) : Drops(x, y, ROTTEN_MEAT, "Honeycomb_48x48.png") {
@@ -313,14 +408,9 @@ void RottenMeat::useItem(Dungeon &dungeon) {
 	setPosX(dungeon.getPlayer()->getPosX());
 	setPosY(dungeon.getPlayer()->getPosY());
 
-	dungeon[getPosY()*dungeon.getCols() + getPosX()].trap = true;
-
-	std::shared_ptr<RottingDecoy> decoy = std::make_shared<RottingDecoy>(getPosX(), getPosY());
-	dungeon.getTraps().push_back(decoy);
+	std::shared_ptr<RottingDecoy> decoy = std::make_shared<RottingDecoy>(dungeon, getPosX(), getPosY());
+	dungeon.addTrap(decoy);
 	dungeon.addDecoy(decoy);
-
-	// add sprite
-	dungeon.getTraps().back()->setSprite(dungeon.createSprite(getPosX(), getPosY(), -1, decoy->getImageName()));
 }
 
 MattockDust::MattockDust(int x, int y) : Drops(x, y, MATTOCK_DUST, "Silver_Kettle_48x48.png") {
@@ -344,15 +434,15 @@ void MattockDust::useItem(Dungeon &dungeon) {
 			if (i == px && j == py)
 				continue;
 
-			if (dungeon[j*cols + i].enemy) {
+			if (dungeon.enemy(i, j)) {
 				int pos = dungeon.findMonster(i, j);
 				if (pos != -1)
-					dungeon.giveAffliction(pos, std::make_shared<Confusion>(5, 0));			
+					dungeon.giveAffliction(pos, std::make_shared<Confusion>(5));			
 			}
 		}
 	}
 
-	dungeon.getPlayerVector()[0]->addAffliction(std::make_shared<Confusion>(5, 0));
+	dungeon.getPlayerVector()[0]->addAffliction(std::make_shared<Confusion>(5));
 }
 
 Teleport::Teleport(int x, int y) : Drops(x, y, TELEPORT, "Teleport_Scroll_48x48.png") {
@@ -372,18 +462,9 @@ void Teleport::useItem(Dungeon &dungeon) {
 	int x = 1 + randInt(cols - 2);
 	int y = 1 + randInt(rows - 2);
 
-	bool enemy, wall, trap;
-	enemy = dungeon[y*cols + x].enemy;
-	wall = dungeon[y*cols + x].wall;
-	trap = dungeon[y*cols + x].trap;
-
-	while (enemy || wall || trap) {
+	while (dungeon.enemy(x, y) || dungeon.wall(x, y) || dungeon.trap(x, y)) {
 		x = 1 + randInt(cols - 2);
 		y = 1 + randInt(rows - 2);
-
-		enemy = dungeon[y*cols + x].enemy;
-		wall = dungeon[y*cols + x].wall;
-		trap = dungeon[y*cols + x].trap;
 	}
 
 	dungeon[dungeon.getPlayer()->getPosY()*cols + dungeon.getPlayer()->getPosX()].hero = false;
@@ -394,9 +475,8 @@ void Teleport::useItem(Dungeon &dungeon) {
 	dungeon.teleportSprite(dungeon.getPlayer()->getSprite(), x, y);
 
 	// if player has enough intellect, give them invulnerability for a few turns
-	if (dungeon.getPlayer()->getInt() >= 5) {
-		dungeon.getPlayerVector()[0]->addAffliction(std::make_shared<Invulnerability>(3));
-	}
+	if (dungeon.getPlayer()->getInt() >= 5)
+		dungeon.getPlayerVector()[0]->addAffliction(std::make_shared<Invulnerability>(3));	
 }
 
 SmokeBomb::SmokeBomb(int x, int y) : Drops(x, y, SMOKE_BOMB, "Pumpkin_32x32.png") {
@@ -410,7 +490,7 @@ void SmokeBomb::useItem(Dungeon &dungeon) {
 	playSound("Fireblast_Spell1.mp3");
 
 	int cols = dungeon.getCols();
-	bool wall, enemy;
+	
 	char move = dungeon.getPlayer()->facingDirection();
 
 	int x = dungeon.getPlayer()->getPosX();
@@ -425,14 +505,11 @@ void SmokeBomb::useItem(Dungeon &dungeon) {
 	case 'd': n = 0; m = 1; break;
 	}
 
-	wall = dungeon[(y + m)*cols + (x + n)].wall;
-	enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
 	int range = 5;
 
-	while (!(wall || enemy) && range > 0) {
+	while (!(dungeon.wall(x + n, y + m) || dungeon.enemy(x + n, y + m)) && range > 0) {
 
-		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 		dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
 
 		switch (move) {
@@ -442,8 +519,6 @@ void SmokeBomb::useItem(Dungeon &dungeon) {
 		case 'd': n = 0; m++; break;
 		}
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 		range--;
 	}
 
@@ -459,10 +534,10 @@ void SmokeBomb::useItem(Dungeon &dungeon) {
 				continue;
 
 			// fire explosion animation
-			cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+			cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 			dungeon.runSingleAnimation(frames, 120, i, j, 2);
 
-			if (dungeon[j*cols + i].enemy) {
+			if (dungeon.enemy(i, j)) {
 				int pos = dungeon.findMonster(i, j);
 				if (pos != -1)
 					dungeon.giveAffliction(pos, std::make_shared<Possessed>(8));				
@@ -470,6 +545,60 @@ void SmokeBomb::useItem(Dungeon &dungeon) {
 			
 		}
 	}
+}
+
+WildMushroom::WildMushroom(int x, int y) : Drops(x, y, WILD_MUSHROOM, "Cheese_Wedge_48x48.png") {
+	setItemFlag(true);
+	setForPlayer(true);
+	setSoundName("Bomb_Pickup2.mp3");
+
+	setDescription("An unidentified mushroom. Unfortunately, your nature\nknow-how is quite weak, so it's uncertain if this is\nsafe to eat.");
+}
+void WildMushroom::useItem(Dungeon &dungeon) {
+	playSound("Bomb_Placed.mp3");
+
+	if (randReal(1, 100) + dungeon.getPlayer()->getLuck() <= 50) {
+		dungeon.getPlayer()->addAffliction(std::make_shared<Poison>(*dungeon.getPlayer(), 10, 5, 1, 1));
+	}
+	else {
+		if (randReal(1, 100) + dungeon.getPlayer()->getLuck() > 95) {
+			dungeon.getPlayer()->setStr(dungeon.getPlayer()->getStr() + 1);
+		}
+		else {
+			dungeon.getPlayer()->setHP(dungeon.getPlayer()->getHP() + dungeon.getPlayer()->getMaxHP() * 0.1);
+			if (dungeon.getPlayer()->getHP() > dungeon.getPlayer()->getMaxHP())
+				dungeon.getPlayer()->setHP(dungeon.getPlayer()->getMaxHP());
+		}
+	}
+}
+
+MagmaHeart::MagmaHeart(int x, int y) : Drops(x, y, MAGMA_HEART, "Cheese_Wedge_48x48.png") {
+	setItemFlag(true);
+	setForPlayer(true);
+	setSoundName("Bomb_Pickup2.mp3");
+
+	setDescription("A strange object filled with molten energy. Its glow\nprovides you with a calming warmth.");
+}
+void MagmaHeart::useItem(Dungeon &dungeon) {
+	playSound("Life_Potion_Used.mp3");
+
+	dungeon.getPlayer()->setDelayedHealing(0.25f);
+}
+
+CactusWater::CactusWater(int x, int y) : Drops(x, y, CACTUS_WATER, "Cheese_Wedge_48x48.png") {
+	setItemFlag(true);
+	setSoundName("Bomb_Pickup2.mp3");
+
+	setDescription("Prickly! Some much needed sustenance in this turbulent\nenvironment.");
+}
+void CactusWater::pickupEffect(Dungeon &dungeon) {
+	dungeon.damagePlayer(2);
+}
+void CactusWater::useItem(Dungeon &dungeon) {
+	playSound("Life_Potion_Used.mp3");
+
+	dungeon.getPlayer()->setHP(dungeon.getPlayer()->getHP() + dungeon.getPlayer()->getMaxHP() * 0.05f);
+	dungeon.getPlayer()->setStr(dungeon.getPlayer()->getStr() + 1);
 }
 
 // STACKABLES
@@ -489,16 +618,10 @@ Bomb::Bomb(int x, int y) : Stackable(x, y, BOMB, "Bomb_48x48.png", 1) {
 void Bomb::useItem(Dungeon &dungeon) {
 	playSound("Bomb_Placed.mp3");
 
-	// Decrease count
-	//decreaseCount();
-
 	setPosX(dungeon.getPlayer()->getPosX());
 	setPosY(dungeon.getPlayer()->getPosY());
 
-	dungeon.getTraps().push_back(std::make_shared<ActiveBomb>(getPosX(), getPosY()));
-
-	// add bomb sprite
-	dungeon.getTraps().back()->setSprite(dungeon.createSprite(dungeon.getPlayer()->getPosX(), dungeon.getPlayer()->getPosY(), -1, "Bomb_48x48.png"));
+	dungeon.addTrap(std::make_shared<ActiveBomb>(dungeon, getPosX(), getPosY()));
 }
 
 BearTrap::BearTrap(int x, int y) : Stackable(x, y, BEAR_TRAP, "Blue_Toy_32x32.png", 3) {
@@ -511,20 +634,11 @@ BearTrap::BearTrap(int x, int y) : Stackable(x, y, BEAR_TRAP, "Blue_Toy_32x32.pn
 void BearTrap::useItem(Dungeon &dungeon) {
 	playSound("Bomb_Placed.mp3");
 
-	// Decrease count
-	//decreaseCount();
-
 	setPosX(dungeon.getPlayer()->getPosX());
 	setPosY(dungeon.getPlayer()->getPosY());
 
-	dungeon[getPosY()*dungeon.getCols() + getPosX()].trap = true;
-
 	// Add to the traps vector, as it only goes off when something walks over it
-	std::shared_ptr<SetBearTrap> trap = std::make_shared<SetBearTrap>(getPosX(), getPosY());
-	dungeon.getTraps().push_back(trap);
-
-	// add sprite
-	dungeon.getTraps().back()->setSprite(dungeon.createSprite(dungeon.getPlayer()->getPosX(), dungeon.getPlayer()->getPosY(), -1, trap->getImageName()));
+	dungeon.addTrap(std::make_shared<SetBearTrap>(dungeon, getPosX(), getPosY()));
 }
 
 Matches::Matches(int x, int y) : Stackable(x, y, MATCHES, "CeilingSpike_48x48.png", 3) {
@@ -537,53 +651,34 @@ Matches::Matches(int x, int y) : Stackable(x, y, MATCHES, "CeilingSpike_48x48.pn
 void Matches::useItem(Dungeon &dungeon) {
 	playSound("Fireblast_Spell2.mp3");
 
-	int cols = dungeon.getCols();
-
 	int x = dungeon.getPlayer()->getPosX();
 	int y = dungeon.getPlayer()->getPosY();
 
 	char move = dungeon.getPlayer()->facingDirection();
 
 	int n = 0, m = 0;
-	switch (move) {
-	case 'l': n = -1; m = 0; break;
-	case 'r': n = 1; m = 0; break;
-	case 'u': n = 0; m = -1; break;
-	case 'd': n = 0; m = 1; break;
+	setDirectionalOffsets(move, n, m);
+
+	if (dungeon.trap(x + n, y + m)) {
+		std::vector<int> indexes = dungeon.findTraps(x + n, y + m);
+		for (int i = 0; i < (int)indexes.size(); i++)
+			if (dungeon.getTraps().at(indexes[i])->canBeIgnited())
+				dungeon.getTraps().at(indexes[i])->ignite();
 	}
 
-	// Decrease count
-	//decreaseCount();
-
-	if (dungeon[(y + m)*cols + (x + n)].trap) {
-		int pos = dungeon.findTrap(x + n, y + m);
-		if (pos != -1) {
-			if (dungeon.getTraps().at(pos)->canBeIgnited())
-				dungeon.getTraps().at(pos)->ignite(dungeon);
-		}
-	}
-
-	if (dungeon[(y + m)*cols + (x + n)].enemy) {
+	if (dungeon.enemy(x + n, y + m)) {
 		int pos = dungeon.findMonster(x + n, y + m);
 		if (pos != -1) {
 			if (dungeon.getMonsters().at(pos)->canBeBurned() || dungeon.getPlayer()->hasAfflictionOverride()) {
-				int turns = 8 + (dungeon.getPlayer()->hasHarshAfflictions() ? 5 : 0);
-				dungeon.giveAffliction(pos, std::make_shared<Burn>(turns));
+				int turns = 5 + (dungeon.getPlayer()->hasHarshAfflictions() ? 5 : 0);
+				dungeon.giveAffliction(pos, std::make_shared<Burn>(*dungeon.getPlayer(), turns));
 			}
 		}
 	}
 
 	// Create ember if there is nothing else here
-	if (!(dungeon[(y + m)*cols + (x + n)].wall || dungeon[(y + m)*cols + (x + n)].enemy)) {
-		std::shared_ptr<Traps> ember = std::make_shared<Ember>(x + n, y + m, 4 + randInt(4));
-		dungeon.getTraps().push_back(ember);
-
-		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("Fire%04d.png", 8);
-		ember->setSprite(dungeon.runAnimationForever(frames, 24, x + n, y + m, 2));
-		ember->getSprite()->setScale(0.75f * GLOBAL_SPRITE_SCALE);
-
-		dungeon[(y + m)*cols + (x + n)].trap = true;
-		dungeon.addLightSource(x + n, y + m, 3, ember->getName());
+	if (!(dungeon.wall(x + n, y + m)/* || dungeon.enemy(x + n, y + m)*/)) {
+		dungeon.addTrap(std::make_shared<Ember>(dungeon, x + n, y + m, 4 + randInt(4)));
 	}
 }
 
@@ -592,20 +687,19 @@ Firecrackers::Firecrackers(int x, int y) : Stackable(x, y, FIRECRACKERS, "Bright
 	setForPlayer(false);
 	setSoundName("Bomb_Pickup2.mp3");
 
-	setDescription("You might be able to delay your demise by just\na little using these. Throwable.");
+	setDescription("You might be able to delay your demise by just\na little using these. Small chance to ignite. Throwable.");
 }
 void Firecrackers::useItem(Dungeon &dungeon) {
 	playSound("Fireblast_Spell1.mp3");
 
 	int cols = dungeon.getCols();
-	bool wall, enemy;
+	
 	char move = dungeon.getPlayer()->facingDirection();
 
 	int x = dungeon.getPlayer()->getPosX();
 	int y = dungeon.getPlayer()->getPosY();
 
 	int n = 0, m = 0;
-
 	switch (move) {
 	case 'l': n = -1; m = 0; break;
 	case 'r': n = 1; m = 0; break;
@@ -613,24 +707,18 @@ void Firecrackers::useItem(Dungeon &dungeon) {
 	case 'd': n = 0; m = 1; break;
 	}
 
-	// Decrease count
-	//decreaseCount();
-
-	wall = dungeon[(y + m)*cols + (x + n)].wall;
-	enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
 	int range = 10;
 
-	while (!wall && range > 0) {
+	while (!dungeon.wall(x + n, y + m) && range > 0) {
 
-		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 		dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
 
-		if (enemy) {
+		if (dungeon.enemy(x + n, y + m)) {
 			int pos = dungeon.findMonster(x + n, y + m);
 			if (pos != -1) {
 
-				/*cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+				/*cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 				dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);*/
 
 				if (dungeon.getMonsters().at(pos)->canBeStunned()) {
@@ -641,11 +729,11 @@ void Firecrackers::useItem(Dungeon &dungeon) {
 				if (dungeon.getMonsters().at(pos)->canBeBurned() || dungeon.getPlayer()->hasAfflictionOverride()) {
 					if (1 + randInt(100) + dungeon.getPlayer()->getLuck() > 90) {
 						int turns = 5 + (dungeon.getPlayer()->hasHarshAfflictions() ? 2 : 0);
-						dungeon.giveAffliction(pos, std::make_shared<Burn>(turns));
+						dungeon.giveAffliction(pos, std::make_shared<Burn>(*dungeon.getPlayer(), turns));
 					}
 				}
 
-				dungeon.damageMonster(pos, 1);
+				dungeon.damageMonster(pos, 1, DamageType::NORMAL);
 				return;
 			}
 		}
@@ -657,16 +745,14 @@ void Firecrackers::useItem(Dungeon &dungeon) {
 		case 'd': n = 0; m++; break;
 		}
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 		range--;
 	}
 
-	if (wall && dungeon[(y + m)*cols + (x + n)].trap) {
+	if (dungeon.wall(x + n, y + m) && dungeon.trap(x + n, y + m)) {
 		int pos = dungeon.findTrap(x + n, y + m);
 		if (pos != -1) {
 			if (dungeon.getTraps().at(pos)->canBeIgnited() && 1 + randInt(100) + dungeon.getPlayer()->getLuck() > 90)
-				dungeon.getTraps().at(pos)->ignite(dungeon);
+				dungeon.getTraps().at(pos)->ignite();
 		}
 	}
 }
@@ -699,7 +785,6 @@ void Teleporter::useItem(Dungeon &dungeon) {
 	int x = dungeon.getPlayer()->getPosX();
 	int y = dungeon.getPlayer()->getPosY();
 
-	bool wall, enemy;
 	char move = dungeon.getPlayer()->facingDirection();
 
 	int teleportDistance = 5 + randInt(4);
@@ -718,7 +803,7 @@ void Teleporter::useItem(Dungeon &dungeon) {
 		playSound("Explosion.mp3");
 
 		// fire explosion animation
-		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 		dungeon.runSingleAnimation(frames, 120, x, y, 2);
 
 		dungeon.getPlayerVector().at(0)->setHP(0);
@@ -726,37 +811,34 @@ void Teleporter::useItem(Dungeon &dungeon) {
 		return;
 	}
 
-	wall = dungeon[(y + m)*cols + (x + n)].wall;
-	enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
-	if (!(wall || enemy)) {
+	if (!(dungeon.wall(x + n, y + m) || dungeon.enemy(x + n, y + m))) {
 		playSound("Teleport_Spell.mp3");
 
-		dungeon.getPlayerVector()[0]->moveTo(dungeon, x + n, y + m, 0.01f);
+		dungeon.getPlayerVector()[0]->moveTo(x + n, y + m, 0.01f);
 
-		if (dungeon[(y + m)*cols + (x + n)].trap)
+		if (dungeon.trap(x + n, y + m))
 			dungeon.trapEncounter(x + n, y + m);
 
 		return;
 	}
 
 	// Enemies die instantly if they teleport on top of the player
-	if (enemy) {
+	if (dungeon.enemy(x + n, y + m)) {
 		playSound("Teleport_Spell.mp3");
 
 		int pos = dungeon.findMonster(x + n, y + m);
 		if (pos != -1) {
-			dungeon.damageMonster(pos, 1000);
-			dungeon.getPlayerVector()[0]->moveTo(dungeon, x + n, y + m, 0.01f);
+			dungeon.damageMonster(pos, 1000, DamageType::MAGICAL);
+			dungeon.getPlayerVector()[0]->moveTo(x + n, y + m, 0.01f);
 
-			if (dungeon[(y + m)*cols + (x + n)].trap)
+			if (dungeon.trap(x + n, y + m))
 				dungeon.trapEncounter(x + n, y + m);
 		}
 		return;
 	}
 
 	// Look for free space on spaces adjacent to teleport location
-	if (wall) {
+	if (dungeon.wall(x + n, y + m)) {
 		x += n;
 		y += m;
 
@@ -771,31 +853,28 @@ void Teleporter::useItem(Dungeon &dungeon) {
 			if (!dungeon.withinBounds(coords[i].first, coords[i].second))
 				continue;
 
-			wall = dungeon[coords[i].second*cols + coords[i].first].wall;
-			enemy = dungeon[coords[i].second*cols + coords[i].first].enemy;
-
-			if (!(wall || enemy)) {
+			if (!(dungeon.wall(coords[i].first, coords[i].second) || dungeon.enemy(coords[i].first, coords[i].second))) {
 				playSound("Teleport_Spell.mp3");
-				dungeon.getPlayerVector()[0]->moveTo(dungeon, coords[i].first, coords[i].second, 0.01f);
+				dungeon.getPlayerVector()[0]->moveTo(coords[i].first, coords[i].second, 0.01f);
 
-				if (dungeon[coords[i].second*cols + coords[i].first].trap)
+				if (dungeon.trap(coords[i].first, coords[i].second))
 					dungeon.trapEncounter(coords[i].first, coords[i].second);
 
 				return;
 			}
 			
-			if (wall)
+			if (dungeon.wall(coords[i].first, coords[i].second))
 				continue;
 
-			if (enemy) {
+			if (dungeon.enemy(coords[i].first, coords[i].second)) {
 				playSound("Teleport_Spell.mp3");
 
 				int pos = dungeon.findMonster(coords[i].first, coords[i].second);
 				if (pos != -1) {
-					dungeon.damageMonster(pos, 1000);
-					dungeon.getPlayerVector()[0]->moveTo(dungeon, coords[i].first, coords[i].second, 0.01f);
+					dungeon.damageMonster(pos, 1000, DamageType::MAGICAL);
+					dungeon.getPlayerVector()[0]->moveTo(coords[i].first, coords[i].second, 0.01f);
 
-					if (dungeon[coords[i].second*cols + coords[i].first].trap)
+					if (dungeon.trap(coords[i].first, coords[i].second))
 						dungeon.trapEncounter(coords[i].first, coords[i].second);
 				}
 				return;
@@ -807,7 +886,7 @@ void Teleporter::useItem(Dungeon &dungeon) {
 		playSound("Explosion.mp3");
 
 		// fire explosion animation
-		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 		dungeon.runSingleAnimation(frames, 120, x, y, 2);
 
 		dungeon.getPlayerVector().at(0)->setHP(0);
@@ -852,7 +931,7 @@ void Rocks::useItem(Dungeon &dungeon) {
 
 	while (!wall && range > 0) {
 
-		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 		dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
 
 		if (enemy) {
@@ -863,35 +942,10 @@ void Rocks::useItem(Dungeon &dungeon) {
 					dungeon.giveAffliction(pos, std::make_shared<Stun>(1));				
 
 				// Attempt knockback on enemy
-				if (!dungeon.getMonsters().at(pos)->isHeavy()) {
+				if (!dungeon.getMonsters().at(pos)->isHeavy())
+					dungeon.linearActorPush(x + n, y + m, 2, 2, move);			
 
-					dungeon.linearActorPush(x + n, y + m, 2, move);
-
-					/*int dist = 1;
-					while (dist <= 2) {
-						switch (move) {
-						case 'l': n--; m = 0; break;
-						case 'r': n++; m = 0; break;
-						case 'u': n = 0; m--; break;
-						case 'd': n = 0; m++; break;
-						}
-
-						wall = dungeon[(y + m)*cols + (x + n)].wall;
-						enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
-						if (wall)
-							break;
-
-						if (!(wall || enemy)) {							
-							dungeon.getMonsters().at(pos)->moveTo(dungeon, x + n, y + m);
-							break;
-						}
-
-						dist++;
-					}*/
-				}
-
-				dungeon.damageMonster(pos, 1);
+				dungeon.damageMonster(pos, 1, DamageType::NORMAL);
 				break;
 			}
 		}
@@ -917,24 +971,22 @@ void Rocks::useItem(Dungeon &dungeon) {
 	if (m_durability == 0)
 		return;
 
-	if (dungeon[q*cols + p].item)
+	if (dungeon.itemObject(p, q))
 		dungeon.itemHash(p, q);
 
+	setPosX(p); setPosY(q);
 	dungeon[q*cols + p].item = true;
 	dungeon[q*cols + p].object = std::make_shared<Rocks>(*this);
-	dungeon.addSprite(dungeon.item_sprites, p, q, -1, dungeon[q*cols + p].object->getImageName());
+	dungeon[q*cols + p].object->setSprite(dungeon.createSprite(p, q, -1, dungeon[q*cols + p].object->getImageName()));
+	dungeon.addItem(dungeon[q*cols + p].object);
 }
 
-
-//		MOBILITY
 Mobility::Mobility(int x, int y) : Drops(x, y, MOBILITY, "candy1.png") {
 	setDescription("The Acrobat is highly skilled and flexible\nwhich allows them to execute incredible tactics\nsuch as rolling and backflips.");
 }
 void Mobility::useItem(Dungeon &dungeon) {
 	playMiss();
 
-	int cols = dungeon.getCols();
-	bool wall, enemy;
 	char move = dungeon.getPlayer()->facingDirection();
 
 	int x = dungeon.getPlayer()->getPosX();
@@ -942,331 +994,35 @@ void Mobility::useItem(Dungeon &dungeon) {
 
 	int n = 0, m = 0;
 	int p = n, q = m;
-
-	switch (move) {
-	case 'l': n = -1; m = 0; break;
-	case 'r': n = 1; m = 0; break;
-	case 'u': n = 0; m = -1; break;
-	case 'd': n = 0; m = 1; break;
-	}
-
-	wall = dungeon[(y + m)*cols + (x + n)].wall;
-	enemy = dungeon[(y + m)*cols + (x + n)].enemy;
+	setDirectionalOffsets(move, n, m);
 
 	int range = 3;
 	int dist = 1;
-	while (!wall && dist <= range) {
+	while (!dungeon.wall(x + n, y + m) && dist <= range) {
 
-		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 		dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
 
-		if (!enemy) {
-			p = n; q = m;
+		if (!dungeon.enemy(x + n, y + m)) {
+			p = n;
+			q = m;
 		}
 		
-		switch (move) {
-		case 'l': n--; m = 0; break;
-		case 'r': n++; m = 0; break;
-		case 'u': n = 0; m--; break;
-		case 'd': n = 0; m++; break;
-		}
+		incrementDirectionalOffsets(move, n, m);
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 		dist++;
 	}
 
 	dungeon.getPlayerVector()[0]->setInvulnerable(true);
 	dungeon.getPlayerVector()[0]->addAffliction(std::make_shared<Invulnerability>(1));
-	dungeon.getPlayerVector()[0]->moveTo(dungeon, x + p, y + q, 0.05f);
+	dungeon.getPlayerVector()[0]->moveTo(x + p, y + q, 0.05f);
 }
-
-
-
-// =============================================
-//				:::: PASSIVES ::::
-// =============================================
-Passive::Passive(int x, int y, std::string name, std::string image) : Drops(x, y, name, image) {
-
-}
-void Passive::activate(Dungeon &dungeon) {
-	if (forPlayer())
-		useItem(*dungeon.getPlayerVector()[0]);
-	else
-		useItem(dungeon);
-}
-
-BatWing::BatWing(int x, int y) : Passive(x, y, BATWING, "Angels_Brace.png") {
-	setDescription("A reminder that agility keeps you alive. Boosts dexterity.");
-}
-void BatWing::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setDex(p.getDex() + 1);
-}
-
-LifeElixir::LifeElixir(int x, int y) : Passive(x, y, LIFE_ELIXIR, "Heart_Potion_48x48.png") {
-	setDescription("An incredible concoction that invigorates you down to\nyour soul. Increases your maximum health.");
-}
-void LifeElixir::useItem(Player &p) {
-	// sound effect
-	playSound("Life_Potion_Used.mp3");
-
-	p.setMaxHP(p.getMaxHP() + 25);
-}
-
-MagicEssence::MagicEssence(int x, int y) : Passive(x, y, MAGIC_ESSENCE, "Cheese_Wedge_48x48.png") {
-	setDescription("In older times, the Spellmasters would quaff these to\nincrease their magical prowess in a pinch.");
-}
-void MagicEssence::useItem(Player &p) {
-	// sound effect
-	playSound("Life_Potion_Used.mp3");
-
-	p.setInt(p.getInt() + 1);
-}
-
-Flying::Flying(int x, int y) : Passive(x, y, FLYING, "Angels_Brace.png") {
-	setDescription("Only the most powerful mages could master such a\ntechnique. Years would be spent to get to this level of\nsophistication.");
-}
-void Flying::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setFlying(true);
-}
-
-SteelPunch::SteelPunch(int x, int y) : Passive(x, y, STEEL_PUNCH, "Cheese_Wedge_48x48.png") {
-	setDescription("You have acquired the secret of the Steel Punch!");
-}
-void SteelPunch::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setSteelPunch(true);
-}
-
-IronCleats::IronCleats(int x, int y) : Passive(x, y, IRON_CLEATS, "Cheese_Wedge_48x48.png") {
-	setDescription("A set of well-crafted iron boots. Prevents spike damage.");
-}
-void IronCleats::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setSpikeImmunity(true);
-}
-
-PoisonTouch::PoisonTouch(int x, int y) : Passive(x, y, POISON_TOUCH, "Cheese_Wedge_48x48.png") {
-	setDescription("Chance to poison enemies when attacking.");
-}
-void PoisonTouch::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setPoisonTouch(true);
-}
-
-FireTouch::FireTouch(int x, int y) : Passive(x, y, FIRE_TOUCH, "Cheese_Wedge_48x48.png") {
-	setDescription("Chance to ignite enemies when attacking.");
-}
-void FireTouch::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setFireTouch(true);
-}
-
-FrostTouch::FrostTouch(int x, int y) : Passive(x, y, FROST_TOUCH, "Cheese_Wedge_48x48.png") {
-	setDescription("Chance to freeze enemies when attacking.");
-}
-void FrostTouch::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setFrostTouch(true);
-}
-
-RainbowTouch::RainbowTouch(int x, int y) : Passive(x, y, RAINBOW_TOUCH, "Cheese_Wedge_48x48.png") {
-	setDescription("Chance to poison, ignite, or freeze enemies.");
-}
-void RainbowTouch::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setPoisonTouch(true);
-	p.setFireTouch(true);
-	p.setFrostTouch(true);
-}
-
-PoisonImmune::PoisonImmune(int x, int y) : Passive(x, y, POISON_IMMUNE, "Cheese_Wedge_48x48.png") {
-	setDescription("The antibodies flowing within you are tuned far beyond\n the standard.");
-}
-void PoisonImmune::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setCanBePoisoned(false);
-}
-
-FireImmune::FireImmune(int x, int y) : Passive(x, y, FIRE_IMMUNE, "Vulcan_Rune_48x48.png") {
-	setDescription("Thicker skin? No. Magical forces prevent you\from experiencing burns.");
-}
-void FireImmune::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setCanBeBurned(false);
-}
-
-LavaImmune::LavaImmune(int x, int y) : Passive(x, y, VULCAN_RUNE, "Vulcan_Rune_48x48.png") {
-	setDescription("Some say this rune was forged by a legendary\n blacksmith that then hid their wares deep\n inside a volcano. Provides lava resistance.");
-}
-void LavaImmune::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setLavaImmunity(true);
-}
-
-BombImmune::BombImmune(int x, int y) : Passive(x, y, BOMB_IMMUNE, "Cheese_Wedge_48x48.png") {
-	setDescription("The art of bomb-making become second nature to you.\nImmunity to explosions and increases bomb damage.");
-}
-void BombImmune::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setExplosionImmune(true);
-}
-
-PotionAlchemy::PotionAlchemy(int x, int y) : Passive(x, y, POTION_ALCHEMY, "Cheese_Wedge_48x48.png") {
-	setDescription("Your knowledge of potions allows you to make them more potent.");
-}
-void PotionAlchemy::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setPotentPotions(true);
-}
-
-SoulSplit::SoulSplit(int x, int y) : Passive(x, y, SOUL_SPLIT, "Cheese_Wedge_48x48.png") {
-	setDescription("Greed has manifested itself into a tangible being.");
-}
-void SoulSplit::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setSoulSplit(true);
-}
-
-LuckUp::LuckUp(int x, int y) : Passive(x, y, LUCKY_PIG, "Lucky_Pig_48x48.png") {
-	setDescription("A lucky pig's head. But not so much for the pig.");
-}
-void LuckUp::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setLuck(p.getLuck() + 15);
-}
-
-Berserk::Berserk(int x, int y) : Passive(x, y, BERSERK, "Whiskey_48x48.png") {
-	setDescription("You should really watch your temper, you're turning red!");
-}
-void Berserk::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setBloodlust(true);
-}
-
-LifeSteal::LifeSteal(int x, int y) : Passive(x, y, LIFESTEAL, "Bloody_Apple_32x32.png") {
-	setDescription("Suddenly, blood sounds particularly delicious...");
-}
-void LifeSteal::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setLifesteal(true);
-}
-
-Heavy::Heavy(int x, int y) : Passive(x, y, HEAVY, "Cheese_Wedge_48x48.png") {
-	setDescription("Your steps have become incredibly solid.");
-}
-void Heavy::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setHeavy(true);
-}
-
-BrickBreaker::BrickBreaker(int x, int y) : Passive(x, y, BRICK_BREAKER, "Cheese_Wedge_48x48.png") {
-	setDescription("Claustrophobia is setting in, but smashing down these\nwalls takes a toll on your well-being.");
-}
-void BrickBreaker::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setCanBreakWalls(true);
-}
-
-SummonNPCs::SummonNPCs(int x, int y) : Passive(x, y, SUMMON_NPCS, "Cheese_Wedge_48x48.png") {
-	setDescription("Your cries do not go unheard. Others have a greater\nchance of finding you.");
-}
-void SummonNPCs::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setCharismaNPC(true);
-}
-
-CheapShops::CheapShops(int x, int y) : Passive(x, y, CHEAP_SHOPS, "Cheese_Wedge_48x48.png") {
-	setDescription("Your way of words convinces those around you\n to give you a better deal.");
-}
-void CheapShops::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setCheapShops(true);
-}
-
-BetterRates::BetterRates(int x, int y) : Passive(x, y, BETTER_RATES, "Cheese_Wedge_48x48.png") {
-	setDescription("An overwhelming feeling of relaxation overcomes you.");
-}
-void BetterRates::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setBetterRates(true);
-}
-
-TrapIllumination::TrapIllumination(int x, int y) : Passive(x, y, TRAP_ILLUMINATION, "Cheese_Wedge_48x48.png") {
-	setDescription("Suddenly, the dangers of this dungeon are made more\napparent.");
-}
-void TrapIllumination::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setTrapIllumination(true);
-}
-
-ItemIllumination::ItemIllumination(int x, int y) : Passive(x, y, ITEM_ILLUMINATION, "Cheese_Wedge_48x48.png") {
-	setDescription("The treasures of this place are revealed.");
-}
-void ItemIllumination::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setItemIllumination(true);
-}
-
-MonsterIllumination::MonsterIllumination(int x, int y) : Passive(x, y, MONSTER_ILLUMINATION, "Cheese_Wedge_48x48.png") {
-	setDescription("The monsters of this place are revealed.");
-}
-void MonsterIllumination::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setMonsterIllumination(true);
-}
-
-ResonantSpells::ResonantSpells(int x, int y) : Passive(x, y, RESONANT_SPELLS, "Cheese_Wedge_48x48.png") {
-	setDescription("Somehow the magic of this place has begun\nto stick with you. Spells have a chance to\nstay on use.");
-}
-void ResonantSpells::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setResonantSpells(true);
-}
-
-FatStacks::FatStacks(int x, int y) : Passive(x, y, FAT_STACKS, "Cheese_Wedge_48x48.png") {
-	setDescription("Suddenly your pockets are deep, very deep.\nAll items are now stackable.");
-}
-void FatStacks::useItem(Player &p) {
-	playSound("Armor_Use.mp3");
-
-	p.setFatStacks(true);
-}
-
 
 
 // =============================================
 //				:::: SPELLS ::::
 // =============================================
-Spell::Spell(int x, int y, int damage, std::string item, std::string image) 
+Spell::Spell(int x, int y, int damage, std::string item, std::string image)
 	: Drops(x, y, item, image), m_damage(damage) {
 
 }
@@ -1318,8 +1074,7 @@ void IceShardSpell::useItem(Dungeon &dungeon) {
 
 	// Create an Ice Shards trap
 	int shardLimit = dungeon.getPlayer()->getInt() > 5 ? 4 : 3;
-	dungeon.getTraps().push_back(std::make_shared<IceShards>(x, y, shardLimit));
-	dungeon.getTraps().back()->setSprite(dungeon.createSprite(x, y, -1, dungeon.getTraps().back()->getImageName()));
+	dungeon.addTrap(std::make_shared<IceShards>(dungeon, x, y, shardLimit));
 }
 
 HailStormSpell::HailStormSpell(int x, int y) : Spell(x, y, 0, HAIL_STORM_SPELL, "Freeze_Spell_48x48.png") {
@@ -1337,8 +1092,7 @@ void HailStormSpell::useItem(Dungeon &dungeon) {
 
 	// Create a HailStorm trap
 	int shardLimit = dungeon.getPlayer()->getInt() > 5 ? 4 : 3;
-	dungeon.getTraps().push_back(std::make_shared<HailStorm>(x, y, dungeon.getPlayer()->facingDirection(), shardLimit));
-	//dungeon.getTraps().back()->setSprite(dungeon.createSprite(x, y, -1, dungeon.getTraps().back()->getImageName()));
+	dungeon.addTrap(std::make_shared<HailStorm>(dungeon, x, y, dungeon.getPlayer()->facingDirection(), shardLimit));
 }
 
 //		EARTHQUAKE SPELL
@@ -1356,7 +1110,6 @@ void EarthquakeSpell::useItem(Dungeon &dungeon) {
 	playSound("Earthquake_Explosion1.mp3");
 	playSound("Earthquake_Explosion2.mp3");
 
-	int rows = dungeon.getRows();
 	int cols = dungeon.getCols();
 
 	int px = dungeon.getPlayer()->getPosX();
@@ -1368,69 +1121,46 @@ void EarthquakeSpell::useItem(Dungeon &dungeon) {
 		mx = dungeon.getMonsters().at(i)->getPosX();
 		my = dungeon.getMonsters().at(i)->getPosY();
 
-		
 		if (abs(mx - px) <= 2 && abs(my - py) <= 2) {
-			dungeon.damageMonster(i, getDamage() + dungeon.getPlayer()->getInt());
+			dungeon.damageMonster(i, getDamage() + dungeon.getPlayer()->getInt(), DamageType::MAGICAL);
 
 			// Stun monster as well
 			if (dungeon.getMonsters().at(i)->canBeStunned())
-				dungeon.giveAffliction(i, std::make_shared<Stun>(4 + dungeon.getPlayer()->getInt()));		
+				dungeon.giveAffliction(i, std::make_shared<Stun>(4 + dungeon.getPlayer()->getInt()));
 		}
-		
+
 	}
 
 	//	destroy any nearby walls
 	for (int j = py - 2; j < py + 3; j++) {
 		for (int k = px - 2; k < px + 3; k++) {
-			if (j != -1 && j != rows && !(k == -1 && j <= 0) && !(k == cols && j >= rows - 1)) { // boundary check
 
-				if (dungeon[j*cols + k].wall_type == REG_WALL) {
-					dungeon[j*cols + k].wall = false;
+			if (dungeon.withinBounds(k, j)) {
 
-					// call remove sprite
-					dungeon.removeSprite(dungeon.wall_sprites, k, j);						
-				}
+				if (dungeon.wall(k, j))
+					dungeon.destroyWall(k, j);
 
-				/*
-				// destroy any gold in the way
-				if (dungeon[j*cols + k].gold != 0) {
-					dungeon[j*cols + k].gold = 0;
-
-					dungeon.removeSprite(dungeon.money_sprites, rows, k, j);
-				}
-				*/
-
-				// Don't destroy the exit!
-				if (dungeon[j*cols + k].exit)
+				if (dungeon.exit(k, j))
 					continue;
-						
-				// Destroy any traps
-				if (dungeon[j*cols + k].trap) {
 
-					int pos = dungeon.findTrap(k, j); // traps in here
+				if (dungeon.trap(k, j)) {
 
-					if (pos == -1)
-						continue;
+					std::vector<int> indexes = dungeon.findTraps(k, j);
+					for (int i = 0; i < (int)indexes.size(); i++) {
 
-					// if the trap is destructible, destroy it
-					if (dungeon.getTraps()[pos]->isDestructible())
-						dungeon.getTraps()[pos]->destroyTrap(dungeon);
+						if (dungeon.getTraps().at(indexes.at(i))->isDestructible() ||
+							!dungeon.getTraps()[indexes.at(i)]->isDestructible() && dungeon.getPlayer()->getInt() >= 5)
+							dungeon.getTraps().at(indexes.at(i))->destroyTrap();
 
-					// if the trap is not destructible, but the player has enough intellect, destroy it too
-					else if (!dungeon.getTraps()[pos]->isDestructible() && dungeon.getPlayer()->getInt() >= 5)
-						dungeon.getTraps()[pos]->destroyTrap(dungeon);
-
-					if (dungeon.getTraps().at(pos)->isExplosive()) {
-						std::shared_ptr<ActiveBomb> bomb = std::dynamic_pointer_cast<ActiveBomb>(dungeon.getTraps().at(pos));
-						bomb->explosion(dungeon, *dungeon.getPlayerVector()[0]);
-						bomb.reset();
-					}				
+						else if (dungeon.getTraps().at(indexes.at(i))->isExplosive())
+							dungeon.getTraps().at(indexes.at(i))->explode();
+					}
 				}
 
 			}
 		}
 	}
-	
+
 }
 
 RockSummonSpell::RockSummonSpell(int x, int y) : Spell(x, y, 6, ROCK_SUMMON_SPELL, "Earthquake_Spell_48x48.png") {
@@ -1453,32 +1183,26 @@ void RockSummonSpell::useItem(Dungeon &dungeon) {
 		x = coords[i].first;
 		y = coords[i].second;
 
-		if (dungeon[y*cols + x].enemy) {
+		if (dungeon.enemy(x, y)) {
 			int pos = dungeon.findMonster(x, y);
 			if (pos != -1) {
 				// fire explosion animation
-				cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+				cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 				dungeon.runSingleAnimation(frames, 120, x, y, 2);
 
-				dungeon.damageMonster(pos, 1000);
+				dungeon.damageMonster(pos, 1000, DamageType::MAGICAL);
 			}
 		}
-		else if (dungeon[y*cols + x].wall && dungeon[y*cols + x].wall_type == REG_WALL) {
+		else if (dungeon.wallObject(x, y)) {
 			// fire explosion animation
-			cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+			cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 			dungeon.runSingleAnimation(frames, 120, x, y, 2);
 
-			dungeon[y*cols + x].wall = false;
-			dungeon.removeSprite(dungeon.wall_sprites, x, y);
+			dungeon.destroyWall(x, y);
 		}
-		else if (!dungeon[y*cols + x].wall) {
-			// Makes the rock interactable
-			dungeon[y*cols + x].wall = true;
-			dungeon[y*cols + x].trap = true;
-
+		else if (!dungeon.wall(x, y)) {
 			// Create RockSummon trap
-			dungeon.getTraps().push_back(std::make_shared<RockSummon>(x, y));
-			dungeon.getTraps().back()->setSprite(dungeon.createSprite(x, y, -1, dungeon.getTraps().back()->getImageName()));
+			dungeon.addTrap(std::make_shared<RockSummon>(dungeon, x, y));
 		}
 	}
 }
@@ -1595,23 +1319,32 @@ void ShockwaveSpell::useItem(Dungeon &dungeon) {
 	}
 
 	// fire explosion animation
-	cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+	cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 	dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
 
-	if (dungeon[(y + m)*cols + (x + n)].enemy) {
+	if (dungeon.enemy(x + n, y + m)) {
 		int pos = dungeon.findMonster(x + n, y + m);
 		if (pos != -1) {
 			if (dungeon.getMonsters().at(pos)->canBeStunned())
 				dungeon.giveAffliction(pos, std::make_shared<Stun>(2));
 
-			dungeon.damageMonster(pos, getDamage());
+			dungeon.damageMonster(pos, getDamage(), DamageType::MAGICAL);
+		}
+	}
+
+	if (dungeon.underEnemy(x + n, y + m)) {
+		int pos = dungeon.findUndergroundMonster(x + n, y + m);
+		if (pos != -1) {
+			if (dungeon.getMonsters().at(pos)->canBeStunned())
+				dungeon.giveAffliction(pos, std::make_shared<Stun>(2));
+
+			dungeon.damageMonster(pos, getDamage(), DamageType::MAGICAL);
 		}
 	}
 
 	// Create Shockwave trap
 	int waveLimit = dungeon.getPlayer()->getInt() > 5 ? 7 : 5;
-	dungeon.getTraps().push_back(std::make_shared<Shockwaves>(x, y, move, waveLimit));
-	//dungeon.getTraps().back()->setSprite(dungeon.createSprite(x, y, -1, dungeon.getTraps().back()->getImageName()));
+	dungeon.addTrap(std::make_shared<Shockwaves>(dungeon, x, y, move, waveLimit));
 }
 
 //		FIRE BLAST SPELL
@@ -1632,7 +1365,7 @@ void FireBlastSpell::useItem(Dungeon &dungeon) {
 	int px = dungeon.getPlayer()->getPosX();
 	int py = dungeon.getPlayer()->getPosY();
 
-	
+
 	// figure out how which direction to iterate
 	int n, m; // n : x, m : y
 	char playerFacing = dungeon.getPlayer()->facingDirection();
@@ -1644,10 +1377,10 @@ void FireBlastSpell::useItem(Dungeon &dungeon) {
 	}
 
 	// while there's no wall or enemy, let the fireball keep traveling
-	while (!(dungeon[(py + m)*cols + px + n].wall || dungeon[(py + m)*cols + px + n].enemy)) {
+	while (!(dungeon.wall(px + n, py + m) || dungeon.enemy(px + n, py + m))) {
 
 		// fire explosion animation
-		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 		dungeon.runSingleAnimation(frames, 120, px + n, py + m, 2);
 
 		switch (playerFacing) {
@@ -1661,30 +1394,6 @@ void FireBlastSpell::useItem(Dungeon &dungeon) {
 	// play fire blast explosion sound effect
 	playSound("Fireblast_Spell2.mp3");
 
-	//// fire explosion animation
-	//cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
-	//dungeon.runSingleAnimation(frames, 120, px + n, py + m, 2);
-
-	//// find any monsters caught in the blast
-	//int mx, my;
-	//for (unsigned i = 0; i < dungeon.getMonsters().size(); i++) {
-	//	mx = dungeon.getMonsters().at(i)->getPosX();
-	//	my = dungeon.getMonsters().at(i)->getPosY();
-
-	//	if (abs(mx - (px + n)) <= 1 && abs(my - (py + m)) <= 1) {
-	//		dungeon.damageMonster(i, getDamage() + dungeon.getPlayer()->getInt());
-
-	//		//  check if monster died
-	//		if (dungeon.getMonsters().at(i)->getHP() <= 0) {
-	//			dungeon.monsterDeath(i);
-	//		}
-	//		// otherwise burn the monster if it can be burned
-	//		else if (dungeon.getMonsters().at(i)->getHP() > 0 && dungeon.getMonsters().at(i)->canBeBurned()) {
-	//			dungeon.getMonsters().at(i)->addAffliction(std::make_shared<Burn>(5 + (dungeon.getPlayer()->getInt() / 2)));
-	//		}
-	//	}
-	//}
-
 	px += n;
 	py += m;
 
@@ -1692,29 +1401,29 @@ void FireBlastSpell::useItem(Dungeon &dungeon) {
 		for (int j = py - 1; j < py + 2; j++) {
 
 			// fire explosion animation
-			cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+			cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 			dungeon.runSingleAnimation(frames, 120, i, j, 2);
 
-			if (dungeon[j*cols + i].enemy) {
+			if (dungeon.enemy(i, j)) {
 
 				int pos = dungeon.findMonster(i, j);
 				if (pos != -1) {
-					dungeon.damageMonster(pos, getDamage() + dungeon.getPlayer()->getInt());
+					dungeon.damageMonster(pos, getDamage() + dungeon.getPlayer()->getInt(), DamageType::MAGICAL);
 
 					// If they can be burned, roll for a high chance to burn
 					if (dungeon.getMonsters().at(pos)->canBeBurned() || dungeon.getPlayer()->hasAfflictionOverride()) {
 						int turns = 5 + dungeon.getPlayer()->getInt() + (dungeon.getPlayer()->hasHarshAfflictions() ? 6 : 0);
-						dungeon.giveAffliction(pos, std::make_shared<Burn>(turns));					
+						dungeon.giveAffliction(pos, std::make_shared<Burn>(*dungeon.getPlayer(), turns));
 					}
 				}
 			}
 
-			if (dungeon[j*cols + i].trap) {
+			if (dungeon.trap(i, j)) {
 
 				int pos = dungeon.findTrap(i, j);
 				if (pos != -1) {
 					if (dungeon.getTraps().at(pos)->canBeIgnited())
-						dungeon.getTraps().at(pos)->ignite(dungeon);
+						dungeon.getTraps().at(pos)->ignite();
 				}
 			}
 		}
@@ -1745,13 +1454,13 @@ void FireCascadeSpell::useItem(Dungeon &dungeon) {
 			if (i == x && j == y)
 				continue;
 
-			if (!dungeon[j*cols + i].wall) {
+			if (!dungeon.wall(i, j)) {
 				// fire explosion animation
-				cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+				cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 				dungeon.runSingleAnimation(frames, 120, i, j, 2);
 			}
 
-			if (dungeon[j*cols + i].enemy) {
+			if (dungeon.enemy(i, j)) {
 
 				pos = dungeon.findMonster(i, j);
 				if (pos != -1) {
@@ -1759,17 +1468,17 @@ void FireCascadeSpell::useItem(Dungeon &dungeon) {
 					// If they can be burned, burn them
 					if (dungeon.getMonsters().at(pos)->canBeBurned() || dungeon.getPlayer()->hasAfflictionOverride()) {
 						int turns = 10 + dungeon.getPlayer()->getInt() + (dungeon.getPlayer()->hasHarshAfflictions() ? 6 : 0);
-						dungeon.giveAffliction(pos, std::make_shared<Burn>(turns));
+						dungeon.giveAffliction(pos, std::make_shared<Burn>(*dungeon.getPlayer(), turns));
 					}
 				}
 			}
 
-			if (dungeon[j*cols + i].trap) {
+			if (dungeon.trap(i, j)) {
 
 				pos = dungeon.findTrap(i, j);
 				if (pos != -1) {
 					if (dungeon.getTraps().at(pos)->canBeIgnited())
-						dungeon.getTraps().at(pos)->ignite(dungeon);
+						dungeon.getTraps().at(pos)->ignite();
 				}
 			}
 		}
@@ -1777,7 +1486,7 @@ void FireCascadeSpell::useItem(Dungeon &dungeon) {
 
 	// Create fire pillar trap
 	int pillarLimit = dungeon.getPlayer()->getInt() > 5 ? 2 : 1;
-	dungeon.getTraps().push_back(std::make_shared<FirePillars>(x, y, pillarLimit));
+	dungeon.addTrap(std::make_shared<FirePillars>(dungeon, x, y, pillarLimit));
 }
 
 FireExplosionSpell::FireExplosionSpell(int x, int y) : Spell(x, y, 5, FIRE_EXPLOSION_SPELL, "Fireblast_Spell_48x48.png") {
@@ -1808,31 +1517,31 @@ void FireExplosionSpell::useItem(Dungeon &dungeon) {
 				continue;
 
 			// fire explosion animation
-			cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+			cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 			dungeon.runSingleAnimation(frames, 120, i, j, 2);
-			
-			if (dungeon[j*cols + i].enemy) {
+
+			if (dungeon.enemy(i, j)) {
 
 				pos = dungeon.findMonster(i, j);
 				if (pos != -1) {
-					dungeon.damageMonster(pos, getDamage() + dungeon.getPlayer()->getInt());
+					dungeon.damageMonster(pos, getDamage() + dungeon.getPlayer()->getInt(), DamageType::MAGICAL);
 
 					// If they can be burned, roll for a high chance to burn
 					if (dungeon.getMonsters().at(pos)->canBeBurned() || dungeon.getPlayer()->hasAfflictionOverride()) {
 						if (1 + randInt(100) + dungeon.getPlayer()->getLuck() > 50 - dungeon.getPlayer()->getInt()) {
 							int turns = 5 + dungeon.getPlayer()->getInt() + (dungeon.getPlayer()->hasHarshAfflictions() ? 6 : 0);
-							dungeon.giveAffliction(pos, std::make_shared<Burn>(turns));
+							dungeon.giveAffliction(pos, std::make_shared<Burn>(*dungeon.getPlayer(), turns));
 						}
 					}
 				}
 			}
 
-			if (dungeon[j*cols + i].trap) {
+			if (dungeon.trap(i, j)) {
 
 				pos = dungeon.findTrap(i, j);
 				if (pos != -1) {
 					if (dungeon.getTraps().at(pos)->canBeIgnited())
-						dungeon.getTraps().at(pos)->ignite(dungeon);
+						dungeon.getTraps().at(pos)->ignite();
 				}
 			}
 		}
@@ -1843,52 +1552,44 @@ void FireExplosionSpell::useItem(Dungeon &dungeon) {
 
 		// Add their Intellect stat because it should be less likely to get burned with the more Int they have
 		if (1 + randInt(100) - dungeon.getPlayer()->getLuck() > 60 + dungeon.getPlayer()->getInt()) {
-			dungeon.getPlayerVector().at(0)->addAffliction(std::make_shared<Burn>(5));
+			dungeon.getPlayerVector().at(0)->addAffliction(std::make_shared<Burn>(*dungeon.getPlayer(), 5));
 		}
 	}
 }
 
 //		WIND SPELL
-WindSpell::WindSpell(int x, int y) : Spell(x, y, 0, WHIRLWIND_SPELL, "Wind_Spell_48x48.png") {
+WhirlwindSpell::WhirlwindSpell(int x, int y) : Spell(x, y, 0, WHIRLWIND_SPELL, "Wind_Spell_48x48.png") {
 	setItemFlag(true);
 	setForPlayer(false);
 	setSoundName("Book_Pickup.mp3");
 
 	setDescription("A light breeze runs by when you touch the cover.");
 }
-void WindSpell::useItem(Dungeon &dungeon) {
-	// play wind sound
+void WhirlwindSpell::useItem(Dungeon &dungeon) {
 	playSound("Wind_Spell1.mp3");
 	playSound("Wind_Spell2.mp3");
 
 	// if player is on fire, roll for a chance to remove it
 	if (dungeon.getPlayer()->isBurned()) {
-		int roll = 1 + randInt(100) + 2*dungeon.getPlayer()->getInt();
+		int roll = 1 + randInt(100) + 2 * dungeon.getPlayer()->getInt();
 
-		if (roll > 50) {
-			dungeon.getPlayerVector()[0]->removeAffliction(BURN);
-		}
+		if (roll > 50)
+			dungeon.getPlayerVector()[0]->removeAffliction(BURN);		
 	}
-
-	int rows = dungeon.getRows();
-	int cols = dungeon.getCols();
 
 	int px = dungeon.getPlayer()->getPosX();
 	int py = dungeon.getPlayer()->getPosY();
-	int mx, my, tempx, tempy;
+	int mx, my;
 
 	// find any monsters caught in the whirlwind
 	char move;
 	int tries = 5; // for breaking out of the loop if too many tries
-	bool dead = false; // for stunning only monsters that are alive
 	int radius = 3;
-	unsigned int oldSize = dungeon.getMonsters().size();
 
-	for (unsigned i = 0; i < dungeon.getMonsters().size(); i++) {
-		dead = false;
+	for (unsigned int i = 0; i < dungeon.getMonsters().size(); i++) {
 		tries = 5 + (dungeon.getPlayer()->getInt() >= 10 ? 3 : dungeon.getPlayer()->getInt() >= 5 ? 1 : 0);
 		radius = 3 + (dungeon.getPlayer()->getInt() >= 10 ? 2 : dungeon.getPlayer()->getInt() >= 5 ? 1 : 0);
-		oldSize = dungeon.getMonsters().size();
+		
 		mx = dungeon.getMonsters().at(i)->getPosX();
 		my = dungeon.getMonsters().at(i)->getPosY();
 
@@ -1899,62 +1600,39 @@ void WindSpell::useItem(Dungeon &dungeon) {
 		while (abs(mx - px) <= radius && abs(my - py) <= radius && tries > 0) {
 
 			// if monster is to the left of the player and equally as far to the side or less as they are to above or below the player
-			if (mx < px && (my - py == 0 || abs(mx - px) <= abs(my - py))) {
+			if (mx < px && (my - py == 0 || abs(mx - px) <= abs(my - py)))
 				move = 'l';
-			}
+			
 			// if monster is to the right of the player and equally as far to the side or less as they are to above or below the player
-			else if (mx > px && (my - py == 0 || abs(mx - px) <= abs(my - py))) {
+			else if (mx > px && (my - py == 0 || abs(mx - px) <= abs(my - py)))
 				move = 'r';
-			}
+			
 			// if monster is above the player and equally as far above/below or less as they are to the side of the player
-			else if (my < py && (mx - px == 0 || abs(my - py) <= abs(mx - px))) {
+			else if (my < py && (mx - px == 0 || abs(my - py) <= abs(mx - px)))
 				move = 'u';
-			}
+			
 			// if monster is below the player and equally as far above/below or less as they are to the side of the player
-			else if (my > py && (mx - px == 0 || abs(my - py) <= abs(mx - px))) {
+			else if (my > py && (mx - px == 0 || abs(my - py) <= abs(mx - px)))
 				move = 'd';
-			}
-
-			// push the monster
+						
 			dungeon.pushMonster(mx, my, move);
 
-			// check if monster died
-			if (dungeon.getMonsters().size() < oldSize) {
-				dead = true;
-				break;
-			}
-
-			// check if there was a trap at this position
-			if (dungeon[dungeon.getMonsters().at(i)->getPosY()*cols + dungeon.getMonsters().at(i)->getPosX()].trap) {
-				tempx = dungeon.getMonsters().at(i)->getPosX();
-				tempy = dungeon.getMonsters().at(i)->getPosY();
-				
-				dungeon.singleMonsterTrapEncounter(dungeon.findMonster(tempx, tempy));
-
-				// check if monster died
-				if (dungeon.getMonsters().size() < oldSize) {
-					dead = true;
-					break;
-				}
-			}
-
+			if (dungeon.trap(mx, my))
+				dungeon.singleMonsterTrapEncounter(dungeon.findMonster(mx, my));
 			
+			if (dungeon.getMonsters().at(i)->isDead())
+				break;
+
 			mx = dungeon.getMonsters().at(i)->getPosX();
 			my = dungeon.getMonsters().at(i)->getPosY();
 			tries--;
 		}
-
-		// stun them for one turn at the end
-		if (!dead) {
-			if (dungeon.getMonsters().at(i)->canBeStunned()) {
-				// if player has at least 5 intellect, stun is increased to three turns
-				int turns = (dungeon.getPlayer()->getInt() >= 5 ? 3 : 1);
-				dungeon.giveAffliction(i, std::make_shared<Stun>(turns));
-			}
-		}
-		else {
-			i--; // decrement to not skip monsters since monster died
-		}
+	
+		if (dungeon.getMonsters().at(i)->canBeStunned()) {
+			// if player has at least 5 intellect, stun is increased to three turns
+			int turns = (dungeon.getPlayer()->getInt() >= 5 ? 3 : 1);
+			dungeon.giveAffliction(i, std::make_shared<Stun>(turns));
+		}	
 	}
 }
 
@@ -1974,7 +1652,6 @@ void WindBlastSpell::useItem(Dungeon &dungeon) {
 	int x = dungeon.getPlayer()->getPosX();
 	int y = dungeon.getPlayer()->getPosY();
 
-	bool wall, enemy;
 	char move = dungeon.getPlayer()->facingDirection();
 
 	int n, m; // n : x, m : y
@@ -1988,24 +1665,21 @@ void WindBlastSpell::useItem(Dungeon &dungeon) {
 	int range = 6;
 	int currentRange = 1;
 
-	wall = dungeon[(y + m)*cols + (x + n)].wall;
-	enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
 	int k = 1; // 3 rows/columns to check
 	while (k <= 3) {
 
-		while (!wall && currentRange <= range) {
+		while (!dungeon.wall(x + n, y + m) && currentRange <= range) {
 
-			cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+			cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 			dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
 
-			if (enemy) {
+			if (dungeon.enemy(x + n, y + m)) {
 				int pos = dungeon.findMonster(x + n, y + m);
 				if (pos != -1)
 					dungeon.giveAffliction(pos, std::make_shared<Stun>(2 + dungeon.getPlayer()->getInt()));
 
-				dungeon.linearActorPush(x + n, y + m, range - currentRange + 1, move);
-				break;		
+				dungeon.linearActorPush(x + n, y + m, range - currentRange + 1, range, move);
+				break;
 			}
 
 			switch (move) {
@@ -2015,8 +1689,6 @@ void WindBlastSpell::useItem(Dungeon &dungeon) {
 			case 'd': m++; break;
 			}
 
-			wall = dungeon[(y + m)*cols + (x + n)].wall;
-			enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 			currentRange++;
 		}
 
@@ -2029,8 +1701,6 @@ void WindBlastSpell::useItem(Dungeon &dungeon) {
 
 		k++;
 		currentRange = 1;
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 	}
 }
 
@@ -2049,8 +1719,7 @@ void WindVortexSpell::useItem(Dungeon &dungeon) {
 
 	// Create WindVortex trap
 	int turnLimit = 10 + dungeon.getPlayer()->getInt();
-	dungeon.getTraps().push_back(std::make_shared<WindVortex>(x, y, turnLimit));
-	dungeon.getTraps().back()->setSprite(dungeon.createSprite(x, y, -1, dungeon.getTraps().back()->getImageName()));
+	dungeon.addTrap(std::make_shared<WindVortex>(dungeon, x, y, turnLimit));
 }
 
 //		THUNDER CLOUD
@@ -2077,9 +1746,7 @@ void ThunderCloudSpell::useItem(Dungeon &dungeon) {
 
 	// Create ThunderCloud trap
 	int turnLimit = 15 + dungeon.getPlayer()->getInt();
-	dungeon.getTraps().push_back(std::make_shared<ThunderCloud>(x + n, y + m, move, turnLimit));
-	dungeon.getTraps().back()->setSprite(dungeon.createSprite(x + n, y + m, 3, dungeon.getTraps().back()->getImageName()));
-	dungeon.addLightSource(x + n, y + m, 3, dungeon.getTraps().back()->getName());
+	dungeon.addTrap(std::make_shared<ThunderCloud>(dungeon, x + n, y + m, move, turnLimit));
 }
 
 
@@ -2090,11 +1757,11 @@ InvisibilitySpell::InvisibilitySpell(int x, int y) : Spell(x, y, 0, INVISIBILITY
 
 	setDescription("Now you see me. Now you");
 }
-void InvisibilitySpell::useItem(Player &p) {
+void InvisibilitySpell::useItem(Dungeon &dungeon) {
 	// play invisibility sound effect
 	playSound("Invisibility_Spell.mp3");
 
-	p.addAffliction(std::make_shared<Invisibility>(25 + p.getInt()));
+	dungeon.getPlayer()->addAffliction(std::make_shared<Invisibility>(25 + dungeon.getPlayer()->getInt()));
 }
 
 //		ETHEREAL SPELL
@@ -2104,22 +1771,398 @@ EtherealSpell::EtherealSpell(int x, int y) : Spell(x, y, 0, ETHEREAL_SPELL, "Eth
 
 	setDescription("Now you see me. Now you.. still do?");
 }
-void EtherealSpell::useItem(Player &p) {
+void EtherealSpell::useItem(Dungeon &dungeon) {
 	// play ethereality sound effect
 	playSound("Ethereal_Spell.mp3");
 
-	p.addAffliction(std::make_shared<Ethereality>(15 + 2*p.getInt()));
+	dungeon.getPlayer()->addAffliction(std::make_shared<Ethereality>(15 + 2 * dungeon.getPlayer()->getInt()));
 }
 
 
 
-//					:::: TRINKETS ::::
-Trinket::Trinket(int x, int y, std::string name, std::string image) : Objects(x, y, name, image) {
+// =============================================
+//				:::: PASSIVES ::::
+// =============================================
+Passive::Passive(int x, int y, std::string name, std::string image) : Objects(x, y, name, image) {
+
+}
+
+BatWing::BatWing(int x, int y) : Passive(x, y, BATWING, "Angels_Brace.png") {
+	setDescription("A reminder that agility keeps you alive. Boosts dexterity.");
+}
+void BatWing::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setDex(p.getDex() + 1);
+}
+void BatWing::unapply(Player &p) {
+	p.setDex(p.getDex() - 1);
+}
+
+LifeElixir::LifeElixir(int x, int y) : Passive(x, y, LIFE_ELIXIR, "Heart_Potion_48x48.png") {
+	setDescription("An incredible concoction that invigorates you down to\nyour soul. Increases your maximum health.");
+}
+void LifeElixir::apply(Player &p) {
+	// sound effect
+	playSound("Life_Potion_Used.mp3");
+
+	p.setMaxHP(p.getMaxHP() + 25);
+}
+void LifeElixir::unapply(Player &p) {
+	p.setMaxHP(p.getMaxHP() - 25);
+	if (p.getHP() > p.getMaxHP())
+		p.setHP(p.getMaxHP());
+}
+
+MagicEssence::MagicEssence(int x, int y) : Passive(x, y, MAGIC_ESSENCE, "Cheese_Wedge_48x48.png") {
+	setDescription("In older times, the Spellmasters would quaff these to\nincrease their magical prowess in a pinch.");
+}
+void MagicEssence::apply(Player &p) {
+	// sound effect
+	playSound("Life_Potion_Used.mp3");
+
+	p.setInt(p.getInt() + 1);
+}
+void MagicEssence::unapply(Player &p) {
+	p.setInt(p.getInt() - 1);
+}
+
+Flying::Flying(int x, int y) : Passive(x, y, FLYING, "Angels_Brace.png") {
+	setDescription("Only the most powerful mages could master such a\ntechnique. Years would be spent to get to this level of\nsophistication.");
+}
+void Flying::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setFlying(true);
+}
+void Flying::unapply(Player &p) {
+	p.setFlying(false);
+}
+
+SteelPunch::SteelPunch(int x, int y) : Passive(x, y, STEEL_PUNCH, "Cheese_Wedge_48x48.png") {
+	setDescription("You have acquired the secret of the Steel Punch!");
+}
+void SteelPunch::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setSteelPunch(true);
+}
+void SteelPunch::unapply(Player &p) {
+	p.setSteelPunch(false);
+}
+
+IronCleats::IronCleats(int x, int y) : Passive(x, y, IRON_CLEATS, "Cheese_Wedge_48x48.png") {
+	setDescription("A set of well-crafted iron boots. Prevents spike damage.");
+}
+void IronCleats::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setSpikeImmunity(true);
+}
+void IronCleats::unapply(Player &p) {
+	p.setSpikeImmunity(false);
+}
+
+PoisonTouch::PoisonTouch(int x, int y) : Passive(x, y, POISON_TOUCH, "Cheese_Wedge_48x48.png") {
+	setDescription("Chance to poison enemies when attacking.");
+}
+void PoisonTouch::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setPoisonTouch(true);
+}
+void PoisonTouch::unapply(Player &p) {
+	p.setPoisonTouch(false);
+}
+
+FireTouch::FireTouch(int x, int y) : Passive(x, y, FIRE_TOUCH, "Cheese_Wedge_48x48.png") {
+	setDescription("Chance to ignite enemies when attacking.");
+}
+void FireTouch::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setFireTouch(true);
+}
+void FireTouch::unapply(Player &p) {
+	p.setFireTouch(false);
+}
+
+FrostTouch::FrostTouch(int x, int y) : Passive(x, y, FROST_TOUCH, "Cheese_Wedge_48x48.png") {
+	setDescription("Chance to freeze enemies when attacking.");
+}
+void FrostTouch::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setFrostTouch(true);
+}
+void FrostTouch::unapply(Player &p) {
+	p.setFrostTouch(false);
+}
+
+RainbowTouch::RainbowTouch(int x, int y) : Passive(x, y, RAINBOW_TOUCH, "Cheese_Wedge_48x48.png") {
+	setDescription("Chance to poison, ignite, or freeze enemies.");
+}
+void RainbowTouch::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setPoisonTouch(true);
+	p.setFireTouch(true);
+	p.setFrostTouch(true);
+}
+void RainbowTouch::unapply(Player &p) {
+	p.setPoisonTouch(false);
+	p.setFireTouch(false);
+	p.setFrostTouch(false);
+}
+
+PoisonImmune::PoisonImmune(int x, int y) : Passive(x, y, POISON_IMMUNE, "Cheese_Wedge_48x48.png") {
+	setDescription("The antibodies flowing within you are tuned far beyond\n the standard.");
+}
+void PoisonImmune::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setCanBePoisoned(false);
+}
+void PoisonImmune::unapply(Player &p) {
+	p.setCanBePoisoned(true);
+}
+
+FireImmune::FireImmune(int x, int y) : Passive(x, y, FIRE_IMMUNE, "Vulcan_Rune_48x48.png") {
+	setDescription("Thicker skin? No. Magical forces prevent you\from experiencing burns.");
+}
+void FireImmune::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setCanBeBurned(false);
+}
+void FireImmune::unapply(Player &p) {
+	p.setCanBeBurned(true);
+}
+
+LavaImmune::LavaImmune(int x, int y) : Passive(x, y, VULCAN_RUNE, "Vulcan_Rune_48x48.png") {
+	setDescription("Some say this rune was forged by a legendary\n blacksmith that then hid their wares deep\n inside a volcano. Provides lava resistance.");
+}
+void LavaImmune::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setLavaImmunity(true);
+}
+void LavaImmune::unapply(Player &p) {
+	p.setLavaImmunity(false);
+}
+
+BombImmune::BombImmune(int x, int y) : Passive(x, y, BOMB_IMMUNE, "Cheese_Wedge_48x48.png") {
+	setDescription("The art of bomb-making become second nature to you.\nImmunity to explosions and increases bomb damage.");
+}
+void BombImmune::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setExplosionImmune(true);
+}
+void BombImmune::unapply(Player &p) {
+	p.setExplosionImmune(false);
+}
+
+PotionAlchemy::PotionAlchemy(int x, int y) : Passive(x, y, POTION_ALCHEMY, "Cheese_Wedge_48x48.png") {
+	setDescription("Your knowledge of potions allows you to make them more potent.");
+}
+void PotionAlchemy::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setPotentPotions(true);
+}
+void PotionAlchemy::unapply(Player &p) {
+	p.setPotentPotions(false);
+}
+
+SoulSplit::SoulSplit(int x, int y) : Passive(x, y, SOUL_SPLIT, "Cheese_Wedge_48x48.png") {
+	setDescription("Greed has manifested itself into a tangible being.");
+}
+void SoulSplit::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setSoulSplit(true);
+}
+void SoulSplit::unapply(Player &p) {
+	p.setSoulSplit(false);
+}
+
+LuckUp::LuckUp(int x, int y) : Passive(x, y, LUCKY_PIG, "Lucky_Pig_48x48.png") {
+	setDescription("A lucky pig's head. But not so much for the pig.");
+}
+void LuckUp::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setLuck(p.getLuck() + 15);
+}
+void LuckUp::unapply(Player &p) {
+	p.setLuck(p.getLuck() - 15);
+}
+
+Berserk::Berserk(int x, int y) : Passive(x, y, BERSERK, "Whiskey_48x48.png") {
+	setDescription("You should really watch your temper, you're turning red!");
+}
+void Berserk::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setBloodlust(true);
+}
+void Berserk::unapply(Player &p) {
+	p.setBloodlust(false);
+}
+
+LifeSteal::LifeSteal(int x, int y) : Passive(x, y, LIFESTEAL, "Bloody_Apple_32x32.png") {
+	setDescription("Suddenly, blood sounds particularly delicious...");
+}
+void LifeSteal::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setLifesteal(true);
+}
+void LifeSteal::unapply(Player &p) {
+	p.setLifesteal(false);
+}
+
+Heavy::Heavy(int x, int y) : Passive(x, y, HEAVY, "Cheese_Wedge_48x48.png") {
+	setDescription("Your steps have become incredibly solid.");
+}
+void Heavy::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setHeavy(true);
+}
+void Heavy::unapply(Player &p) {
+	p.setHeavy(false);
+}
+
+BrickBreaker::BrickBreaker(int x, int y) : Passive(x, y, BRICK_BREAKER, "Cheese_Wedge_48x48.png") {
+	setDescription("Claustrophobia is setting in, but smashing down these\nwalls takes a toll on your well-being.");
+}
+void BrickBreaker::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setCanBreakWalls(true);
+}
+void BrickBreaker::unapply(Player &p) {
+	p.setCanBreakWalls(false);
+}
+
+SummonNPCs::SummonNPCs(int x, int y) : Passive(x, y, SUMMON_NPCS, "Cheese_Wedge_48x48.png") {
+	setDescription("Your cries do not go unheard. Others have a greater\nchance of finding you.");
+}
+void SummonNPCs::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setCharismaNPC(true);
+}
+void SummonNPCs::unapply(Player &p) {
+	p.setCharismaNPC(false);
+}
+
+CheapShops::CheapShops(int x, int y) : Passive(x, y, CHEAP_SHOPS, "Cheese_Wedge_48x48.png") {
+	setDescription("Your way of words convinces those around you\n to give you a better deal.");
+}
+void CheapShops::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setCheapShops(true);
+}
+void CheapShops::unapply(Player &p) {
+	p.setCheapShops(false);
+}
+
+BetterRates::BetterRates(int x, int y) : Passive(x, y, BETTER_RATES, "Cheese_Wedge_48x48.png") {
+	setDescription("An overwhelming feeling of relaxation overcomes you.");
+}
+void BetterRates::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setBetterRates(true);
+}
+void BetterRates::unapply(Player &p) {
+	p.setBetterRates(false);
+}
+
+TrapIllumination::TrapIllumination(int x, int y) : Passive(x, y, TRAP_ILLUMINATION, "Cheese_Wedge_48x48.png") {
+	setDescription("Suddenly, the dangers of this dungeon are made more\napparent.");
+}
+void TrapIllumination::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setTrapIllumination(true);
+}
+void TrapIllumination::unapply(Player &p) {
+	p.setTrapIllumination(false);
+}
+
+ItemIllumination::ItemIllumination(int x, int y) : Passive(x, y, ITEM_ILLUMINATION, "Cheese_Wedge_48x48.png") {
+	setDescription("The treasures of this place are revealed.");
+}
+void ItemIllumination::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setItemIllumination(true);
+}
+void ItemIllumination::unapply(Player &p) {
+	p.setItemIllumination(false);
+}
+
+MonsterIllumination::MonsterIllumination(int x, int y) : Passive(x, y, MONSTER_ILLUMINATION, "Cheese_Wedge_48x48.png") {
+	setDescription("The monsters of this place are revealed.");
+}
+void MonsterIllumination::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setMonsterIllumination(true);
+}
+void MonsterIllumination::unapply(Player &p) {
+	p.setMonsterIllumination(false);
+}
+
+ResonantSpells::ResonantSpells(int x, int y) : Passive(x, y, RESONANT_SPELLS, "Cheese_Wedge_48x48.png") {
+	setDescription("Somehow the magic of this place has begun\nto stick with you. Spells have a chance to\nstay on use.");
+}
+void ResonantSpells::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setResonantSpells(true);
+}
+void ResonantSpells::unapply(Player &p) {
+	p.setResonantSpells(false);
+}
+
+FatStacks::FatStacks(int x, int y) : Passive(x, y, FAT_STACKS, "Cheese_Wedge_48x48.png") {
+	setDescription("Suddenly your pockets are deep, very deep.\nAll items are now stackable.");
+}
+void FatStacks::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setFatStacks(true);
+}
+void FatStacks::unapply(Player &p) {
+	p.setFatStacks(false);
+}
+
+Scavenger::Scavenger(int x, int y) : Passive(x, y, SCAVENGER, "Cheese_Wedge_48x48.png") {
+	setDescription("Often times survival comes down to how crafty you can\nbe. All enemies have a small chance of dropping loot.");
+}
+void Scavenger::apply(Player &p) {
+	playSound("Armor_Use.mp3");
+
+	p.setScavenger(true);
+}
+void Scavenger::unapply(Player &p) {
+	p.setScavenger(false);
+}
+
+
+//				:::: RELICS ::::
+Relic::Relic(int x, int y, std::string name, std::string image) : Objects(x, y, name, image) {
 	
 }
 
 
-CursedStrength::CursedStrength(int x, int y) : Trinket(x, y, CURSED_STRENGTH, "Blue_Toy_32x32.png") {
+CursedStrength::CursedStrength(int x, int y) : Relic(x, y, CURSED_STRENGTH, "Blue_Toy_32x32.png") {
 	setDescription("Have the gods favored you, or was it a farce?\nGrants immense strength--at a cost.");
 }
 void CursedStrength::apply(Dungeon &dungeon, Player &p) {
@@ -2172,7 +2215,7 @@ void CursedStrength::upgrade(Dungeon &dungeon, Player &p) {
 	setName(CURSED_STRENGTH + " +" + std::to_string(getLevel() - 1));
 }
 
-BrightStar::BrightStar(int x, int y) : Trinket(x, y, BRIGHT_STAR, "Fireflies_Jar_48x48.png") {
+BrightStar::BrightStar(int x, int y) : Relic(x, y, BRIGHT_STAR, "Fireflies_Jar_48x48.png") {
 	setDescription("A small light in this dark place.");
 }
 void BrightStar::apply(Dungeon &dungeon, Player &p) {
@@ -2224,7 +2267,7 @@ void BrightStar::upgrade(Dungeon &dungeon, Player &p) {
 	setName(BRIGHT_STAR + " +" + std::to_string(getLevel() - 1));
 }
 
-DarkStar::DarkStar(int x, int y) : Trinket(x, y, DARK_STAR, "Lightbulb_32x32.png") {
+DarkStar::DarkStar(int x, int y) : Relic(x, y, DARK_STAR, "Lightbulb_32x32.png") {
 	setDescription("The darkness brings you strength.");
 }
 void DarkStar::apply(Dungeon &dungeon, Player &p) {
@@ -2284,7 +2327,7 @@ void DarkStar::upgrade(Dungeon &dungeon, Player &p) {
 	setName(DARK_STAR + " +" + std::to_string(getLevel() - 1));
 }
 
-Riches::Riches(int x, int y) : Trinket(x, y, RICHES, "Golden_Ring_32x32.png") {
+Riches::Riches(int x, int y) : Relic(x, y, RICHES, "Golden_Ring_32x32.png") {
 	setDescription("A strong sense of greed fills your mind with this ring\nin your possession.");
 }
 void Riches::apply(Dungeon &dungeon, Player &p) {
@@ -2334,7 +2377,7 @@ void Riches::upgrade(Dungeon &dungeon, Player &p) {
 	setName(RICHES + " +" + std::to_string(getLevel() - 1));
 }
 
-MatrixVision::MatrixVision(int x, int y) : Trinket(x, y, MATRIX_VISION, "Water_Orb_32x32.png") {
+MatrixVision::MatrixVision(int x, int y) : Relic(x, y, MATRIX_VISION, "Water_Orb_32x32.png") {
 	setDescription("Do your eyes deceive you or can you suddenly\nglimpse tears in the fabric of space-time?");
 }
 void MatrixVision::apply(Dungeon &dungeon, Player &p) {
@@ -2384,7 +2427,7 @@ void MatrixVision::upgrade(Dungeon &dungeon, Player &p) {
 	setName(MATRIX_VISION + " +" + std::to_string(getLevel() - 1));
 }
 
-SuperMagicEssence::SuperMagicEssence(int x, int y) : Trinket(x, y, SUPER_MAGIC_ESSENCE, "Wizards_Hat_48x48.png") {
+SuperMagicEssence::SuperMagicEssence(int x, int y) : Relic(x, y, SUPER_MAGIC_ESSENCE, "Wizards_Hat_48x48.png") {
 	setDescription("The control of elemental power was long sought after.\nOnly the greatest could achieve totally mastery.");
 }
 void SuperMagicEssence::apply(Dungeon &dungeon, Player &p) {
@@ -2440,7 +2483,7 @@ void SuperMagicEssence::upgrade(Dungeon &dungeon, Player &p) {
 	setName(SUPER_MAGIC_ESSENCE + " +" + std::to_string(getLevel() - 1));
 }
 
-Protection::Protection(int x, int y) : Trinket(x, y, PROTECTION, "Waffles_48x48.png") {
+Protection::Protection(int x, int y) : Relic(x, y, PROTECTION, "Waffles_48x48.png") {
 	setDescription("Somehow, you feel safer with this close to your chest.\nGrants impressive protective abilities.");
 }
 void Protection::apply(Dungeon &dungeon, Player &p) {
@@ -2506,9 +2549,15 @@ void Protection::upgrade(Dungeon &dungeon, Player &p) {
 
 
 //		CHESTS
-Chests::Chests(int x, int y, std::string chest, std::string image) : Drops(x, y, chest, image) {
+Chests::Chests(Dungeon *dungeon, int x, int y, std::string chest, std::string image) : Drops(x, y, chest, image) {
+	m_dungeon = dungeon;
+
 	setForPlayer(false);
 	setSoundName("ChestOpening1.mp3");
+
+	setSprite(dungeon->createSprite(x, y, -1, getImageName()));
+	(*dungeon)[y*dungeon->getCols() + x].item = true;
+	(*dungeon)[y*dungeon->getCols() + x].wall = true;
 }
 Chests::~Chests() {
 	if (m_item != nullptr)
@@ -2522,14 +2571,15 @@ void Chests::open(Dungeon &dungeon) {
 
 	playSound(getSoundName());
 
-	dungeon.removeSprite(dungeon.item_sprites, x, y);
+	dungeon.removeItem(x, y);
 
 	dungeon[y*cols + x].object = m_item;
-	dungeon[y*cols + x].item_name = dungeon[y*cols + x].object->getName();
 	dungeon[y*cols + x].wall = false;
+	dungeon[y*cols + x].item = true;
 
 	int z = dungeon.isShop() ? 2 : -1;
-	dungeon.addSprite(dungeon.item_sprites, x, y, z, dungeon[y*cols + x].object->getImageName());
+	dungeon[y*cols + x].object->setSprite(dungeon.createSprite(x, y, z, dungeon[y*cols + x].object->getImageName()));
+	dungeon.addItem(dungeon[y*cols + x].object);
 }
 void Chests::openEffect(Dungeon &dungeon) {
 
@@ -2538,13 +2588,11 @@ void Chests::openEffect(Dungeon &dungeon) {
 		int x = getPosX();
 		int y = getPosY();
 
-		std::shared_ptr<Traps> trap = std::make_shared<ActiveBomb>(x, y, 1);
-		trap->setSprite(dungeon.createSprite(x, y, 0, trap->getImageName()));
-		dungeon.getTraps().push_back(trap);
+		dungeon.addTrap(std::make_shared<ActiveBomb>(dungeon, x, y, 1));
 	}
 }
 
-TreasureChest::TreasureChest(int x, int y) : Chests(x, y, TREASURE_CHEST, "Brown_Chest_48x48.png") {
+TreasureChest::TreasureChest(Dungeon *dungeon, int x, int y) : Chests(dungeon, x, y, TREASURE_CHEST, "Brown_Chest_48x48.png") {
 
 }
 void TreasureChest::open(Dungeon &dungeon) {
@@ -2554,101 +2602,54 @@ void TreasureChest::open(Dungeon &dungeon) {
 
 	playSound(getSoundName());
 
-	dungeon.removeSprite(dungeon.item_sprites, x, y);
+	dungeon.removeItem(x, y);
 
 	int goldAmount = 20 + randInt(20 + dungeon.getPlayer()->getLuck());
-	dungeon[y*cols + x].gold += goldAmount;
-	dungeon.addGoldSprite(x, y);
+	dungeon.addGold(x, y, goldAmount);
 
 	dungeon[y*cols + x].wall = false;
 }
 
-LifeChest::LifeChest(int x, int y) : Chests(x, y, LIFE_CHEST, "Pink_Chest_48x48.png") {
+LifeChest::LifeChest(Dungeon *dungeon, int x, int y) : Chests(dungeon, x, y, LIFE_CHEST, "Pink_Chest_48x48.png") {
 	switch (1 + randInt(7)) {
-	case 1: m_item = std::make_shared<LifePotion>(); break;
-	case 2:	m_item = std::make_shared<BigLifePotion>(); break;
-	case 3: m_item = std::make_shared<SteadyLifePotion>(); break;
-	case 4: m_item = std::make_shared<HalfLifePotion>(); break;
-	case 5: m_item = std::make_shared<BinaryLifePotion>(); break;
-	case 6: m_item = std::make_shared<RottenApple>(); break;
-	case 7: m_item = std::make_shared<SoulPotion>(); break;
+	case 1: m_item = std::make_shared<LifePotion>(x, y); break;
+	case 2:	m_item = std::make_shared<BigLifePotion>(x, y); break;
+	case 3: m_item = std::make_shared<SteadyLifePotion>(x, y); break;
+	case 4: m_item = std::make_shared<HalfLifePotion>(x, y); break;
+	case 5: m_item = std::make_shared<BinaryLifePotion>(x, y); break;
+	case 6: m_item = std::make_shared<RottenApple>(x, y); break;
+	case 7: m_item = std::make_shared<SoulPotion>(x, y); break;
 	default: break;
 	}
 }
 
-BrownChest::BrownChest(int x, int y) : Chests(x, y, BROWN_CHEST, "Brown_Chest_48x48.png") {
-	switch (1 + randInt(11)) {
-	case 1: m_item = std::make_shared<LifePotion>(); break;
-	case 2:	m_item = std::make_shared<DizzyElixir>(); break;
-	case 3: m_item = std::make_shared<Bomb>(); break;
-	case 4: m_item = std::make_shared<ShieldRepair>(); break;
-	case 5: m_item = std::make_shared<PoisonCloud>(); break;
-	case 6: m_item = std::make_shared<SmokeBomb>(); break;
-	case 7: m_item = std::make_shared<StatPotion>(); break;
-	case 8: m_item = std::make_shared<RottenMeat>(); break;
-	case 9: m_item = std::make_shared<Matches>(); break;
-	case 10: m_item = std::make_shared<Firecrackers>(); break;
-	case 11: m_item = std::make_shared<BearTrap>(); break;
-	default: break;
+BrownChest::BrownChest(Dungeon *dungeon, int x, int y) : Chests(dungeon, x, y, BROWN_CHEST, "Brown_Chest_48x48.png") {
+	switch (1 + randInt(1)) {
+	case 1: m_item = rollItem(dungeon, x, y, Rarity::COMMON, false, false); break;
 	}
 }
 
-SilverChest::SilverChest(int x, int y) : Chests(x, y, SILVER_CHEST, "Silver_Chest_48x48.png") {
-	switch (1 + randInt(14)) {
-	case 1: m_item = std::make_shared<InvisibilitySpell>(); break;
-	case 2:	m_item = std::make_shared<FireBlastSpell>(); break;
-	case 3: m_item = std::make_shared<PoisonTouch>(); break;
-	case 4: m_item = std::make_shared<FireTouch>(); break;
-	case 5: m_item = std::make_shared<Antidote>(); break;
-	case 6:	m_item = std::make_shared<BearTrap>(); break;
-	case 7:	m_item = std::make_shared<BigLifePotion>(); break;
-	case 8:	m_item = std::make_shared<IceShardSpell>(); break;
-	case 9: m_item = std::make_shared<EtherealSpell>(); break;
-	case 10: m_item = std::make_shared<FreezeSpell>(); break;
-	case 11: m_item = std::make_shared<HailStormSpell>(); break;
-	case 12: m_item = std::make_shared<WindBlastSpell>(); break;
-	case 13: m_item = std::make_shared<WindVortexSpell>(); break;
-	case 14: m_item = std::make_shared<FrostTouch>(); break;
-	default: break;
+SilverChest::SilverChest(Dungeon *dungeon, int x, int y) : Chests(dungeon, x, y, SILVER_CHEST, "Silver_Chest_48x48.png") {
+	switch (1 + randInt(4)) {
+	case 1: m_item = rollPassive(dungeon, x, y, Rarity::UNCOMMON, true); break;
+	case 2: m_item = rollWeapon(dungeon, x, y, Rarity::UNCOMMON, false); break;
+	case 3: m_item = rollSpell(dungeon, x, y, Rarity::COMMON); break;
+	case 4: m_item = rollItem(dungeon, x, y, Rarity::UNCOMMON, false, false); break;
 	}
 }
 
-GoldenChest::GoldenChest(int x, int y) : Chests(x, y, GOLDEN_CHEST, "Golden_Chest_48x48.png") {
-	int n = 1 + randInt(17);
-	switch (n) {
-	case 1: m_item = std::make_shared<SteelPunch>(); break;
-	case 2: m_item = std::make_shared<IronCleats>(); break;
-	case 3: m_item = std::make_shared<Claw>(); break;
-	case 4: m_item = std::make_shared<SuperiorHammer>(); break;
-	case 5: m_item = std::make_shared<ResonantSpells>(); break;
-	case 6: m_item = std::make_shared<RainbowTouch>(); break;
-	case 7: m_item = std::make_shared<LifeSteal>(); break;
-	case 8: m_item = std::make_shared<PotionAlchemy>(); break;
-	case 9: m_item = std::make_shared<BrickBreaker>(); break;
-	case 10: m_item = std::make_shared<Pistol>(); break;
-	case 11: m_item = std::make_shared<LavaImmune>(); break;
-	case 12: m_item = std::make_shared<SuperiorEstoc>(); break;
-	case 13: m_item = std::make_shared<SuperiorNunchuks>(); break;
-	case 14: m_item = std::make_shared<SuperiorJian>(); break;
-	case 15: m_item = std::make_shared<SuperiorBoStaff>(); break;
-	case 16: m_item = std::make_shared<SuperiorKatana>(); break;
-	case 17: m_item = std::make_shared<SuperiorZweihander>(); break;
-	case 18: m_item = std::make_shared<VulcanBow>(); break;
+GoldenChest::GoldenChest(Dungeon *dungeon, int x, int y) : Chests(dungeon, x, y, GOLDEN_CHEST, "Golden_Chest_48x48.png") {
+	switch (1 + randInt(2)) {
+	case 1: m_item = rollPassive(dungeon, x, y, Rarity::RARE, false); break;
+	case 2: m_item = rollWeapon(dungeon, x, y, Rarity::MYTHICAL, false); break;
 	}
 }
 
-HauntedChest::HauntedChest(int x, int y) : Chests(x, y, HAUNTED_CHEST, "Golden_Chest_48x48.png") {
-	int n = 1 + randInt(9);
-	switch (n) {
-	case 1: m_item = std::make_shared<SteelPunch>(); break;
-	case 2: m_item = std::make_shared<GreaterNunchuks>(); break;
-	case 3: m_item = std::make_shared<FrostShield>(); break;
-	case 4: m_item = std::make_shared<GreaterHammer>(); break;
-	case 5: m_item = std::make_shared<GreaterBoStaff>(); break;
-	case 6: m_item = std::make_shared<RainbowTouch>(); break;
-	case 7: m_item = std::make_shared<LifeSteal>(); break;
-	case 8: m_item = std::make_shared<Mattock>(); break;
-	case 9: m_item = std::make_shared<GreaterKatana>(); break;
+HauntedChest::HauntedChest(Dungeon *dungeon, int x, int y) : Chests(dungeon, x, y, HAUNTED_CHEST, "Golden_Chest_48x48.png") {
+	switch (1 + randInt(3)) {
+	case 1: m_item = rollPassive(dungeon, x, y, Rarity::RARE, true); break;
+	case 2: m_item = rollWeapon(dungeon, x, y, Rarity::UNCOMMON, true); break;
+	case 3: m_item = rollSpell(dungeon, x, y, Rarity::COMMON, true); break;
 	}
 }
 void HauntedChest::openEffect(Dungeon &dungeon) {
@@ -2682,41 +2683,21 @@ void HauntedChest::openEffect(Dungeon &dungeon) {
 		enemy = dungeon[pair.second*cols + pair.first].enemy;
 
 		if (!(enemy)) {
-			std::shared_ptr<Monster> m = std::make_shared<Ghost>(pair.first, pair.second);
-			m->setSprite(dungeon.createSprite(pair.first, pair.second, 1, m->getImageName()));
+			std::shared_ptr<Monster> m = std::make_shared<Ghost>(&dungeon, pair.first, pair.second);
 			dungeon.getMonsters().push_back(m);
-			dungeon[pair.second*cols + pair.first].enemy = true;
 
 			n--;
 		}
 	}
-
-	/*playSound(getSoundName());
-
-	dungeon.removeSprite(dungeon.item_sprites, x, y);
-
-	dungeon[y*cols + x].object = m_item;
-	dungeon[y*cols + x].item_name = dungeon[y*cols + x].object->getName();
-	dungeon[y*cols + x].wall = false;
-	
-	int z = dungeon.isShop() ? 2 : -1;
-	dungeon.addSprite(dungeon.item_sprites, x, y, z, dungeon[y*cols + x].object->getImageName());*/
 }
 
-TeleportingChest::TeleportingChest(int x, int y) : Chests(x, y, TELEPORTING_CHEST, "Golden_Chest_48x48.png") {
+TeleportingChest::TeleportingChest(Dungeon *dungeon, int x, int y) : Chests(dungeon, x, y, TELEPORTING_CHEST, "Golden_Chest_48x48.png") {
 	m_teleports = 1 + randInt(2);
 
-	int n = 1 + randInt(9);
-	switch (n) {
-	case 1: m_item = std::make_shared<SteelPunch>(); break;
-	case 2: m_item = std::make_shared<IronCleats>(); break;
-	case 3: m_item = std::make_shared<FrostShield>(); break;
-	case 4: m_item = std::make_shared<VulcanHammer>(); break;
-	case 5: m_item = std::make_shared<ResonantSpells>(); break;
-	case 6: m_item = std::make_shared<RainbowTouch>(); break;
-	case 7: m_item = std::make_shared<LifeSteal>(); break;
-	case 8: m_item = std::make_shared<PotionAlchemy>(); break;
-	case 9: m_item = std::make_shared<BrickBreaker>(); break;
+	switch (1 + randInt(3)) {
+	case 1: m_item = rollPassive(dungeon, x, y, Rarity::RARE, true); break;
+	case 2: m_item = rollWeapon(dungeon, x, y, Rarity::RARE, true); break;
+	case 3: m_item = rollSpell(dungeon, x, y, Rarity::COMMON, true); break;
 	}
 }
 void TeleportingChest::attemptOpen(Dungeon &dungeon) {
@@ -2731,7 +2712,7 @@ void TeleportingChest::attemptOpen(Dungeon &dungeon) {
 	if (m_teleports > 0) {
 		playSound("Teleport_Spell.mp3");
 
-		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 		dungeon.runSingleAnimation(frames, 120, x, y, 2);
 
 		dungeon[y*cols + x].item = false;
@@ -2751,98 +2732,52 @@ void TeleportingChest::attemptOpen(Dungeon &dungeon) {
 
 		dungeon[y*cols + x].object.reset();
 		dungeon[y*cols + x].object = nullptr;
-		dungeon.moveSprite(dungeon.item_sprites, x, y, _x, _y);
+		dungeon.queueMoveSprite(getSprite(), _x, _y, 0.0f);
 
 		setPosX(_x); setPosY(_y);
+		m_item->setPosX(_x); m_item->setPosY(_y);
 
 		m_teleports--;
 		return;
 	}
 
 	open(dungeon);
-
-	/*playSound(getSoundName());
-
-	dungeon.removeSprite(dungeon.item_sprites, x, y);
-
-	dungeon[y*cols + x].object = m_item;
-	dungeon[y*cols + x].item_name = dungeon[y*cols + x].object->getName();
-	dungeon[y*cols + x].wall = false;
-
-	int z = dungeon.isShop() ? 2 : -1;
-	dungeon.addSprite(dungeon.item_sprites, x, y, z, dungeon[y*cols + x].object->getImageName());*/
 }
 
-RiggedChest::RiggedChest(int x, int y, std::string name, std::string image, int turns) : Chests(x, y, name, image), m_turns(turns) {
+RiggedChest::RiggedChest(Dungeon *dungeon, int x, int y, std::string name, std::string image, int turns) : Chests(dungeon, x, y, name, image), m_turns(turns) {
 
 }
 
-ExplodingChest::ExplodingChest(int x, int y) : RiggedChest(x, y, EXPLODING_CHEST, "Golden_Chest_48x48.png", 1) {
-	int n = 1 + randInt(10);
-	switch (n) {
-	case 1: m_item = std::make_shared<TrapIllumination>(); break;
-	case 2: m_item = std::make_shared<ItemIllumination>(); break;
-	case 3: m_item = std::make_shared<Berserk>(); break;
-	case 4: m_item = std::make_shared<GreaterJian>(); break;
-	case 5: m_item = std::make_shared<WindVortexSpell>(); break;
-	case 6: m_item = std::make_shared<RainbowTouch>(); break;
-	case 7: m_item = std::make_shared<LifeSteal>(); break;
-	case 8: m_item = std::make_shared<MagicEssence>(); break;
-	case 9: m_item = std::make_shared<BetterRates>(); break;
-	case 10: m_item = std::make_shared<MonsterIllumination>(); break;
+ExplodingChest::ExplodingChest(Dungeon *dungeon, int x, int y) : RiggedChest(dungeon, x, y, EXPLODING_CHEST, "Golden_Chest_48x48.png", 1) {
+	switch (1 + randInt(3)) {
+	case 1: m_item = rollPassive(dungeon, x, y, Rarity::RARE, true); break;
+	case 2: m_item = rollWeapon(dungeon, x, y, Rarity::UNCOMMON, true); break;
+	case 3: m_item = rollSpell(dungeon, x, y, Rarity::COMMON, true); break;
 	}
 }
-void ExplodingChest::openEffect(Dungeon &dungeon) {
-	
+void ExplodingChest::openEffect(Dungeon &dungeon) {	
 	int x = getPosX();
 	int y = getPosY();
 
-	std::shared_ptr<Traps> trap = std::make_shared<ActiveBomb>(x, y, 1);
-	trap->setSprite(dungeon.createSprite(x, y, 0, trap->getImageName()));
-	dungeon.getTraps().push_back(trap);
-
-	/*playSound(getSoundName());
-
-	dungeon.removeSprite(dungeon.item_sprites, x, y);
-
-	dungeon[y*cols + x].object = m_item;
-	dungeon[y*cols + x].item_name = dungeon[y*cols + x].object->getName();
-	dungeon[y*cols + x].wall = false;
-
-	int z = dungeon.isShop() ? 2 : -1;
-	dungeon.addSprite(dungeon.item_sprites, x, y, z, dungeon[y*cols + x].object->getImageName());*/
+	dungeon.addTrap(std::make_shared<ActiveBomb>(dungeon, x, y, 1));
 }
 
-InfinityBox::InfinityBox(int x, int y) : Chests(x, y, INFINITY_BOX, "Golden_Chest_48x48.png") {
-
-}
-void InfinityBox::open(Dungeon &dungeon) {
-	int cols = dungeon.getCols();
-	int x = getPosX();
-	int y = getPosY();
-
-	playSound(getSoundName());
-
-	dungeon.removeSprite(dungeon.item_sprites, x, y);
-
+InfinityBox::InfinityBox(Dungeon *dungeon, int x, int y) : Chests(dungeon, x, y, INFINITY_BOX, "Golden_Chest_48x48.png") {
 	int n = 1 + randInt(4);
 	switch (n) {
-	case 1: dungeon[y*cols + x].object = std::make_shared<SteelPunch>(); break;
-	case 2: dungeon[y*cols + x].object = std::make_shared<VulcanSword>(); break;
-	case 3: dungeon[y*cols + x].object = std::make_shared<FrostShield>(); break;
-	case 4: dungeon[y*cols + x].object = std::make_shared<VulcanHammer>(); break;
-	default:
-		break;
+	case 1: m_item = std::make_shared<SteelPunch>(x, y); break;
+	case 2: m_item = std::make_shared<VulcanSword>(x, y); break;
+	case 3: m_item = std::make_shared<FrostShield>(x, y); break;
+	case 4: m_item = std::make_shared<VulcanHammer>(x, y); break;
+	default: break;
 	}
-	
-	dungeon.addSprite(dungeon.item_sprites, x, y, -1, dungeon[y*cols + x].object->getImageName());
 }
 
 
 //			:::: WEAPONS ::::
 Weapon::Weapon(int x, int y, std::string name, std::string image, int dmg, int dexbonus)
 	: Objects(x, y, name, image), m_dmg(dmg), m_dexbonus(dexbonus) {
-	
+	m_damageType = DamageType::NORMAL;
 }
 
 int Weapon::getSharpnessBonus() {
@@ -2892,7 +2827,7 @@ void Weapon::useImbuement(Dungeon &dungeon, Actors &a) {
 		if (a.canBeBurned() || dungeon.getPlayer()->hasAfflictionOverride()) {
 			if (1 + randInt(100) + dungeon.getPlayer()->getLuck() <= m_imbuement.burnChance) {
 				int turns = 5 + (dungeon.getPlayer()->hasHarshAfflictions() ? 5 : 0);
-				a.addAffliction(std::make_shared<Burn>(turns));
+				a.addAffliction(std::make_shared<Burn>(*dungeon.getPlayer(), turns));
 			}
 		}
 	}
@@ -2901,7 +2836,7 @@ void Weapon::useImbuement(Dungeon &dungeon, Actors &a) {
 		if (a.canBePoisoned() || dungeon.getPlayer()->hasAfflictionOverride()) {
 			if (1 + randInt(100) + dungeon.getPlayer()->getLuck() <= m_imbuement.poisonChance) {
 				int turns = 5 + (dungeon.getPlayer()->hasHarshAfflictions() ? 5 : 0);
-				a.addAffliction(std::make_shared<Poison>(turns, 3, 1, 1));
+				a.addAffliction(std::make_shared<Poison>(*dungeon.getPlayer(), turns, 3, 1, 1));
 			}
 		}
 	}
@@ -3042,8 +2977,6 @@ RustyCutlass::RustyCutlass(int x, int y) : Weapon(x, y, RUSTY_CUTLASS, "Rusty_Br
 	setDescription("A rusty blade. It's seen better days.");
 }
 void RustyCutlass::usePattern(Dungeon &dungeon, bool &moveUsed) {
-	int cols = dungeon.getCols();
-
 	char move = dungeon.getPlayer()->facingDirection();
 	char action = dungeon.getPlayer()->getAction();
 
@@ -3058,8 +2991,8 @@ void RustyCutlass::usePattern(Dungeon &dungeon, bool &moveUsed) {
 	case 'd': n = 0; m = 1; break;
 	}
 
-	if (dungeon[y*cols + x].enemy) {
-		dungeon.fight(x, y);
+	if (dungeon.enemy(x, y)) {
+		dungeon.fight(x, y, getDamageType());
 
 		// 1 Turn of invulnerability on attack attempt
 		dungeon.getPlayerVector().at(0)->addAffliction(std::make_shared<Invulnerability>(1));
@@ -3111,33 +3044,20 @@ void BoneAxe::usePattern(Dungeon &dungeon, bool &moveUsed) {
 	}
 
 	// if it was a movement action
-	if (action == 'l' || action == 'r' || action == 'u' || action == 'd') {
-
-		bool wall, enemy;
+	if (isMovementAction(action)) {
 		int range = 1;
 
-		// determines which way to move
 		int n = 0, m = 0;
-
 		int p = n, q = m; // For easier remembering of previous values
+		setDirectionalOffsets(move, n, m);
 
-		switch (move) {
-		case 'l': n = -1; m = 0; break;
-		case 'r': n = 1; m = 0; break;
-		case 'u': n = 0; m = -1; break;
-		case 'd': n = 0; m = 1; break;
-		}
+		while (!dungeon.wall(x + n, y + m) && range <= 12) {
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
-		while (!wall && range <= 12) {
-
-			if (enemy) {
+			if (dungeon.enemy(x + n, y + m)) {
 				playSound("Metal_Hit8.mp3");
 
 				setDamage(getDmg() + 1); // damage boosted
-				dungeon.fight(x + n, y + m);
+				dungeon.fight(x + n, y + m, getDamageType());
 				setDamage(getDmg() - 1); // remove damage boost
 
 				moveUsed = true;
@@ -3146,20 +3066,13 @@ void BoneAxe::usePattern(Dungeon &dungeon, bool &moveUsed) {
 
 			p = n; q = m;
 
-			switch (move) {
-			case 'l': n--; m = 0; break;
-			case 'r': n++; m = 0; break;
-			case 'u': n = 0; m--; break;
-			case 'd': n = 0; m++; break;
-			}
+			incrementDirectionalOffsets(move, n, m);
 
-			wall = dungeon[(y + m)*cols + (x + n)].wall;
-			enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 			range++;
 		}
 
 		// Throw the mattock head on the space in front of the enemy/wall/as far as it could go
-		dungeon.getPlayerVector()[0]->throwWeaponTo(dungeon, x + p, y + q);	
+		dungeon.getPlayerVector()[0]->throwWeaponTo(x + p, y + q);	
 	}
 
 	// effect to remove wind up effect
@@ -3181,10 +3094,6 @@ Katana::Katana(int x, int y, std::string name, std::string image, int dmg, int d
 	setAttackPattern(true);
 }
 void Katana::usePattern(Dungeon &dungeon, bool &moveUsed) {
-	
-	int cols = dungeon.getCols();
-
-	bool wall, enemy;
 	char move = dungeon.getPlayer()->getAction();
 
 	int x = dungeon.getPlayer()->getPosX();
@@ -3200,11 +3109,11 @@ void Katana::usePattern(Dungeon &dungeon, bool &moveUsed) {
 			// Attack anything there
 			for (unsigned int i = 0; i < coords.size(); i++) {
 				// fire explosion animation
-				cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+				cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 				dungeon.runSingleAnimation(frames, 120, coords[i].first, coords[i].second, 2);
 
-				if (dungeon[coords[i].second*cols + coords[i].first].enemy)
-					dungeon.fight(coords[i].first, coords[i].second);
+				if (dungeon.enemy(coords[i].first, coords[i].second))
+					dungeon.fight(coords[i].first, coords[i].second, getDamageType());
 			}
 			m_hit = false;
 			m_waitOver = false;
@@ -3212,21 +3121,13 @@ void Katana::usePattern(Dungeon &dungeon, bool &moveUsed) {
 	}
 
 	// if it was a movement action
-	if (move == 'l' || move == 'r' || move == 'u' || move == 'd') {
-		// determines which way to move
+	if (isMovementAction(move)) {
+		
 		int n = 0, m = 0;
+		setDirectionalOffsets(move, n, m);
 
-		switch (move) {
-		case 'l': n = -1; m = 0; break;
-		case 'r': n = 1; m = 0; break;
-		case 'u': n = 0; m = -1; break;
-		case 'd': n = 0; m = 1; break;
-		}
-
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-		if (enemy) {
-			dungeon.fight(x + n, y + m);
+		if (dungeon.enemy(x + n, y + m)) {
+			dungeon.fight(x + n, y + m, getDamageType());
 			moveUsed = true;
 
 			if (!m_hit) {
@@ -3397,7 +3298,7 @@ void VulcanSword::useAbility(Dungeon &dungeon, Actors &a) {
 			// play burned sound effect
 			playSound("Fire2.mp3");
 
-			a.addAffliction(std::make_shared<Burn>(5));
+			a.addAffliction(std::make_shared<Burn>(*dungeon.getPlayer(), 5));
 		}
 	}
 }
@@ -3410,9 +3311,6 @@ LongWeapon::LongWeapon(int x, int y, int range, int dmg, int dex, int intellect,
 	setAttackPattern(true);
 }
 void LongWeapon::usePattern(Dungeon &dungeon, bool &moveUsed) {
-	int rows = dungeon.getRows();
-	int cols = dungeon.getCols();
-	bool wall, enemy;
 	char move = dungeon.getPlayer()->getAction();
 
 	int x = dungeon.getPlayer()->getPosX();
@@ -3426,24 +3324,15 @@ void LongWeapon::usePattern(Dungeon &dungeon, bool &moveUsed) {
 		return;
 
 	// if it was a movement action
-	if (move == 'l' || move == 'r' || move == 'u' || move == 'd') {
-		// determines which way to move
+	if (isMovementAction(move)) {
+		
 		int n = 0, m = 0;
+		setDirectionalOffsets(move, n, m);
 
-		switch (move) {
-		case 'l': n = -1; m = 0; break;
-		case 'r': n = 1; m = 0; break;
-		case 'u': n = 0; m = -1; break;
-		case 'd': n = 0; m = 1; break;
-		}
+		while (!dungeon.wall(x + n, y + m) && range > 0) {
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
-		while (!wall && range > 0) {
-
-			if (enemy) {
-				dungeon.fight(x + n, y + m);
+			if (dungeon.enemy(x + n, y + m)) {
+				dungeon.fight(x + n, y + m, getDamageType());
 				moveUsed = true;
 				
 				// If this weapon doesn't pierce, then stop and return
@@ -3451,15 +3340,8 @@ void LongWeapon::usePattern(Dungeon &dungeon, bool &moveUsed) {
 					return;
 			}
 
-			switch (move) {
-			case 'l': n--; m = 0; break;
-			case 'r': n++; m = 0; break;
-			case 'u': n = 0; m--; break;
-			case 'd': n = 0; m++; break;
-			}
+			incrementDirectionalOffsets(move, n, m);
 
-			wall = dungeon[(y + m)*cols + (x + n)].wall;
-			enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 			range--;
 		}
 	}
@@ -3558,11 +3440,61 @@ IronLongSword::IronLongSword(int x, int y) : PiercingWeapon(x, y, 2, 4, 1, 0, IR
 Bow::Bow(int x, int y, std::string name, std::string image, int damage, int dexbonus, int range) 
 	: Weapon(x, y, name, image, damage, dexbonus), m_range(range) {
 	setAttackPattern(true);
+	setCast(true);
 }
+
 void Bow::usePattern(Dungeon &dungeon, bool &moveUsed) {
-	int rows = dungeon.getRows();
-	int cols = dungeon.getCols();
-	bool wall, enemy;
+	// Check if player used weapon cast
+	checkSpecial(dungeon, moveUsed);
+	if (moveUsed)
+		return;
+
+	char move = dungeon.getPlayer()->getAction();
+
+	int x = dungeon.getPlayer()->getPosX();
+	int y = dungeon.getPlayer()->getPosY();
+
+	// if it was a movement action
+	if (isMovementAction(move)) {
+
+		int n = 0, m = 0;
+		switch (move) {
+		case 'l': n = -1; m = 0; break;
+		case 'r': n = 1; m = 0; break;
+		case 'u': n = 0; m = -1; break;
+		case 'd': n = 0; m = 1; break;
+		}
+
+		if (dungeon.enemy(x + n, y + m)) {
+			// if player is adjacent to the monster, then the bow's damage is reduced because you melee them
+			setDamage(getDmg() - 2);
+			dungeon.fight(x + n, y + m, getDamageType());
+			moveUsed = true;
+			setDamage(getDmg() + 2);
+		}
+	}
+}
+void Bow::checkSpecial(Dungeon &dungeon, bool &moveUsed) {
+	char action = dungeon.getPlayer()->getAction();
+
+	// if player didn't prime, then return
+	if (!m_woundUp && action != WIND_UP) {
+		m_woundUp = false;
+		return;
+	}
+
+	// if not primed and player primed, then do so and return
+	if (!m_woundUp && action == WIND_UP) {
+		// effect to show wind up
+		tintItemCast(dungeon.getPlayer()->getSprite());
+
+		playSound("FootStepGeneric2.mp3");
+
+		m_woundUp = true;
+		moveUsed = true;
+		return;
+	}
+
 	char move = dungeon.getPlayer()->getAction();
 
 	int x = dungeon.getPlayer()->getPosX();
@@ -3571,10 +3503,9 @@ void Bow::usePattern(Dungeon &dungeon, bool &moveUsed) {
 	int range = getRange();
 
 	// if it was a movement action
-	if (move == 'l' || move == 'r' || move == 'u' || move == 'd') {
-		// determines which way to move
-		int n = 0, m = 0;
+	if (isMovementAction(move)) {
 
+		int n = 0, m = 0;
 		switch (move) {
 		case 'l': n = -1; m = 0; break;
 		case 'r': n = 1; m = 0; break;
@@ -3582,24 +3513,20 @@ void Bow::usePattern(Dungeon &dungeon, bool &moveUsed) {
 		case 'd': n = 0; m = 1; break;
 		}
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
+		while (!dungeon.wall(x + n, y + m) && range > 0) {
 
-		while (!wall && range > 0) {
-			if (enemy) {
-				// if player is adjacent to the monster, then the bow's damage is reduced because you melee them
-				if (abs(x - (x + n)) <= 1 && abs(y - (y + m)) <= 1) {
-					setDamage(getDmg() - 1);
-					dungeon.fight(x + n, y + m);
-					moveUsed = true;
-					setDamage(getDmg() + 1);
+			if (dungeon.enemy(x + n, y + m)) {
+				int pos = dungeon.findMonster(x + n, y + m);
+				if (pos != -1) {
+					cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("ResizedAttack%04d.png", 4);
+					dungeon.runSingleAnimation(frames, 30, x + n, y + m, 2);
 
-					return;
+					playEnemyHit();
+
+					dungeon.damageMonster(pos, getDmg(), DamageType::PIERCING);
 				}
 
-				dungeon.fight(x + n, y + m);
-				moveUsed = true;
-				return;
+				break;
 			}
 
 			switch (move) {
@@ -3609,22 +3536,26 @@ void Bow::usePattern(Dungeon &dungeon, bool &moveUsed) {
 			case 'd': n = 0; m++; break;
 			}
 
-			wall = dungeon[(y + m)*cols + (x + n)].wall;
-			enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 			range--;
 		}
 	}
+
+	// effect to remove wind up effect
+	untint(dungeon.getPlayer()->getSprite());
+
+	moveUsed = true;
+	m_woundUp = false;
 }
 
-WoodBow::WoodBow(int x, int y) : Bow(x, y, WOOD_BOW, "Wood_Bow_32x32.png", 2, 2, 4) {
+WoodBow::WoodBow(int x, int y) : Bow(x, y, WOOD_BOW, "Wood_Bow_32x32.png", 4, 2, 6) {
 	setDescription("A classic long ranged weapon, but ineffective\n at close range.");
 }
 
-IronBow::IronBow(int x, int y) : Bow(x, y, IRON_BOW, "Reinforced_Bow_48x48.png", 3, 2, 4) {
+IronBow::IronBow(int x, int y) : Bow(x, y, IRON_BOW, "Reinforced_Bow_48x48.png", 5, 2, 6) {
 	setDescription("This bow has been reinforced yet feels lighter.\n Not effective at close range.");
 }
 
-VulcanBow::VulcanBow(int x, int y) : Bow(x, y, VULCAN_BOW, "Vulcan_Bow_48x48.png", 3, 2, 5) {
+VulcanBow::VulcanBow(int x, int y) : Bow(x, y, VULCAN_BOW, "Vulcan_Bow_48x48.png", 6, 2, 8) {
 	setHasAbility(true);
 
 	setDescription("The legendary weapon smith's craftsmanship cannot\n go unnoticed. Doubtless that this bow will deliver.");
@@ -3638,7 +3569,7 @@ void VulcanBow::useAbility(Dungeon &dungeon, Actors &a) {
 			// play burned sound effect
 			playSound("Fire2.mp3");
 
-			a.addAffliction(std::make_shared<Burn>(5));
+			a.addAffliction(std::make_shared<Burn>(*dungeon.getPlayer(), 5));
 		}
 	}
 }
@@ -3689,28 +3620,17 @@ void Estoc::usePattern(Dungeon &dungeon, bool &moveUsed) {
 	}
 
 	// if it was a movement action
-	if (action == 'l' || action == 'r' || action == 'u' || action == 'd') {
-		bool wall, enemy;
+	if (!dungeon.getPlayer()->isStuck() && isMovementAction(action)) {
 		bool firstHit = true;
 		int range = 1;
 		int pos;
 
-		// determines which way to move
 		int n = 0, m = 0;
+		setDirectionalOffsets(move, n, m);
 
-		switch (move) {
-		case 'l': n = -1; m = 0; break;
-		case 'r': n = 1; m = 0; break;
-		case 'u': n = 0; m = -1; break;
-		case 'd': n = 0; m = 1; break;
-		}
+		while (!dungeon.wall(x + n, y + m) && range <= m_limit) {
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
-		while (!wall && range <= m_limit) {
-
-			if (enemy) {
+			if (dungeon.enemy(x + n, y + m)) {
 
 				int damageBoost = 0;
 				switch (range) {
@@ -3727,7 +3647,7 @@ void Estoc::usePattern(Dungeon &dungeon, bool &moveUsed) {
 					dungeon.giveAffliction(pos, std::make_shared<Stun>(1));
 
 				setDamage(getDmg() + damageBoost); // damage boosted
-				dungeon.fight(x + n, y + m);
+				dungeon.fight(x + n, y + m, DamageType::PIERCING);
 				setDamage(getDmg() - damageBoost); // remove damage boost
 
 				moveUsed = true;
@@ -3747,11 +3667,11 @@ void Estoc::usePattern(Dungeon &dungeon, bool &moveUsed) {
 					if (range != 1) {
 						int p = x + n + (n < 0 ? 1 : n > 0 ? -1 : 0);
 						int q = y + m + (m < 0 ? 1 : m > 0 ? -1 : 0);
-						dungeon.getPlayerVector()[0]->moveTo(dungeon, p, q);
+						dungeon.getPlayerVector()[0]->moveTo(p, q);
 
-						if (dungeon[(q)*cols + (p)].trap) {
+						if (dungeon.trap(p, q))
 							dungeon.trapEncounter(p, q);
-						}
+						
 					}
 
 					range -= 1; // Decrease range by one to maintain the same damage boost on any piercing done
@@ -3763,21 +3683,13 @@ void Estoc::usePattern(Dungeon &dungeon, bool &moveUsed) {
 				}
 
 			}
-			else if (!enemy && !firstHit && !isSuperior())
+			else if (!dungeon.enemy(x + n, y + m) && !firstHit && !isSuperior())
 				break;
 
-			switch (move) {
-			case 'l': n--; m = 0; break;
-			case 'r': n++; m = 0; break;
-			case 'u': n = 0; m--; break;
-			case 'd': n = 0; m++; break;
-			}
+			incrementDirectionalOffsets(move, n, m);
 
-			wall = dungeon[(y + m)*cols + (x + n)].wall;
-			enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 			range++;
 		}
-
 
 	}
 
@@ -3811,7 +3723,6 @@ Zweihander::Zweihander(int x, int y, std::string name, std::string image, int dm
 	setAttackPattern(true);
 }
 void Zweihander::usePattern(Dungeon &dungeon, bool &moveUsed) {
-	int rows = dungeon.getRows();
 	int cols = dungeon.getCols();
 
 	char move = dungeon.getPlayer()->getAction();
@@ -3825,79 +3736,62 @@ void Zweihander::usePattern(Dungeon &dungeon, bool &moveUsed) {
 		return;
 
 	// if it was a movement action
-	if (move == 'l' || move == 'r' || move == 'u' || move == 'd') {
-		// determines which way to move
+	if (isMovementAction(move)) {
+		
 		int n = 0, m = 0;
-
-		switch (move) {
-		case 'l': n = -1; m = 0; break;
-		case 'r': n = 1; m = 0; break;
-		case 'u': n = 0; m = -1; break;
-		case 'd': n = 0; m = 1; break;
-		}
+		setDirectionalOffsets(move, n, m);
 
 		// Player attacked to the side, so check above and below
 		if (m == 0) {
 
-			if (dungeon[(y + m)*cols + (x + n)].enemy) {
-				dungeon.fight(x + n, y + m);
+			if (dungeon.enemy(x + n, y + m)) {
+				dungeon.fight(x + n, y + m, getDamageType());
 				moveUsed = true;
 			}
-			if (dungeon[(y + 1)*cols + (x + n)].enemy) {
-				dungeon.fight(x + n, y + 1);
+			if (dungeon.enemy(x + n, y + 1)) {
+				dungeon.fight(x + n, y + 1, getDamageType());
 				moveUsed = true;
 			}
-			if (dungeon[(y - 1)*cols + (x + n)].enemy) {
-				dungeon.fight(x + n, y - 1);
+			if (dungeon.enemy(x + n, y - 1)) {
+				dungeon.fight(x + n, y - 1, getDamageType());
 				moveUsed = true;
 			}
 		}
 		// Else player attacked above or below, so check the sides
 		else {
 
-			if (dungeon[(y + m)*cols + (x + n)].enemy) {			
-				dungeon.fight(x + n, y + m);
+			if (dungeon.enemy(x + n, y + m)) {
+				dungeon.fight(x + n, y + m, getDamageType());
 				moveUsed = true;
 			}
-			if (dungeon[(y + m)*cols + (x + 1)].enemy) {
-				dungeon.fight(x + 1, y + m);
+			if (dungeon.enemy(x + 1, y + m)) {
+				dungeon.fight(x + 1, y + m, getDamageType());
 				moveUsed = true;
 			}
-			if (dungeon[(y + m)*cols + (x - 1)].enemy) {
-				dungeon.fight(x - 1, y + m);
+			if (dungeon.enemy(x - 1, y + m)) {
+				dungeon.fight(x - 1, y + m, getDamageType());
 				moveUsed = true;
 			}
 		}
 
 		// Superior effect
 		if (!moveUsed && isSuperior()) {
-			bool wall, enemy;
 			int range = 2;
 			int pos = -1;
 
-			wall = dungeon[(y + m)*cols + (x + n)].wall;
-			enemy = dungeon[(y + m)*cols + (x + n)].enemy;
+			while (!dungeon.wall(x + n, y + m) && range > 0) {
 
-			while (!wall && range > 0) {
-
-				if (enemy) {
+				if (dungeon.enemy(x + n, y + m)) {
 					setDamage(getDmg() + 2);
-					dungeon.fight(x + n, y + m);
+					dungeon.fight(x + n, y + m, getDamageType());
 					setDamage(getDmg() - 2);
 
 					pos = dungeon.findMonster(x + n, y + m);
 					moveUsed = true;
 				}
 
-				switch (move) {
-				case 'l': n--; m = 0; break;
-				case 'r': n++; m = 0; break;
-				case 'u': n = 0; m--; break;
-				case 'd': n = 0; m++; break;
-				}
-
-				wall = dungeon[(y + m)*cols + (x + n)].wall;
-				enemy = dungeon[(y + m)*cols + (x + n)].enemy;
+				incrementDirectionalOffsets(move, n, m);
+				
 				range--;
 
 				if (moveUsed)
@@ -3907,7 +3801,7 @@ void Zweihander::usePattern(Dungeon &dungeon, bool &moveUsed) {
 			// Knock the monster back one tile
 			/*if (pos != -1) {
 				if (!(wall || enemy))
-					dungeon.getMonsters().at(pos)->moveTo(dungeon, x + n, y + m);
+					dungeon.getMonsters().at(pos)->moveTo(x + n, y + m);
 			}*/
 		}
 	}
@@ -3946,45 +3840,27 @@ void GreaterZweihander::checkSpecial(Dungeon &dungeon, bool &moveUsed) {
 	}
 
 	// if it was a movement action
-	if (action == 'l' || action == 'r' || action == 'u' || action == 'd') {
+	if (isMovementAction(action)) {
 
-		bool wall, enemy;
 		int range = 2;
 		int pos = -1;
 
-		// determines which way to move
 		int n = 0, m = 0;
+		setDirectionalOffsets(move, n, m);
 
-		switch (move) {
-		case 'l': n = -1; m = 0; break;
-		case 'r': n = 1; m = 0; break;
-		case 'u': n = 0; m = -1; break;
-		case 'd': n = 0; m = 1; break;
-		}
+		while (!dungeon.wall(x + n, y + m) && range > 0) {
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
-		while (!wall && range > 0) {
-
-			if (enemy) {
+			if (dungeon.enemy(x + n, y + m)) {
 				setDamage(getDmg() + 2);
-				dungeon.fight(x + n, y + m);
+				dungeon.fight(x + n, y + m, getDamageType());
 				setDamage(getDmg() - 2);
 
 				pos = dungeon.findMonster(x + n, y + m);
 				moveUsed = true;
 			}
 
-			switch (move) {
-			case 'l': n--; m = 0; break;
-			case 'r': n++; m = 0; break;
-			case 'u': n = 0; m--; break;
-			case 'd': n = 0; m++; break;
-			}
+			incrementDirectionalOffsets(move, n, m);
 
-			wall = dungeon[(y + m)*cols + (x + n)].wall;
-			enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 			range--;
 
 			if (moveUsed)
@@ -3994,7 +3870,7 @@ void GreaterZweihander::checkSpecial(Dungeon &dungeon, bool &moveUsed) {
 		// Knock the monster back one tile
 		/*if (pos != -1) {
 			if (!(wall || enemy))
-				dungeon.getMonsters().at(pos)->moveTo(dungeon, x + n, y + m);
+				dungeon.getMonsters().at(pos)->moveTo(x + n, y + m);
 		}*/
 	}
 
@@ -4045,7 +3921,7 @@ void Claw::usePattern(Dungeon &dungeon, bool &moveUsed) {
 	}
 
 	// if it was a movement action
-	if (action == 'l' || action == 'r' || action == 'u' || action == 'd') {
+	if (isMovementAction(action)) {
 
 		bool wall, enemy;
 		int range = 1;
@@ -4107,7 +3983,7 @@ void Claw::usePattern(Dungeon &dungeon, bool &moveUsed) {
 			while (!hero && range > 1) {
 
 				// Move the monster toward the player
-				dungeon.getMonsters().at(pos)->moveTo(dungeon, x + n, y + m, 0.045f);
+				dungeon.getMonsters().at(pos)->moveTo(x + n, y + m, 0.045f);
 
 				// And check for traps along the way
 				if (trap) {
@@ -4206,17 +4082,12 @@ void Hammer::usePattern(Dungeon &dungeon, bool &moveUsed) {
 	}
 
 	// if it was a movement action
-	if (action == 'l' || action == 'r' || action == 'u' || action == 'd') {
+	if (isMovementAction(action)) {
 		
 		int n = 0, m = 0;
-		switch (move) {
-		case 'l': n = -1; m = 0; break;
-		case 'r': n = 1; m = 0; break;
-		case 'u': n = 0; m = -1; break;
-		case 'd': n = 0; m = 1; break;
-		}
+		setDirectionalOffsets(move, n, m);
 
-		if (dungeon[(y + m)*cols + (x + n)].enemy) {
+		if (dungeon.enemy(x + n, y + m)) {
 			// play fire blast explosion sound effect
 			playSound("Fireblast_Spell2.mp3");
 
@@ -4229,7 +4100,7 @@ void Hammer::usePattern(Dungeon &dungeon, bool &moveUsed) {
 			if (pos != -1 && dungeon.getMonsters().at(pos)->canBeStunned())
 				dungeon.giveAffliction(pos, std::make_shared<Stun>(1));
 
-			dungeon.fight(x + n, y + m);
+			dungeon.fight(x + n, y + m, getDamageType());
 			setDamage(getDmg() - damageBoost); // remove damage boost
 
 			// Greater effect
@@ -4257,12 +4128,7 @@ void Hammer::TPattern(Dungeon &dungeon) {
 	char move = dungeon.getPlayer()->facingDirection();
 
 	int n = 0, m = 0;
-	switch (move) {
-	case 'l': n = -1; m = 0; break;
-	case 'r': n = 1; m = 0; break;
-	case 'u': n = 0; m = -1; break;
-	case 'd': n = 0; m = 1; break;
-	}
+	setDirectionalOffsets(move, n, m);
 
 	setDamage(getDmg() + 1);
 
@@ -4297,7 +4163,7 @@ void Hammer::TPattern(Dungeon &dungeon) {
 
 	for (unsigned int i = 0; i < coords.size(); i++) {
 
-		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 		dungeon.runSingleAnimation(frames, 120, coords[i].first, coords[i].second, 2);
 
 		if (dungeon[coords[i].second*cols + coords[i].first].enemy) {
@@ -4306,7 +4172,7 @@ void Hammer::TPattern(Dungeon &dungeon) {
 				if (dungeon.getMonsters().at(pos)->canBeStunned() && 1 + randInt(100) + dungeon.getPlayer()->getLuck() > 50)
 					dungeon.giveAffliction(pos, std::make_shared<Stun>(1));
 
-				dungeon.fight(coords[i].first, coords[i].second);
+				dungeon.fight(coords[i].first, coords[i].second, getDamageType());
 			}
 		}
 	}
@@ -4320,7 +4186,6 @@ void Hammer::boxPattern(Dungeon &dungeon) {
 	int x = dungeon.getPlayer()->getPosX();
 	int y = dungeon.getPlayer()->getPosY();
 
-	bool wall, enemy;
 	char move = dungeon.getPlayer()->facingDirection();
 
 	int n, m; // n : x, m : y
@@ -4334,24 +4199,21 @@ void Hammer::boxPattern(Dungeon &dungeon) {
 	int range = 2;
 	int currentRange = 1;
 
-	wall = dungeon[(y + m)*cols + (x + n)].wall;
-	enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
 	int k = 1; // 3 rows/columns to check
 	while (k <= 3) {
 
-		while (!wall && currentRange <= range) {
+		while (!dungeon.wall(x + n, y + m) && currentRange <= range) {
 
-			cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+			cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 			dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
 
-			if (enemy) {
+			if (dungeon.enemy(x + n, y + m)) {
 				int pos = dungeon.findMonster(x + n, y + m);
 				if (pos != -1) {
 					if (dungeon.getMonsters().at(pos)->canBeStunned())
 						dungeon.giveAffliction(pos, std::make_shared<Stun>(1));
 
-					dungeon.damageMonster(pos, getDmg());
+					dungeon.damageMonster(pos, getDmg(), DamageType::NORMAL);
 				}
 			}
 
@@ -4362,8 +4224,6 @@ void Hammer::boxPattern(Dungeon &dungeon) {
 			case 'd': m++; break;
 			}
 
-			wall = dungeon[(y + m)*cols + (x + n)].wall;
-			enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 			currentRange++;
 		}
 
@@ -4376,8 +4236,6 @@ void Hammer::boxPattern(Dungeon &dungeon) {
 
 		k++;
 		currentRange = 1;
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 	}
 }
 
@@ -4409,7 +4267,7 @@ void VulcanHammer::useAbility(Dungeon &dungeon, Actors &a) {
 			// play burned sound effect
 			playSound("Fire2.mp3", 0.7f);
 
-			a.addAffliction(std::make_shared<Burn>(5));
+			a.addAffliction(std::make_shared<Burn>(*dungeon.getPlayer(), 5));
 		}
 	}
 }
@@ -4492,7 +4350,6 @@ BoStaff::BoStaff(int x, int y, std::string name, std::string image, int dmg, int
 void BoStaff::usePattern(Dungeon &dungeon, bool &moveUsed) {
 	int cols = dungeon.getCols();
 
-	bool wall, enemy;
 	char move = dungeon.getPlayer()->getAction();
 
 	int x = dungeon.getPlayer()->getPosX();
@@ -4502,42 +4359,25 @@ void BoStaff::usePattern(Dungeon &dungeon, bool &moveUsed) {
 	int pos;
 
 	// if it was a movement action
-	if (move == 'l' || move == 'r' || move == 'u' || move == 'd') {
-		// determines which way to move
+	if (isMovementAction(move)) {
+		
 		int n = 0, m = 0;
+		setDirectionalOffsets(move, n, m);
 
-		switch (move) {
-		case 'l': n = -1; m = 0; break;
-		case 'r': n = 1; m = 0; break;
-		case 'u': n = 0; m = -1; break;
-		case 'd': n = 0; m = 1; break;
-		}
+		while (!dungeon.wall(x + n, y + m) && range > 0) {
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
-		while (!wall && range > 0) {
-
-			if (enemy) {
-				dungeon.fight(x + n, y + m);
+			if (dungeon.enemy(x + n, y + m)) {
+				dungeon.fight(x + n, y + m, getDamageType());
 				moveUsed = true;
 				pos = dungeon.findMonster(x + n, y + m);
 
 				// Superior Bo Staff knockback
-				if (pos != -1 && canPush()) {
-					dungeon.linearActorPush(x + n, y + m, 1, move);
-				}
+				if (pos != -1 && canPush())
+					dungeon.linearActorPush(x + n, y + m, 1, 1, move);				
 			}
 
-			switch (move) {
-			case 'l': n--; m = 0; break;
-			case 'r': n++; m = 0; break;
-			case 'u': n = 0; m--; break;
-			case 'd': n = 0; m++; break;
-			}
+			incrementDirectionalOffsets(move, n, m);
 
-			wall = dungeon[(y + m)*cols + (x + n)].wall;
-			enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 			range--;
 
 			if (moveUsed)
@@ -4548,9 +4388,9 @@ void BoStaff::usePattern(Dungeon &dungeon, bool &moveUsed) {
 		if (moveUsed) {
 
 			// Knock enemy in front of you back if not Superior Bo Staff
-			if (!(wall || enemy) && !canPush()) {
+			if (!(dungeon.wall(x + n, y + m) || dungeon.enemy(x + n, y + m)) && !canPush()) {
 				if (pos != -1)
-					dungeon.getMonsters().at(pos)->moveTo(dungeon, x + n, y + m);
+					dungeon.getMonsters().at(pos)->moveTo(x + n, y + m);
 			}
 
 			// Now check behind the player for an enemy
@@ -4562,10 +4402,9 @@ void BoStaff::usePattern(Dungeon &dungeon, bool &moveUsed) {
 			}
 
 			// If there's an enemy, hit them
-			enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-			if (enemy) {
+			if (dungeon.enemy(x + n, y + m)) {
 				
-				dungeon.fight(x + n, y + m);
+				dungeon.fight(x + n, y + m, getDamageType());
 				pos = dungeon.findMonster(x + n, y + m);
 
 				// Now try to knock them back as well
@@ -4580,7 +4419,7 @@ void BoStaff::usePattern(Dungeon &dungeon, bool &moveUsed) {
 						case 'd': move = 'u'; break;
 						}
 
-						dungeon.linearActorPush(x + n, y + m, 1, move);
+						dungeon.linearActorPush(x + n, y + m, 1, 1, move);
 						return;
 					}
 			
@@ -4591,11 +4430,8 @@ void BoStaff::usePattern(Dungeon &dungeon, bool &moveUsed) {
 					case 'd': n = 0; m--; break;
 					}
 
-					wall = dungeon[(y + m)*cols + (x + n)].wall;
-					enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-				
-					if (!(wall || enemy))
-						dungeon.getMonsters().at(pos)->moveTo(dungeon, x + n, y + m);
+					if (!(dungeon.wall(x + n, y + m) || dungeon.enemy(x + n, y + m)))
+						dungeon.getMonsters().at(pos)->moveTo(x + n, y + m);
 				}
 			}
 
@@ -4612,9 +4448,9 @@ void BoStaff::usePattern(Dungeon &dungeon, bool &moveUsed) {
 			}
 
 			// If there's an enemy, hit them
-			if (dungeon[(y + m)*cols + (x + n)].enemy) {
+			if (dungeon.enemy(x + n, y + m)) {
 
-				dungeon.fight(x + n, y + m);
+				dungeon.fight(x + n, y + m, getDamageType());
 				pos = dungeon.findMonster(x + n, y + m);
 
 				// Now try to knock them back as well
@@ -4629,7 +4465,7 @@ void BoStaff::usePattern(Dungeon &dungeon, bool &moveUsed) {
 						case 'd': move = 'u'; break;
 						}
 
-						dungeon.linearActorPush(x + n, y + m, 1, move);					
+						dungeon.linearActorPush(x + n, y + m, 1, 1, move);					
 						return;
 					}
 
@@ -4640,11 +4476,8 @@ void BoStaff::usePattern(Dungeon &dungeon, bool &moveUsed) {
 					case 'd': n = 0; m--; break;
 					}
 
-					wall = dungeon[(y + m)*cols + (x + n)].wall;
-					enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
-					if (!(wall || enemy))
-						dungeon.getMonsters().at(pos)->moveTo(dungeon, x + n, y + m);
+					if (!(dungeon.wall(x + n, y + m) || dungeon.enemy(x + n, y + m)))
+						dungeon.getMonsters().at(pos)->moveTo(x + n, y + m);
 				}
 			}
 		}
@@ -4673,30 +4506,20 @@ Nunchuks::Nunchuks(int x, int y, std::string name, std::string image, int dmg, i
 void Nunchuks::usePattern(Dungeon &dungeon, bool &moveUsed) {
 	int cols = dungeon.getCols();
 
-	bool wall, enemy;
 	char move = dungeon.getPlayer()->getAction();
 
 	int x = dungeon.getPlayer()->getPosX();
 	int y = dungeon.getPlayer()->getPosY();
 
 	// if it was a movement action
-	if (move == 'l' || move == 'r' || move == 'u' || move == 'd') {
-		// determines which way to move
+	if (isMovementAction(move)) {
+		
 		int n = 0, m = 0;
-
-		switch (move) {
-		case 'l': n = -1; m = 0; break;
-		case 'r': n = 1; m = 0; break;
-		case 'u': n = 0; m = -1; break;
-		case 'd': n = 0; m = 1; break;
-		}
-
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
+		setDirectionalOffsets(move, n, m);
 
 		// If an enemy is hit, consume the action
-		if (enemy) {
-			dungeon.fight(x + n, y + m);
+		if (dungeon.enemy(x + n, y + m)) {
+			dungeon.fight(x + n, y + m, getDamageType());
 			moveUsed = true;
 
 			if (!stationaryStun())
@@ -4704,7 +4527,7 @@ void Nunchuks::usePattern(Dungeon &dungeon, bool &moveUsed) {
 		}
 
 		// Superior effect
-		if (!enemy && moreStun()) {
+		if (!dungeon.enemy(x + n, y + m) && moreStun()) {
 			int a, b, c, d;
 			switch (move) {
 			case 'l': a = -1; b = -1; c = -1; d = 1; break;
@@ -4713,7 +4536,7 @@ void Nunchuks::usePattern(Dungeon &dungeon, bool &moveUsed) {
 			case 'd': a = -1; b = 1; c = 1; d = 1; break;
 			}
 
-			if (dungeon[(y + b)*cols + (x + a)].enemy) {
+			if (dungeon.enemy(x + a, y + b)) {
 				int pos = dungeon.findMonster(x + a, y + b);
 				if (pos != -1 && dungeon.getMonsters().at(pos)->canBeStunned()) {
 					// Stun sprite effect
@@ -4723,7 +4546,7 @@ void Nunchuks::usePattern(Dungeon &dungeon, bool &moveUsed) {
 					dungeon.giveAffliction(pos, std::make_shared<Stun>(1));
 				}
 			}
-			if (dungeon[(y + d)*cols + (x + c)].enemy) {
+			if (dungeon.enemy(x + c, y + d)) {
 				int pos = dungeon.findMonster(x + c, y + d);
 				if (pos != -1 && dungeon.getMonsters().at(pos)->canBeStunned()) {
 					// Stun sprite effect
@@ -4744,7 +4567,7 @@ void Nunchuks::usePattern(Dungeon &dungeon, bool &moveUsed) {
 		case 'd': a = -1; b = 0; c = 1; d = 0; break;
 		}
 
-		if (dungeon[(y + b)*cols + (x + a)].enemy) {
+		if (dungeon.enemy(x + a, y + b)) {
 			int pos = dungeon.findMonster(x + a, y + b);
 			if (pos != -1 && dungeon.getMonsters().at(pos)->canBeStunned()) {
 				// Stun sprite effect
@@ -4754,7 +4577,7 @@ void Nunchuks::usePattern(Dungeon &dungeon, bool &moveUsed) {
 				dungeon.giveAffliction(pos, std::make_shared<Stun>(1));
 			}
 		}
-		if (dungeon[(y + d)*cols + (x + c)].enemy) {
+		if (dungeon.enemy(x + c, y + d)) {
 			int pos = dungeon.findMonster(x + c, y + d);
 			if (pos != -1 && dungeon.getMonsters().at(pos)->canBeStunned()) {
 				// Stun sprite effect
@@ -4787,14 +4610,13 @@ Mattock::Mattock(int x, int y) : Weapon(x, y, MATTOCK, "Vulcan_Axe_48x48.png", 2
 void Mattock::usePattern(Dungeon &dungeon, bool &moveUsed) {
 	int cols = dungeon.getCols();
 
-	bool wall;
 	char move = dungeon.getPlayer()->getAction();
 
 	int x = dungeon.getPlayer()->getPosX();
 	int y = dungeon.getPlayer()->getPosY();
 
 	// if it was a movement action
-	if (move == 'l' || move == 'r' || move == 'u' || move == 'd') {
+	if (isMovementAction(move)) {
 		// determines which way to move
 		int n = 0, m = 0;
 
@@ -4805,24 +4627,25 @@ void Mattock::usePattern(Dungeon &dungeon, bool &moveUsed) {
 		case 'd': n = 0; m = 1; break;
 		}
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		if (wall && dungeon[(y + m)*cols + (x + n)].wall_type == REG_WALL) {
+		if (dungeon[(y + m)*cols + (x + n)].wallObject && dungeon[(y + m)*cols + (x + n)].wallObject->isDestructible()) {
+			
 			playSound("Metal_Hit8.mp3");
 
-			dungeon[(y + m)*cols + (x + n)].wall = false;
-			dungeon.removeSprite(dungeon.wall_sprites, x + n, y + m);
+			dungeon.destroyWall(x + n, y + m);
 
 			m_durability--;
 
 			// If mattock broke, unequip the mattock and drop a mattock head
 			if (m_durability == 0) {
 				dungeon.getPlayerVector()[0]->setWeapon(std::make_shared<Hands>());
-				if (dungeon[y*cols + x].item)
+
+				if (dungeon.itemObject(x, y))
 					dungeon.itemHash(x, y);
 
 				dungeon[y*cols + x].item = true;
-				dungeon[y*cols + x].object = std::make_shared<MattockHead>();
-				dungeon.addSprite(dungeon.item_sprites, x, y, -1, dungeon[y*cols + x].object->getImageName());
+				dungeon[y*cols + x].object = std::make_shared<MattockHead>(x, y);
+				dungeon[y*cols + x].object->setSprite(dungeon.createSprite(x, y, -1, dungeon[y*cols + x].object->getImageName()));
+				dungeon.addItem(dungeon[y*cols + x].object);
 			}
 
 			moveUsed = true;
@@ -4868,33 +4691,20 @@ void MattockHead::usePattern(Dungeon &dungeon, bool &moveUsed) {
 	}
 
 	// if it was a movement action
-	if (action == 'l' || action == 'r' || action == 'u' || action == 'd') {
-
-		bool wall, enemy;
+	if (isMovementAction(action)) {
 		int range = 1;
 
-		// determines which way to move
 		int n = 0, m = 0;
-
 		int p = n, q = m; // For easier remembering of previous values
+		setDirectionalOffsets(move, n, m);
 
-		switch (move) {
-		case 'l': n = -1; m = 0; break;
-		case 'r': n = 1; m = 0; break;
-		case 'u': n = 0; m = -1; break;
-		case 'd': n = 0; m = 1; break;
-		}	
+		while (!dungeon.wall(x + n, y + m) && range <= 12) {
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
-		while (!wall && range <= 12) {
-
-			if (enemy) {
+			if (dungeon.enemy(x + n, y + m)) {
 				playSound("Metal_Hit8.mp3");
 
 				setDamage(getDmg() + 4); // damage boosted
-				dungeon.fight(x + n, y + m);
+				dungeon.fight(x + n, y + m, getDamageType());
 				setDamage(getDmg() - 4); // remove damage boost
 
 				moveUsed = true;
@@ -4903,15 +4713,8 @@ void MattockHead::usePattern(Dungeon &dungeon, bool &moveUsed) {
 
 			p = n; q = m;
 
-			switch (move) {
-			case 'l': n--; m = 0; break;
-			case 'r': n++; m = 0; break;
-			case 'u': n = 0; m--; break;
-			case 'd': n = 0; m++; break;
-			}
+			incrementDirectionalOffsets(move, n, m);
 
-			wall = dungeon[(y + m)*cols + (x + n)].wall;
-			enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 			range++;
 		}
 
@@ -4920,16 +4723,17 @@ void MattockHead::usePattern(Dungeon &dungeon, bool &moveUsed) {
 		// If durability hits zero, then replace the mattock head with mattock dust
 		if (m_durability == 0) {
 			dungeon.getPlayerVector()[0]->setWeapon(std::make_shared<Hands>());
-			if (dungeon[y*cols + x].item)
+			if (dungeon.itemObject(x, y))
 				dungeon.itemHash(x, y);
 
 			dungeon[y*cols + x].item = true;
-			dungeon[y*cols + x].object = std::make_shared<MattockDust>();
-			dungeon.addSprite(dungeon.item_sprites, x, y, -1, dungeon[y*cols + x].object->getImageName());
+			dungeon[y*cols + x].object = std::make_shared<MattockDust>(x, y);
+			dungeon[y*cols + x].object->setSprite(dungeon.createSprite(x, y, -1, dungeon[y*cols + x].object->getImageName()));
+			dungeon.addItem(dungeon[y*cols + x].object);
 		}
 		else {
 			// Throw the mattock head on the space in front of the enemy/wall/as far as it could go
-			dungeon.getPlayerVector()[0]->throwWeaponTo(dungeon, x + p, y + q);
+			dungeon.getPlayerVector()[0]->throwWeaponTo(x + p, y + q);
 		}
 	}
 
@@ -4948,8 +4752,6 @@ Pistol::Pistol(int x, int y) : Weapon(x, y, PISTOL, "Vulcan_Dagger_48x48.png", 1
 	setDescription("Items of this mechanical nature were largely\ndestroyed in the times of magic. It looks like\nthis one survived, but it is severely damaged\nand can only hold two rounds at a time.");
 }
 void Pistol::usePattern(Dungeon &dungeon, bool &moveUsed) {
-	int cols = dungeon.getCols();
-
 	char move = dungeon.getPlayer()->facingDirection();
 	char action = dungeon.getPlayer()->getAction();
 
@@ -4984,45 +4786,28 @@ void Pistol::usePattern(Dungeon &dungeon, bool &moveUsed) {
 
 		playSound("Fireblast_Spell1.mp3");
 
-		bool wall, enemy;
 		int n = 0, m = 0;
-		switch (move) {
-		case 'l': n = -1; m = 0; break;
-		case 'r': n = 1; m = 0; break;
-		case 'u': n = 0; m = -1; break;
-		case 'd': n = 0; m = 1; break;
-		}
+		setDirectionalOffsets(move, n, m);
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
+		while (!dungeon.wall(x + n, y + m)) {
 
-		while (!wall) {
-
-			cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+			cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 			dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
 
-			if (enemy) {
+			if (dungeon.enemy(x + n, y + m)) {
 				int pos = dungeon.findMonster(x + n, y + m);
 				if (pos != -1) {
 					if (dungeon.getMonsters().at(pos)->canBeBled())
 						dungeon.giveAffliction(pos, std::make_shared<Bleed>());
 
-					dungeon.damageMonster(pos, 6);
+					dungeon.damageMonster(pos, 6, DamageType::PIERCING);
 				}			
 
 				moveUsed = true;
 				break;
 			}
 
-			switch (move) {
-			case 'l': n--; m = 0; break;
-			case 'r': n++; m = 0; break;
-			case 'u': n = 0; m--; break;
-			case 'd': n = 0; m++; break;
-			}
-
-			wall = dungeon[(y + m)*cols + (x + n)].wall;
-			enemy = dungeon[(y + m)*cols + (x + n)].enemy;
+			incrementDirectionalOffsets(move, n, m);
 		}
 	}
 
@@ -5046,8 +4831,6 @@ Whip::Whip(int x, int y) : Weapon(x, y, WHIP, "Reinforced_Bow_48x48.png", 2, 2) 
 	setDescription("The weapon of choice among all archaeological\nadventure lovers. More effective if strikes are\nmaximum range.");
 }
 void Whip::usePattern(Dungeon &dungeon, bool &moveUsed) {
-	int cols = dungeon.getCols();
-	bool wall, enemy;
 	char move = dungeon.getPlayer()->getAction();
 
 	int x = dungeon.getPlayer()->getPosX();
@@ -5057,29 +4840,20 @@ void Whip::usePattern(Dungeon &dungeon, bool &moveUsed) {
 	int pos;
 
 	// if it was a movement action
-	if (move == 'l' || move == 'r' || move == 'u' || move == 'd') {
-		// determines which way to move
+	if (isMovementAction(move)) {
+		
 		int n = 0, m = 0;
+		setDirectionalOffsets(move, n, m);
 
-		switch (move) {
-		case 'l': n = -1; m = 0; break;
-		case 'r': n = 1; m = 0; break;
-		case 'u': n = 0; m = -1; break;
-		case 'd': n = 0; m = 1; break;
-		}
+		while (!dungeon.wall(x + n, y + m) && range <= 3) {
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
-		while (!wall && range <= 3) {
-
-			if (enemy) {
+			if (dungeon.enemy(x + n, y + m)) {
 
 				// Sweetspot bonus
 				if (range == 3)
 					setDamage(getDmg() + 1);
 
-				dungeon.fight(x + n, y + m);
+				dungeon.fight(x + n, y + m, getDamageType());
 
 				// Remove sweetspot bonus
 				if (range == 3)
@@ -5090,15 +4864,7 @@ void Whip::usePattern(Dungeon &dungeon, bool &moveUsed) {
 				moveUsed = true;
 			}
 
-			switch (move) {
-			case 'l': n--; m = 0; break;
-			case 'r': n++; m = 0; break;
-			case 'u': n = 0; m--; break;
-			case 'd': n = 0; m++; break;
-			}
-
-			wall = dungeon[(y + m)*cols + (x + n)].wall;
-			enemy = dungeon[(y + m)*cols + (x + n)].enemy;
+			incrementDirectionalOffsets(move, n, m);
 
 			if (moveUsed)
 				break;
@@ -5107,10 +4873,10 @@ void Whip::usePattern(Dungeon &dungeon, bool &moveUsed) {
 		}
 
 		// Attempt knockback by one tile if enemy was hit by the sweetspot
-		if (moveUsed && range == 3 && !(wall || enemy)) {
+		if (moveUsed && range == 3 && !(dungeon.wall(x + n, y + m) || dungeon.enemy(x + n, y + m))) {
 			if (pos != -1) {
 				if (!dungeon.getMonsters().at(pos)->isHeavy())
-					dungeon.getMonsters().at(pos)->moveTo(dungeon, x + n, y + m);
+					dungeon.getMonsters().at(pos)->moveTo(x + n, y + m);
 			}
 		}
 	}
@@ -5177,7 +4943,7 @@ void Jian::usePattern(Dungeon &dungeon, bool &moveUsed) {
 				if (i == x && j == y)
 					continue;
 
-				cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+				cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 				dungeon.runSingleAnimation(frames, 120, i, j, 2);
 
 				if (dungeon[j*cols + i].enemy) {
@@ -5196,14 +4962,14 @@ void Jian::usePattern(Dungeon &dungeon, bool &moveUsed) {
 						setDamage(getDmg() + 5);
 					
 					int pos = dungeon.findMonster(i, j);
-					dungeon.damageMonster(pos, getDmg());
+					dungeon.damageMonster(pos, getDmg(), DamageType::NORMAL);
 
 					// Do knockback and stun if SuperiorJian
 					if (pos != -1 && hasKnockback()) {
 						dungeon.giveAffliction(pos, std::make_shared<Stun>(1));
 
 						char move = dungeon.getDirectionRelativeTo(x, y, i, j);
-						dungeon.linearActorPush(i, j, 1, move);
+						dungeon.linearActorPush(i, j, 1, 1, move);
 					}				
 
 					if (hasBonusDamage() && playerHealthPercentage >= 0.9f)
@@ -5241,7 +5007,6 @@ Boomerang::Boomerang(int x, int y) : MeterWeapon(x, y, 5, 2, 2, BOOMERANG, "Long
 	setDescription("Always comes back because of the aura of this place,\nnot because of your skill. Its magical properties\nallow it to retrieve items from afar.");
 }
 void Boomerang::usePattern(Dungeon &dungeon, bool &moveUsed) {
-	int rows = dungeon.getRows();
 	int cols = dungeon.getCols();
 
 	char move = dungeon.getPlayer()->facingDirection();
@@ -5278,14 +5043,14 @@ void Boomerang::usePattern(Dungeon &dungeon, bool &moveUsed) {
 		// The space 4 away from the direction the player is facing
 		if (dungeon.withinBounds(x + n, y + m)) {
 
-			cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+			cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 			dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
 
 			// Get items, if any
-			if (dungeon[(y + m)*cols + (x + n)].item) {
+			if (dungeon.itemObject(x + n, y + m)) {
 
 				// If it was a chest, open it
-				if (dungeon[(y + m)*cols + (x + n)].object->isChest()) {
+				if (dungeon.itemObject(x + n, y + m)->isChest()) {
 					std::shared_ptr<Chests> chest = std::dynamic_pointer_cast<Chests>(dungeon[(y + m)*cols + (x + n)].object);
 					chest->attemptOpen(dungeon);
 					chest.reset();
@@ -5293,24 +5058,23 @@ void Boomerang::usePattern(Dungeon &dungeon, bool &moveUsed) {
 				// Otherwise bring it to the player
 				else {
 					int _x = x, _y = y;
-					if (dungeon[_y*cols + _x].item)
+					if (dungeon.itemObject(_x, _y))
 						dungeon.itemHash(_x, _y);
-
-					dungeon[(y + m)*cols + (x + n)].item = false;
+				
 					dungeon[_y*cols + _x].item = true;
 					dungeon[_y*cols + _x].object = dungeon[(y + m)*cols + (x + n)].object;
-					dungeon[(y + m)*cols + (x + n)].object.reset();
-					dungeon[(y + m)*cols + (x + n)].object = nullptr;
-					dungeon.removeSprite(dungeon.item_sprites, x + n, y + m);					
-					dungeon.addSprite(dungeon.item_sprites, _x, _y, -1, dungeon[_y*cols + _x].object->getImageName());
+					dungeon[_y*cols + _x].object->setSprite(dungeon.createSprite(_x, _y, -1, dungeon[_y*cols + _x].object->getImageName()));
+					dungeon.addItem(dungeon[_y*cols + _x].object);
+
+					dungeon.removeItem(x + n, y + m);
 				}
 			}
 
-			if (dungeon[(y + m)*cols + (x + n)].enemy) {
+			if (dungeon.enemy(x + n, y + m)) {
 				int pos = dungeon.findMonster(x + n, y + m);
 				if (pos != -1) {
 					dungeon.giveAffliction(pos, std::make_shared<Stun>(1));
-					dungeon.fight(x + n, y + m);
+					dungeon.fight(x + n, y + m, getDamageType());
 				}
 			}
 		}
@@ -5328,45 +5092,44 @@ void Boomerang::usePattern(Dungeon &dungeon, bool &moveUsed) {
 
 			// Threw it above or below
 			if (n == 0) {
-
-				cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+				cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 				dungeon.runSingleAnimation(frames, 120, x - 1, y + m, 2);
 				dungeon.runSingleAnimation(frames, 120, x + 1, y + m, 2);
 
-				if (dungeon.withinBounds(x - 1, y + m) && dungeon[(y + m)*cols + (x - 1)].enemy) {
+				if (dungeon.withinBounds(x - 1, y + m) && dungeon.enemy(x - 1, y + m)) {
 					int pos = dungeon.findMonster(x - 1, y + m);
 					if (pos != -1) {
 						dungeon.giveAffliction(pos, std::make_shared<Stun>(1));
-						dungeon.fight(x - 1, y + m);
+						dungeon.fight(x - 1, y + m, getDamageType());
 					}
 				}
-				if (dungeon.withinBounds(x + 1, y + m) && dungeon[(y + m)*cols + (x + 1)].enemy) {
+				if (dungeon.withinBounds(x + 1, y + m) && dungeon.enemy(x + 1, y + m)) {
 					int pos = dungeon.findMonster(x + 1, y + m);
 					if (pos != -1) {
 						dungeon.giveAffliction(pos, std::make_shared<Stun>(1));
-						dungeon.fight(x + 1, y + m);
+						dungeon.fight(x + 1, y + m, getDamageType());
 					}
 				}
 			}
 			// Threw it to the sides
 			else if (m == 0) {
 
-				cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
+				cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
 				dungeon.runSingleAnimation(frames, 120, x + n, y - 1, 2);
 				dungeon.runSingleAnimation(frames, 120, x + n, y + 1, 2);
 
-				if (dungeon.withinBounds(x + n, y - 1) && dungeon[(y - 1)*cols + (x + n)].enemy) {
+				if (dungeon.withinBounds(x + n, y - 1) && dungeon.enemy(x + n, y - 1)) {
 					int pos = dungeon.findMonster(x + n, y - 1);
 					if (pos != -1) {
 						dungeon.giveAffliction(pos, std::make_shared<Stun>(1));
-						dungeon.fight(x + n, y - 1);
+						dungeon.fight(x + n, y - 1, getDamageType());
 					}
 				}
-				if (dungeon.withinBounds(x + n, y + 1) && dungeon[(y + 1)*cols + (x + n)].enemy) {
+				if (dungeon.withinBounds(x + n, y + 1) && dungeon.enemy(x + n, y + 1)) {
 					int pos = dungeon.findMonster(x + n, y + 1);
 					if (pos != -1) {
 						dungeon.giveAffliction(pos, std::make_shared<Stun>(1));
-						dungeon.fight(x + n, y + 1);
+						dungeon.fight(x + n, y + 1, getDamageType());
 					}
 				}
 			}
@@ -5394,9 +5157,6 @@ void Boomerang::usePattern(Dungeon &dungeon, bool &moveUsed) {
 
 
 //	:::: SHIELDS ::::
-Shield::Shield() : Objects("No shield") {
-
-}
 Shield::Shield(int x, int y, int defense, int durability, int coverage, std::string type, std::string image)
 	: Objects(x, y, type, image), m_defense(defense), m_durability(durability), m_coverage(coverage) {
 	m_max_durability = durability;
@@ -5484,54 +5244,181 @@ void ReflectShield::useAbility(Dungeon &dungeon, Actors &a) {
 }
 
 
-//	:::: TRAPS ::::
-Traps::Traps(int x, int y, std::string name, std::string image, int damage) : Objects(x, y, name, image), m_trapdmg(damage) {
-	
+// ==========================================
+//				:::: TRAPS ::::
+// ==========================================
+Traps::Traps(Dungeon *dungeon, int x, int y, std::string name, std::string image, int damage) : Objects(x, y, name, image), m_trapdmg(damage) {
+	m_dungeon = dungeon;
+
+	(*dungeon)[y*dungeon->getCols() + x].trap = true;
 }
 
-void Traps::destroyTrap(Dungeon &dungeon) {
-	int cols = dungeon.getCols();
+void Traps::moveTo(int x, int y, float time) {
+	int cols = m_dungeon->getCols();
+
+	if (m_dungeon->countTrapNumber(getPosX(), getPosY()) <= 1)
+		(*m_dungeon)[getPosY()*cols + getPosX()].trap = false;
+
+	(*m_dungeon)[y*cols + x].trap = true;
+
+	m_dungeon->queueMoveSprite(getSprite(), x, y, time);
+	setPosX(x); setPosY(y);
+}
+void Traps::destroyTrap() {
+	int cols = m_dungeon->getCols();
 
 	int x = getPosX();
 	int y = getPosY();
 
 	if (actsAsWall())
-		dungeon[y*cols + x].wall = false;
+		(*m_dungeon)[y*cols + x].wall = false;
 
 	// Remove any light sources, if could possibly provide light (like Braziers)
 	if (isLightSource())
-		dungeon.removeLightSource(x, y, getName());
+		m_dungeon->removeLightSource(x, y, getName());
 
 	// if there are NOT multiple traps on this location, then unflag this spot
-	if (dungeon.countTrapNumber(x, y) <= 1)
-		dungeon[y*cols + x].trap = false;
+	if (m_dungeon->countTrapNumber(x, y) <= 1)
+		(*m_dungeon)[y*cols + x].trap = false;
 
-	spriteCleanup(dungeon);
+	spriteCleanup();
+
+	drops();
 
 	setDestroyed(true);
 }
-void Traps::spriteCleanup(Dungeon &dungeon) {
+void Traps::spriteCleanup() {
 	if (getSprite() != nullptr) {
-		dungeon.queueRemoveSprite(getSprite());
+		m_dungeon->queueRemoveSprite(getSprite());
 		setSprite(nullptr);
 	}
 }
 
+void Traps::checkExplosion(int x, int y) {
+	if (m_dungeon->trap(x, y)) {
+		std::vector<int> indexes = m_dungeon->findTraps(x, y);
+		for (int i = 0; i < (int)indexes.size(); i++) {
+
+			if (m_dungeon->getTraps().at(indexes.at(i))->isDestructible())
+				m_dungeon->getTraps().at(indexes.at(i))->destroyTrap();
+
+			else if (m_dungeon->getTraps().at(indexes.at(i))->isExplosive())
+				m_dungeon->getTraps().at(indexes.at(i))->explode();
+		}
+	}
+}
+void Traps::checkBurn(int x, int y) {
+	if (m_dungeon->trap(x, y)) {
+		std::vector<int> indexes = m_dungeon->findTraps(x, y);
+		for (int i = 0; i < (int)indexes.size(); i++)
+			if (m_dungeon->getTraps().at(indexes.at(i))->canBeIgnited())
+				m_dungeon->getTraps().at(indexes.at(i))->ignite();
+	}
+}
+void Traps::checkPoison(int x, int y) {
+	if (m_dungeon->trap(x, y)) {
+		std::vector<int> indexes = m_dungeon->findTraps(x, y);
+		for (int i = 0; i < (int)indexes.size(); i++)
+			if (m_dungeon->getTraps().at(indexes.at(i))->canBePoisoned())
+				m_dungeon->getTraps().at(indexes.at(i))->poison();
+	}
+}
+void Traps::checkDouse(int x, int y) {
+	if (m_dungeon->trap(x, y)) {
+		std::vector<int> indexes = m_dungeon->findTraps(x, y);
+		for (int i = 0; i < (int)indexes.size(); i++)
+			if (m_dungeon->getTraps().at(indexes.at(i))->canBeDoused())
+				m_dungeon->getTraps().at(indexes.at(i))->douse();
+	}
+}
+void Traps::checkFreeze(int x, int y) {
+	if (m_dungeon->trap(x, y)) {
+		std::vector<int> indexes = m_dungeon->findTraps(x, y);
+		for (int i = 0; i < (int)indexes.size(); i++)
+			if (m_dungeon->getTraps().at(indexes.at(i))->canBeFrozen())
+				m_dungeon->getTraps().at(indexes.at(i))->freeze();
+	}
+}
+
+//		DEVILS WATER
+DevilsWater::DevilsWater(Dungeon *dungeon, int x, int y) : Traps(dungeon, x, y, DEVILS_WATER, "Water_Tile1_48x48.png", 0) {
+	setSprite(dungeon->createSprite(x, y, -4, getImageName()));
+}
+
+void DevilsWater::activeTrapAction(Actors &a) {
+	int cols = m_dungeon->getCols();
+
+	int x = getPosX();
+	int y = getPosY();
+
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
+
+	if (m_dungeon->trap(x, y)) {
+		std::vector<int> indexes = m_dungeon->findTraps(x, y);
+		for (int i = 0; i < (int)indexes.size(); i++)
+			if (m_dungeon->getTraps().at(indexes.at(i))->canBeDoused())
+				m_dungeon->getTraps().at(indexes.at(i))->douse();
+	}
+
+	if (!m_firstUse && (px != m_x || py != m_y)) {
+		m_firstUse = true;
+		m_x = px;
+		m_y = py;
+	}
+}
+void DevilsWater::trapAction(Actors &a) {
+
+	if (!a.isPlayer())
+		return;
+
+	int cols = m_dungeon->getCols();
+
+	int x = getPosX();
+	int y = getPosY();
+
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
+
+	if (px == x && py == y) {
+		if (a.isBurned()) {
+			// play relief sound
+			playSound("Relief_Female.mp3");
+
+			a.setBurned(false);
+			a.removeAffliction(BURN);
+		}
+	}
+
+	SecondFloor *floor = dynamic_cast<SecondFloor*>(m_dungeon);
+	if (floor->watersUsed() || floor->getWaterPrompt() || !m_firstUse)
+		return;
+
+	playSound("Puddle_Splash.mp3");
+	
+	floor->devilsWaterPrompt();
+	m_firstUse = false;
+	m_x = px;
+	m_y = py;
+}
+
 
 //		BRAZIER
-Brazier::Brazier(Dungeon &dungeon, int x, int y) : Traps(x, y, BRAZIER, "Gold_Goblet_48x48.png", 0) {
+Brazier::Brazier(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, BRAZIER, "Gold_Goblet_48x48.png", 0) {
 	setWallFlag(true);
 	setCanBeIgnited(true);
 	setDestructible(true);
 
-	setSprite(dungeon.createSprite(x, y, 1, getImageName()));
+	setSprite(m_dungeon->createSprite(x, y, 1, getImageName()));
+
+	dungeon[y*dungeon.getCols() + x].wall = true;
 }
 Brazier::~Brazier() {
 	if (m_flame != nullptr)
 		m_flame->removeFromParent();
 }
 
-void Brazier::trapAction(Dungeon &dungeon, Actors &a) {
+void Brazier::trapAction(Actors &a) {
 
 	// If not lit or it was tipped, do nothing
 	if (!m_lit || m_tipped)
@@ -5539,19 +5426,19 @@ void Brazier::trapAction(Dungeon &dungeon, Actors &a) {
 
 	// Braziers can be tipped over to leave a 3x3 grid of Embers
 
-	int cols = dungeon.getCols();
+	int cols = m_dungeon->getCols();
 
 	int x = getPosX();
 	int y = getPosY();
 
 	playSound("Fireblast_Spell2.mp3");
 
-	dungeon.removeLightSource(x, y, getName());
+	m_dungeon->removeLightSource(x, y, getName());
 	m_flame->removeFromParent();
 	m_flame = nullptr;
 	m_tipped = true; // So you can't tip it over multiple times
 
-	char move = dungeon.getPlayer()->facingDirection();
+	char move = m_dungeon->getPlayer()->facingDirection();
 
 	int n = 0, m = 0;
 
@@ -5566,39 +5453,31 @@ void Brazier::trapAction(Dungeon &dungeon, Actors &a) {
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
 
-			if (dungeon.withinBounds(x + n, y + m)) {
+			if (m_dungeon->withinBounds(x + n, y + m)) {
 				// fire explosion animation
-				cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
-				dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
+				cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
+				m_dungeon->runSingleAnimation(frames, 120, x + n, y + m, 2);
 
-				if (dungeon[(y + m)*cols + (x + n)].enemy) {
-					int pos = dungeon.findMonster(x + n, y + m);
+				if (m_dungeon->enemy(x + n, y + m)) {
+					int pos = m_dungeon->findMonster(x + n, y + m);
 					if (pos != -1) {
 						// Ignite them
-						if (dungeon.getMonsters().at(pos)->canBeBurned() || dungeon.getPlayer()->hasAfflictionOverride())
-							dungeon.giveAffliction(pos, std::make_shared<Burn>(5));						
+						if (m_dungeon->getMonsters().at(pos)->canBeBurned() || m_dungeon->getPlayer()->hasAfflictionOverride())
+							m_dungeon->giveAffliction(pos, std::make_shared<Burn>(*m_dungeon->getPlayer(), 5));
 					}
 				}
 
-				if (dungeon[(y + m)*cols + (x + n)].trap) {
-					int pos = dungeon.findTrap(x + n, y + m);
+				if (m_dungeon->trap(x + n, y + m)) {
+					int pos = m_dungeon->findTrap(x + n, y + m);
 					if (pos != -1) {
-						if (dungeon.getTraps().at(pos)->canBeIgnited())
-							dungeon.getTraps().at(pos)->ignite(dungeon);
+						if (m_dungeon->getTraps().at(pos)->canBeIgnited())
+							m_dungeon->getTraps().at(pos)->ignite();
 					}
 				}
 
 				// Create an Ember here if there's no wall
-				if (!dungeon[(y + m)*cols + (x + n)].wall) {
-					std::shared_ptr<Traps> ember = std::make_shared<Ember>(x + n, y + m, 5 + randInt(8));
-					dungeon.getTraps().push_back(ember);
-
-					cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("Fire%04d.png", 8);
-					ember->setSprite(dungeon.runAnimationForever(frames, 24, x + n, y + m, 2));
-					ember->getSprite()->setScale(0.75f * GLOBAL_SPRITE_SCALE);
-
-					dungeon[(y + m)*cols + (x + n)].trap = true;
-					dungeon.addLightSource(x + n, y + m, 3, ember->getName());
+				if (!m_dungeon->wall(x + n, y + m)) {
+					m_dungeon->addTrap(std::make_shared<Ember>(*m_dungeon, x + n, y + m, 5 + randInt(8)));
 				}
 			}
 
@@ -5619,7 +5498,7 @@ void Brazier::trapAction(Dungeon &dungeon, Actors &a) {
 		}
 	}
 }
-void Brazier::ignite(Dungeon &dungeon) {
+void Brazier::ignite() {
 
 	// If already lit, do nothing
 	if (m_lit)
@@ -5627,39 +5506,37 @@ void Brazier::ignite(Dungeon &dungeon) {
 
 	m_lit = true;
 
-	dungeon.addLightSource(getPosX(), getPosY(), 6, getName());
+	m_dungeon->addLightSource(getPosX(), getPosY(), 6, getName());
 
-	cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("Fire%04d.png", 8);
-	m_flame = dungeon.runAnimationForever(frames, 24, getPosX(), getPosY(), 2);
+	cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("Fire%04d.png", 8);
+	m_flame = m_dungeon->runAnimationForever(frames, 24, getPosX(), getPosY(), 2);
 	m_flame->setScale(0.6f * GLOBAL_SPRITE_SCALE);
 
 	float x = getPosX();
 	float y = getPosY() - 0.35f;
-	dungeon.queueMoveSprite(m_flame, x, y);
+	m_dungeon->queueMoveSprite(m_flame, x, y);
 }
 
 
 //		PIT
-Pit::Pit(Dungeon &dungeon, int x, int y) : Traps(x, y, PIT, "Pit_48x48.png", 1000) {
+Pit::Pit(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, PIT, "Pit_48x48.png", 1000) {
 	setLethal(true);
 
 	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
 }
 
-void Pit::activeTrapAction(Dungeon &dungeon, Actors &a) {
-	int cols = dungeon.getCols();
+void Pit::activeTrapAction(Actors &a) {
+	int cols = m_dungeon->getCols();
 
 	int x = getPosX();
 	int y = getPosY();
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
 	// Remove any gold on top of the pit
-	if (dungeon[y*cols + x].gold > 0) {
+	if (m_dungeon->gold(x, y) > 0) {
 		playSound("Falling_In_A_Hole.mp3", px, py, x, y);
-
-		dungeon[y*cols + x].gold = 0;
 
 		auto scale = cocos2d::ScaleTo::create(0.4f, 0.0f);
 		auto fade = cocos2d::FadeOut::create(0.3f);
@@ -5667,14 +5544,12 @@ void Pit::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		v.pushBack(scale);
 		v.pushBack(fade);
 
-		dungeon.queueRemoveSpriteWithMultipleActions(dungeon.money_sprites, x, y, v);
+		m_dungeon->removeGoldWithActions(x, y, v);
 	}
 
 	// Remove any items on top of the pit
-	if (dungeon[y*cols + x].item) {
+	if (m_dungeon->item(x, y)) {
 		playSound("Falling_In_A_Hole.mp3", px, py, x, y);
-
-		dungeon[y*cols + x].item = false;
 
 		auto scale = cocos2d::ScaleTo::create(0.4f, 0.0f);
 		auto fade = cocos2d::FadeOut::create(0.3f);
@@ -5682,12 +5557,10 @@ void Pit::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		v.pushBack(scale);
 		v.pushBack(fade);
 
-		dungeon.queueRemoveSpriteWithMultipleActions(dungeon.item_sprites, x, y, v);
-
-		//dungeon.removeSprite(dungeon.item_sprites, x, y);
+		m_dungeon->removeItemWithActions(x, y, v);
 	}
 }
-void Pit::trapAction(Dungeon &dungeon, Actors &a) {
+void Pit::trapAction(Actors &a) {
 	if (a.isPlayer() && !a.isFlying()) {
 		// play falling sound effect
 		playSound("Female_Falling_Scream_License.mp3");
@@ -5701,110 +5574,117 @@ void Pit::trapAction(Dungeon &dungeon, Actors &a) {
 	else if (a.isMonster() && !a.isFlying()) {
 		Monster &m = dynamic_cast<Monster&>(a);
 
-		// play falling sound effect
-		playMonsterDeathByPit(*dungeon.getPlayer(), m);
+		playMonsterDeathByPit(*m_dungeon->getPlayer(), m);
 
 		// death animation
-		deathFade(a.getSprite());
+		auto scale = cocos2d::ScaleTo::create(0.4f, 0.0f);
+		auto fade = cocos2d::FadeOut::create(0.3f);
+		cocos2d::Vector<cocos2d::FiniteTimeAction*> v;
+		v.pushBack(scale);
+		v.pushBack(fade);
+		
+		m_dungeon->queueCustomAction(a.getSprite(), cocos2d::Spawn::create(v));
 
 		m.setDestroyed(true);
 	}
 }
 
 //		FALLING SPIKES
-FallingSpike::FallingSpike(int x, int y, int speed) : Traps(x, y, FALLING_SPIKE, "CeilingSpike_48x48.png", 3), m_speed(speed) {
-	setTemporary(true);
+FallingSpike::FallingSpike(Dungeon &dungeon, int x, int y, int speed) : Traps(&dungeon, x, y, FALLING_SPIKE, "CeilingSpike_48x48.png", 3), m_speed(speed) {
 	setActive(true);
+
+	setSprite(dungeon.createSprite(x, y, 0, getImageName()));
 }
 FallingSpike::~FallingSpike() {
 	if (getSprite() != nullptr)
 		getSprite()->removeFromParent();
 }
 
-void FallingSpike::activeTrapAction(Dungeon &dungeon, Actors &a) {
-	int rows = dungeon.getRows();
-	int cols = dungeon.getCols();
+void FallingSpike::activeTrapAction(Actors &a) {
+	int cols = m_dungeon->getCols();
 
 	int x = getPosX();
 	int y = getPosY();
-	int pos = dungeon.findTrap(x, y);
+	int pos = m_dungeon->findTrap(x, y);
 
 	int range = m_speed; // How many tiles it will travel
 	int dist = 1; // Starting point
 
-	bool wall = dungeon[(y + dist)*cols + (x)].wall;
-	bool hero = dungeon[(y + dist)*cols + (x)].hero;
+	while (!m_dungeon->wall(x, y + dist) && dist <= range) {
 
-	while (!wall && dist <= range) {
-
-		if (hero) {
+		if (m_dungeon->hero(x, y + dist)) {
 			playSound("Spike_Hit.mp3");
 
-			dungeon.damagePlayer(getDmg());
+			m_dungeon->damagePlayer(getDmg());
 
-			dungeon.queueMoveSprite(getSprite(), x, y + dist);
-			destroyTrap(dungeon);
+			m_dungeon->queueMoveSprite(getSprite(), x, y + dist);
+			destroyTrap();
 			return;
 		}
 
 		dist++;
-
-		wall = dungeon[(y + dist)*cols + (x)].wall;
-		hero = dungeon[(y + dist)*cols + (x)].hero;
 	}
 
 	if (dist == 4)
 		dist--;
 
-	if (!dungeon[(y + dist)*cols + (x)].wall) {
-		if (dungeon.countTrapNumber(x, y) <= 1)
-			dungeon[y*cols + x].trap = false;
+	if (!m_dungeon->wall(x, y + dist)) {
+		moveTo(x, y + dist);
+		/*if (m_dungeon->countTrapNumber(x, y) <= 1)
+			(*m_dungeon)[y*cols + x].trap = false;
 
 		setPosY(y + dist);
-		dungeon.queueMoveSprite(getSprite(), x, y + dist);
-		dungeon[(y + dist)*cols + x].trap = true;
+		m_dungeon->queueMoveSprite(getSprite(), x, y + dist);
+		(*m_dungeon)[(y + dist)*cols + x].trap = true;*/
 	}
 	else
-		destroyTrap(dungeon);
+		destroyTrap();
 
 }
-void FallingSpike::trapAction(Dungeon &dungeon, Actors &a) {
+void FallingSpike::trapAction(Actors &a) {
 
 	if (!a.isPlayer())
 		return;
 
 	playSound("Spike_Hit.mp3");
-	dungeon.damagePlayer(getDmg());
+	m_dungeon->damagePlayer(getDmg());
 
-	destroyTrap(dungeon);
-}
-
-int FallingSpike::getSpeed() const {
-	return m_speed;
-}
-void FallingSpike::setSpeed(int speed) {
-	m_speed = speed;
+	destroyTrap();
 }
 
 //		SPIKES
-Spikes::Spikes(Dungeon &dungeon, int x, int y) : Traps(x, y, SPIKES, "Spiketrap_Active_48x48.png", 7) {
+Spikes::Spikes(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, SPIKES, "Spiketrap_Active_48x48.png", 7) {
 	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
 }
 
-void Spikes::trapAction(Dungeon &dungeon, Actors &a) {
+//void Spikes::activeTrapAction(Actors &a) {
+//	int x = getPosX();
+//	int y = getPosY();
+//
+//	if (m_dungeon->hero(x, y)) {
+//		trapAction(*m_dungeon->getPlayer());
+//	}
+//
+//	if (m_dungeon->enemy(x, y)) {
+//		int pos = m_dungeon->findMonster(x, y);
+//		if (pos != -1)
+//			trapAction(*m_dungeon->getMonsters().at(pos));
+//	}
+//}
+void Spikes::trapAction(Actors &a) {
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
 	// Is player
 	if (a.isPlayer()) {
 		// If not no flying or spike immunity, damage them
-		if (!(a.isFlying() || dungeon.getPlayer()->spikeImmunity())) {
+		if (!(a.isFlying() || m_dungeon->getPlayer()->spikeImmunity())) {
 			playSound("Spike_Hit.mp3", px, py, getPosX(), getPosY());
 
-			dungeon.damagePlayer(getDmg());
+			m_dungeon->damagePlayer(getDmg());
 		}
-		else if (dungeon.getPlayer()->spikeImmunity()) {
+		else if (m_dungeon->getPlayer()->spikeImmunity()) {
 			playSound("Spike_Hit.mp3", px, py, getPosX(), getPosY()); // Replace with appropriate sound
 		}
 
@@ -5820,7 +5700,7 @@ void Spikes::trapAction(Dungeon &dungeon, Actors &a) {
 }
 
 //		SPIKE TRAPS
-SpikeTrap::SpikeTrap(Dungeon &dungeon, int x, int y, int speed) : Traps(x, y, AUTOSPIKE_DEACTIVE, "Spiketrap_Deactive_48x48.png", 3), m_cyclespeed(speed), m_countdown(speed) {
+SpikeTrap::SpikeTrap(Dungeon &dungeon, int x, int y, int speed) : Traps(&dungeon, x, y, AUTOSPIKE_DEACTIVE, "Spiketrap_Deactive_48x48.png", 3), m_cyclespeed(speed), m_countdown(speed) {
 	m_deactive = dungeon.createSprite(x, y, -4, "Spiketrap_Deactive_48x48.png");
 	m_primed = dungeon.createSprite(x, y, -4, "Spiketrap_Primed_48x48.png");
 	m_active = dungeon.createSprite(x, y, -4, "Spiketrap_Active_48x48.png");
@@ -5828,7 +5708,6 @@ SpikeTrap::SpikeTrap(Dungeon &dungeon, int x, int y, int speed) : Traps(x, y, AU
 	setSprite(m_deactive);
 	setSpriteVisibility(false, false, false);
 
-	setTemporary(false);
 	setActive(true);
 }
 SpikeTrap::~SpikeTrap() {
@@ -5842,15 +5721,15 @@ SpikeTrap::~SpikeTrap() {
 		m_active->removeFromParent();
 }
 
-void SpikeTrap::activeTrapAction(Dungeon &dungeon, Actors &a) {
+void SpikeTrap::activeTrapAction(Actors &a) {
 	int ax = a.getPosX();
 	int ay = a.getPosY();
 
 	int tx = getPosX();
 	int ty = getPosY();
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
 	// if spiketrap was primed, reset the counter
 	if (getCountdown() == 0 && m_active->isVisible()) {
@@ -5886,18 +5765,18 @@ void SpikeTrap::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		// if they're standing on top of it and not flying, hit them
 		if (ax == tx && ay == ty && !a.isFlying()) {
 
-			int px = dungeon.getPlayer()->getPosX();
-			int py = dungeon.getPlayer()->getPosY();
+			int px = m_dungeon->getPlayer()->getPosX();
+			int py = m_dungeon->getPlayer()->getPosY();
 
 			// Is player
 			if (a.isPlayer()) {
 				// If no flying or spike immunity, damage them
-				if (!(a.isFlying() || dungeon.getPlayer()->spikeImmunity())) {
+				if (!(a.isFlying() || m_dungeon->getPlayer()->spikeImmunity())) {
 					playSound("Spike_Hit.mp3", px, py, tx, ty);
 
-					dungeon.damagePlayer(getDmg());
+					m_dungeon->damagePlayer(getDmg());
 				}
-				else if (dungeon.getPlayer()->spikeImmunity()) {
+				else if (m_dungeon->getPlayer()->spikeImmunity()) {
 					playSound("Spike_Hit.mp3", px, py, tx, ty); // Replace with appropriate sound
 				}
 
@@ -5911,22 +5790,22 @@ void SpikeTrap::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	}
 
 }
-void SpikeTrap::trapAction(Dungeon &dungeon, Actors &a) {
+void SpikeTrap::trapAction(Actors &a) {
 
 	if (m_countdown == 0 && !a.isFlying()) {
 
-		int px = dungeon.getPlayer()->getPosX();
-		int py = dungeon.getPlayer()->getPosY();
+		int px = m_dungeon->getPlayer()->getPosX();
+		int py = m_dungeon->getPlayer()->getPosY();
 
 		// Is player
 		if (a.isPlayer()) {
 			// If not no flying or spike immunity, damage them
-			if (!(a.isFlying() || dungeon.getPlayer()->spikeImmunity())) {
+			if (!(a.isFlying() || m_dungeon->getPlayer()->spikeImmunity())) {
 				playSound("Spike_Hit.mp3", px, py, getPosX(), getPosY());
 
-				dungeon.damagePlayer(getDmg());
+				m_dungeon->damagePlayer(getDmg());
 			}
-			else if (dungeon.getPlayer()->spikeImmunity()) {
+			else if (m_dungeon->getPlayer()->spikeImmunity()) {
 				playSound("Spike_Hit.mp3", px, py, getPosX(), getPosY()); // Replace with appropriate sound
 			}
 
@@ -5962,21 +5841,8 @@ void SpikeTrap::setSpriteVisibility(bool deactive, bool primed, bool active) {
 	}
 }
 
-int SpikeTrap::getSpeed() const {
-	return m_cyclespeed;
-}
-void SpikeTrap::setSpeed(int speed) {
-	m_cyclespeed = speed;
-}
-int SpikeTrap::getCountdown() const {
-	return m_countdown;
-}
-void SpikeTrap::setCountdown(int count) {
-	m_countdown = count;
-}
-
 //		TRIGGERED SPIKES
-TriggerSpike::TriggerSpike(Dungeon &dungeon, int x, int y) : Traps(x, y, TRIGGERSPIKE_DEACTIVE, "Spiketrap_Deactive_48x48.png", 5), m_triggered(false) {
+TriggerSpike::TriggerSpike(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, TRIGGERSPIKE_DEACTIVE, "Spiketrap_Deactive_48x48.png", 5), m_triggered(false) {
 	m_deactive = dungeon.createSprite(x, y, -4, "Spiketrap_Deactive_48x48.png");
 	m_primed = dungeon.createSprite(x, y, -4, "Spiketrap_Primed_48x48.png");
 	m_active = dungeon.createSprite(x, y, -4, "Spiketrap_Active_48x48.png");
@@ -5984,7 +5850,6 @@ TriggerSpike::TriggerSpike(Dungeon &dungeon, int x, int y) : Traps(x, y, TRIGGER
 	setSprite(m_deactive);
 	setSpriteVisibility(false, false, false);
 
-	setTemporary(false);
 	setActive(true);
 }
 TriggerSpike::~TriggerSpike() {
@@ -5998,7 +5863,7 @@ TriggerSpike::~TriggerSpike() {
 		m_active->removeFromParent();
 }
 
-void TriggerSpike::activeTrapAction(Dungeon &dungeon, Actors &a) {
+void TriggerSpike::activeTrapAction(Actors &a) {
 	int ax = a.getPosX();
 	int ay = a.getPosY();
 
@@ -6016,18 +5881,18 @@ void TriggerSpike::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		//	check if player was still on top
 		if (ax == tx && ay == ty && !a.isFlying()) {
 
-			int px = dungeon.getPlayer()->getPosX();
-			int py = dungeon.getPlayer()->getPosY();
+			int px = m_dungeon->getPlayer()->getPosX();
+			int py = m_dungeon->getPlayer()->getPosY();
 
 			// Is player
 			if (a.isPlayer()) {
 				// If no flying or spike immunity, damage them
-				if (!(a.isFlying() || dungeon.getPlayer()->spikeImmunity())) {
+				if (!(a.isFlying() || m_dungeon->getPlayer()->spikeImmunity())) {
 					playSound("Spike_Hit.mp3", px, py, getPosX(), getPosY());
 
-					dungeon.damagePlayer(getDmg());
+					m_dungeon->damagePlayer(getDmg());
 				}
-				else if (dungeon.getPlayer()->spikeImmunity()) {
+				else if (m_dungeon->getPlayer()->spikeImmunity()) {
 					playSound("Spike_Hit.mp3", px, py, getPosX(), getPosY()); // Replace with appropriate sound
 				}
 
@@ -6054,29 +5919,29 @@ void TriggerSpike::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		}
 		else {
 			// retract spiketrap
-			playSound("Spiketrap_Deactive.mp3");
+			//playSound("Spiketrap_Deactive.mp3"); // This sound does not exist
 
 			setSprite(m_deactive);
 			setSpriteVisibility(true, false, false);
 		}
 	}
 }
-void TriggerSpike::trapAction(Dungeon &dungeon, Actors &a) {
+void TriggerSpike::trapAction(Actors &a) {
 
 	if (m_active->isVisible() && !a.isFlying()) {
 
-		int px = dungeon.getPlayer()->getPosX();
-		int py = dungeon.getPlayer()->getPosY();
+		int px = m_dungeon->getPlayer()->getPosX();
+		int py = m_dungeon->getPlayer()->getPosY();
 
 		// Is player
 		if (a.isPlayer()) {
 			// If no flying or spike immunity, damage them
-			if (!(a.isFlying() || dungeon.getPlayer()->spikeImmunity())) {
+			if (!(a.isFlying() || m_dungeon->getPlayer()->spikeImmunity())) {
 				playSound("Spike_Hit.mp3", px, py, getPosX(), getPosY());
 
-				dungeon.damagePlayer(getDmg());
+				m_dungeon->damagePlayer(getDmg());
 			}
-			else if (dungeon.getPlayer()->spikeImmunity()) {
+			else if (m_dungeon->getPlayer()->spikeImmunity()) {
 				playSound("Spike_Hit.mp3", px, py, getPosX(), getPosY()); // Replace with appropriate sound
 			}
 
@@ -6112,17 +5977,10 @@ void TriggerSpike::setSpriteVisibility(bool deactive, bool primed, bool active) 
 	}
 }
 
-bool TriggerSpike::isTriggered() const {
-	return m_triggered;
-}
-void TriggerSpike::toggleTrigger() {
-	m_triggered = !m_triggered;
-}
-
 //		PUDDLES
-Puddle::Puddle(Dungeon &dungeon, int x, int y, int turns) : Traps(x, y, PUDDLE, "Puddle.png", 0), m_turns(turns) {
-	setTemporary(true);
+Puddle::Puddle(Dungeon &dungeon, int x, int y, int turns) : Traps(&dungeon, x, y, PUDDLE, "Puddle.png", 0), m_turns(turns) {
 	setDestructible(true);
+	setCanBeFrozen(true);
 
 	if (turns == -1)
 		setActive(false);
@@ -6131,9 +5989,8 @@ Puddle::Puddle(Dungeon &dungeon, int x, int y, int turns) : Traps(x, y, PUDDLE, 
 
 	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
 }
-Puddle::Puddle(int x, int y, int turns, std::string name, std::string image) : Traps(x, y, name, image, 0), m_turns(turns) {
+Puddle::Puddle(Dungeon &dungeon, int x, int y, int turns, std::string name, std::string image) : Traps(&dungeon, x, y, name, image, 0), m_turns(turns) {
 	setImageName(image);
-	setTemporary(true);
 	setDestructible(true);
 
 	if (turns == -1)
@@ -6142,11 +5999,21 @@ Puddle::Puddle(int x, int y, int turns, std::string name, std::string image) : T
 		setActive(true);
 }
 
-void Puddle::activeTrapAction(Dungeon &dungeon, Actors &a) {
-	int cols = dungeon.getCols();
-
+void Puddle::activeTrapAction(Actors &a) {
 	int x = getPosX();
 	int y = getPosY();
+
+	if (m_dungeon->trap(x, y)) {
+		std::vector<int> indexes = m_dungeon->findTraps(x, y);
+		for (int i = 0; i < (int)indexes.size(); i++) {
+			if (m_dungeon->getTraps().at(indexes.at(i))->canBeDoused()) {
+				m_dungeon->getTraps().at(indexes.at(i))->douse();
+
+				destroyTrap();
+				return;
+			}
+		}
+	}
 
 	// Does not dissipate
 	if (m_turns == -1)
@@ -6155,18 +6022,15 @@ void Puddle::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	if (m_turns > 0)
 		m_turns--;
 	else
-		destroyTrap(dungeon);
+		destroyTrap();
 
 }
-void Puddle::trapAction(Dungeon &dungeon, Actors &a) {
-
-	int cols = dungeon.getCols();
-
+void Puddle::trapAction(Actors &a) {
 	int x = getPosX();
 	int y = getPosY();
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
 	// if actor is flying, return
 	if (a.isFlying())
@@ -6176,7 +6040,7 @@ void Puddle::trapAction(Dungeon &dungeon, Actors &a) {
 
 	playSound("Puddle_Splash.mp3", px, py, x, y);
 
-	destroyTrap(dungeon);
+	destroyTrap();
 
 	// if player was on fire, put it out
 	if (a.isBurned()) {
@@ -6202,33 +6066,656 @@ void Puddle::trapAction(Dungeon &dungeon, Actors &a) {
 		}
 
 		// special happenings as a result of walking on the puddle
-		specialAction(dungeon, a);
+		specialAction(a);
 
 		// else if they're not stunnable, nothing happens
 		return;
 	}
 }
+void Puddle::freeze() {
+	if (isDestroyed())
+		return;
 
-PoisonPuddle::PoisonPuddle(Dungeon &dungeon, int x, int y, int turns) : Puddle(x, y, turns, POISON_PUDDLE, "Poison_Puddle.png") {
+	m_dungeon->addTrap(std::make_shared<FrozenPuddle>(*m_dungeon, getPosX(), getPosY()));
+
+	destroyTrap();
+}
+void Puddle::spriteCleanup() {
+	if (getSprite() != nullptr) {
+		int x = getPosX();
+		int y = getPosY();
+
+		if (m_dungeon->enemy(x, y) || m_dungeon->hero(x, y)) {
+			m_dungeon->queueRemoveSprite(getSprite());
+			setSprite(nullptr);
+
+			return;
+		}
+
+		auto fade = cocos2d::FadeOut::create(0.2f);
+		cocos2d::Vector<cocos2d::FiniteTimeAction*> v;
+		v.pushBack(fade);
+
+		m_dungeon->queueRemoveSpriteWithMultipleActions(getSprite(), v);
+		setSprite(nullptr);
+	}
+}
+
+PoisonPuddle::PoisonPuddle(Dungeon &dungeon, int x, int y, int turns) : Puddle(dungeon, x, y, turns, POISON_PUDDLE, "Poison_Puddle.png") {
 	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
 }
 
-void PoisonPuddle::specialAction(Dungeon &dungeon, Actors &a) {
+void PoisonPuddle::specialAction(Actors &a) {
 	// if actor can be poisoned, attempt to poison
 	if (a.canBePoisoned()) {
 
 		// 40% chance to be poisoned
 		if (1 + randInt(100) + a.getLuck() < 60) {
-			// play poison sound effect
-			//cocos2d::experimental::AudioEngine::play2d("Puddle_Slip.mp3", false, exp(-(abs(px - a.getPosX()) + abs(py - a.getPosY()))));
-
-			a.addAffliction(std::make_shared<Poison>(5, 3, 1, 1));
+			a.addAffliction(std::make_shared<Poison>(*m_dungeon->getPlayer(), 5, 3, 1, 1));
 		}
 	}
 }
 
+FrozenPuddle::FrozenPuddle(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, FROZEN_PUDDLE, "Puddle.png", 0) {
+	setDestructible(true);
+	setCanBeIgnited(true);
+
+	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
+}
+
+void FrozenPuddle::activeTrapAction(Actors &a) {
+	if (m_turns > 0) {
+		m_turns--;
+		return;
+	}
+
+	ignite();
+}
+void FrozenPuddle::trapAction(Actors &a) {
+	int x = getPosX();
+	int y = getPosY();
+
+	if (a.isFlying())
+		return;
+
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
+
+	playCrumble(exp(-(abs(px - x) + abs(py - y))) / 3);
+
+	if (randReal(1, 100) < 90) {
+
+		if (a.canBeStunned()) {
+			a.getSprite()->setRotation(90);
+
+			a.addAffliction(std::make_shared<Stun>(1));
+		}
+	}
+}
+void FrozenPuddle::ignite() {
+	if (isDestroyed())
+		return;
+
+	m_dungeon->addTrap(std::make_shared<Puddle>(*m_dungeon, getPosX(), getPosY()));
+
+	destroyTrap();
+}
+
+//		WATER
+Water::Water(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, WATER, "Water_Tile1_48x48.png", 0) {
+	setCanBePoisoned(true);
+	setCanBeFrozen(true);
+
+	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
+	getSprite()->setOpacity(170);
+}
+Water::Water(Dungeon &dungeon, int x, int y, std::string name, std::string image) : Traps(&dungeon, x, y, name, image, 0) {
+	
+}
+
+void Water::activeTrapAction(Actors &a) {
+	int x = getPosX();
+	int y = getPosY();
+
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
+
+	checkDouse(x, y);
+
+	specialActiveAction();
+
+	if (a.isFlying())
+		return;
+
+	if (!m_firstUse && (px != m_x || py != m_y)) {
+		m_firstUse = true;
+		m_x = px;
+		m_y = py;
+
+		a.setDex(a.getDex() + 2);
+	}
+	else if (m_firstUse && px == x && py == y) {
+		m_firstUse = false;
+		m_x = px;
+		m_y = py;
+		a.setDex(a.getDex() - 2);
+	}
+}
+void Water::trapAction(Actors &a) {
+
+	if (a.isFlying())
+		return;
+
+	if (a.isPoisoned() && canBePoisoned()) {
+		playSound("Puddle_Splash.mp3");
+		poison();
+		return;
+	}
+
+	specialAction(a);
+
+	if (!a.isPlayer())
+		return;
+
+	int x = getPosX();
+	int y = getPosY();
+
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
+
+	if (px == x && py == y) {
+		if (a.isBurned()) {
+			// play relief sound
+			playSound("Relief_Female.mp3");
+
+			a.setBurned(false);
+			a.removeAffliction(BURN);
+		}
+	}
+
+	if (!m_firstUse)
+		return;
+
+	playSound("Puddle_Splash.mp3");
+
+	m_firstUse = false;
+	m_x = px;
+	m_y = py;
+	a.setDex(a.getDex() - 2);
+}
+void Water::poison() {
+	if (isDestroyed())
+		return;
+
+	m_dungeon->addTrap(std::make_shared<PoisonWater>(*m_dungeon, getPosX(), getPosY()));
+
+	destroyTrap();
+}
+void Water::freeze() {
+	if (isDestroyed())
+		return;
+
+	m_dungeon->addTrap(std::make_shared<Ice>(*m_dungeon, getPosX(), getPosY()));
+
+	destroyTrap();
+}
+
+PoisonWater::PoisonWater(Dungeon &dungeon, int x, int y) : Water(dungeon, x, y, POISON_WATER, "PoisonWater_48x48.png") {
+	setCanBeFrozen(true);
+
+	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
+	getSprite()->setOpacity(170);
+}
+
+void PoisonWater::specialActiveAction() {
+
+	if (m_wait) {
+		m_wait = false;
+		return;
+	}
+
+	int x = getPosX();
+	int y = getPosY();
+
+	std::vector<std::pair<int, int>> coords;
+	coords.push_back(std::make_pair(x - 1, y));
+	coords.push_back(std::make_pair(x + 1, y));
+	coords.push_back(std::make_pair(x, y - 1));
+	coords.push_back(std::make_pair(x, y + 1));
+
+	while (!coords.empty()) {
+		int index = randInt((int)coords.size());
+		int n = coords[index].first;
+		int m = coords[index].second;
+
+		checkPoison(n, m);
+
+		coords.erase(coords.begin() + index);
+	}
+
+	m_wait = true;
+}
+void PoisonWater::specialAction(Actors &a) {
+	if (a.canBePoisoned()) {
+		a.addAffliction(std::make_shared<Poison>(*m_dungeon->getPlayer(), 6, 3, 1, 1));
+	}
+}
+
+Ice::Ice(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, ICE, "Puddle.png", 0) {
+	setCanBeIgnited(true);
+
+	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
+}
+
+void Ice::trapAction(Actors &a) {
+	int x = getPosX();
+	int y = getPosY();
+
+	if (a.isFlying())
+		return;
+
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
+
+	playCrumble(exp(-(abs(px - x) + abs(py - y))) / 3);
+
+	if (randReal(1, 100) < 90) {
+
+		if (a.canBeStunned()) {
+			a.getSprite()->setRotation(90);
+
+			a.addAffliction(std::make_shared<Stun>(1));
+		}
+	}
+}
+void Ice::ignite() {
+	if (isDestroyed())
+		return;
+
+	m_dungeon->addTrap(std::make_shared<Water>(*m_dungeon, getPosX(), getPosY()));
+
+	destroyTrap();
+}
+
+//		POISON MISTER
+PoisonMister::PoisonMister(Dungeon &dungeon, int x, int y, int wait) : Traps(&dungeon, x, y, POISON_MISTER, "Cheese_Wedge_48x48.png", 0), m_wait(wait), m_maxWait(m_wait) {
+	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
+}
+
+void PoisonMister::activeTrapAction(Actors &a) {
+	if (m_wait > 0) {
+		m_wait--;
+		return;
+	}
+
+	int x = getPosX();
+	int y = getPosY();
+
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
+
+	playSound("Bomb_Fuse2.mp3", px, py, x, y);
+
+	m_dungeon->addTrap(std::make_shared<PoisonCloud>(*m_dungeon, x, y, 5));
+
+	m_wait = m_maxWait;
+}
+
+//		STALACTITE
+Stalactite::Stalactite(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, STALACTITE, "Cheese_Wedge_48x48.png", 8) {
+	m_stalactiteY = y - 9;
+	setSprite(dungeon.createSprite(x, m_stalactiteY, 5, getImageName()));
+	getSprite()->setVisible(false);
+	dungeon.addSprite(dungeon.misc_sprites, x, y, -4, "candy1.png");
+}
+
+void Stalactite::activeTrapAction(Actors &a) {
+	int x = getPosX();
+	int y = getPosY();
+
+	int px = a.getPosX();
+	int py = a.getPosY();
+
+	if (!m_activated && px == x && py == y) {
+		playSound("Button_Pressed.mp3");
+
+		getSprite()->setVisible(true);
+		m_activated = true;
+		return;
+	}
+
+	if (m_activated) {
+		if (m_wait > 0) {
+			m_wait--;
+			m_dungeon->queueMoveSprite(getSprite(), x, m_stalactiteY += 3);
+
+			return;
+		}
+
+		m_dungeon->queueMoveSprite(getSprite(), x, m_stalactiteY += 3);
+
+		if (x == px && y == py)
+			m_dungeon->damagePlayer(getDmg());
+
+		if (m_dungeon->enemy(x, y))
+			m_dungeon->damageMonster(x, y, getDmg(), DamageType::NORMAL);
+
+		destroyTrap();
+	}
+}
+
+//		GIANT CRYSTAL
+GiantCrystal::GiantCrystal(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, GIANT_CRYSTAL, "Cheese_Wedge_48x48.png", 0) {
+	setWallFlag(true);
+	setDestructible(true);
+	setSprite(dungeon.createSprite(x, y, 2, getImageName()));
+
+	dungeon[y*dungeon.getCols() + x].wall = true;
+}
+
+void GiantCrystal::drops() {
+	m_dungeon->addTrap(std::make_shared<BrokenCrystals>(*m_dungeon, getPosX(), getPosY()));
+}
+void GiantCrystal::trapAction(Actors &a) {
+	playHitSmasher();
+
+	if (a.getStr() >= m_strengthCutoff) {
+		m_strength--;
+	}
+
+	if (m_strength == 0) {
+		destroyTrap();
+	}
+}
+
+BrokenCrystals::BrokenCrystals(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, BROKEN_CRYSTALS, "Cheese_Wedge_48x48.png", 5) {
+	setDestructible(true);
+
+	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
+}
+
+void BrokenCrystals::trapAction(Actors &a) {
+	playSound("Skeleton_Key_Broken.mp3", *m_dungeon->getPlayer(), a.getPosX(), a.getPosY());
+
+	if (a.isPlayer()) {
+		m_dungeon->damagePlayer(getDmg());
+		if (a.canBeBled())
+			m_dungeon->getPlayer()->addAffliction(std::make_shared<Bleed>(6));
+	}
+
+	int pos = m_dungeon->findMonster(a.getPosX(), a.getPosY());
+	if (pos != -1) {
+		m_dungeon->damageMonster(pos, getDmg(), DamageType::NORMAL);
+		if (a.canBeBled())
+			m_dungeon->giveAffliction(pos, std::make_shared<Bleed>(6));
+	}
+
+	destroyTrap();
+}
+
+//		TREE
+Tree::Tree(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, TREE, "Cheese_Wedge_48x48.png", 0) {
+	setWallFlag(true);
+	setCanBeIgnited(true);
+	setSprite(dungeon.createSprite(x, y, 2, getImageName()));
+
+	createRoots();
+
+	dungeon[y*dungeon.getCols() + x].wall = true;
+}
+
+void Tree::createRoots() {
+	int x = getPosX();
+	int y = getPosY();
+	int cols = m_dungeon->getCols();
+	std::vector<std::pair<int, int>> coords;
+
+	// Create vector of (x, y) pairs to choose from
+	for (int i = x - 2; i < x + 3; i++) {
+		for (int j = y - 2; j < y + 3; j++) {
+			coords.push_back(std::make_pair(i, j));
+		}
+	}
+
+	int n, m;
+	// Try to create N roots in random locations around the tree
+	for (int i = 0; i < 3; i++) {
+
+		if ((int)m_roots.size() >= 3)
+			break;
+
+		int index = randInt((int)coords.size());
+		std::pair<int, int> coord = coords[index];
+		n = coord.first;
+		m = coord.second;
+
+		if (!m_dungeon->withinBounds(n, m)) {
+			coords.erase(coords.begin() + index);
+			continue;
+		}
+
+		if (!(m_dungeon->wall(n, m) || m_dungeon->trap(n, m))) {
+			m_roots.push_back(std::make_pair(n, m));
+
+			(*m_dungeon)[m*cols + n].trap = true;
+			std::shared_ptr<TreeRoot> root = std::make_shared<TreeRoot>(*m_dungeon, n, m);
+			m_dungeon->addTrap(root);
+
+			coords.erase(coords.begin() + index);
+		}
+	}
+}
+
+void Tree::activeTrapAction(Actors &a) {
+	if (!m_lit)
+		return;
+
+	int x = getPosX();
+	int y = getPosY();
+
+	if (m_litTurns == 0) {
+		m_dungeon->removeLightSource(x, y, getName());
+		destroyTrap();
+		return;
+	}
+
+	for (int i = x - 2; i < x + 3; i++) {
+		for (int j = y - 2; j < y + 3; j++) {
+
+			if (!m_dungeon->withinBounds(i, j) || i == x && j == y)
+				continue;
+
+			if (randReal(1, 100) > 90)
+				checkBurn(i, j);
+
+			if (m_dungeon->hero(i, j)) {
+				if (randReal(1, 100) - m_dungeon->getPlayer()->getLuck() > 85 && m_dungeon->getPlayer()->canBeBurned())
+					m_dungeon->getPlayer()->addAffliction(std::make_shared<Burn>(*m_dungeon->getPlayer(), 6));
+				
+			}
+
+			if (m_dungeon->enemy(i, j)) {
+				int pos = m_dungeon->findMonster(i, j);
+				if (pos != -1) 
+					if (randReal(1, 100) > 85 && m_dungeon->getMonsters().at(pos)->canBeBurned())
+						m_dungeon->giveAffliction(pos, std::make_shared<Burn>(*m_dungeon->getPlayer(), 6));
+									
+			}
+		}
+	}
+
+	m_litTurns--;
+}
+void Tree::trapAction(Actors &a) {
+	// Shake tree
+	playSound("Grass2.mp3");
+}
+void Tree::ignite() {
+	// If already lit, do nothing
+	if (m_lit)
+		return;
+
+	m_lit = true;
+
+	m_dungeon->addLightSource(getPosX(), getPosY(), 6, getName());
+
+	cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("Fire%04d.png", 8);
+	cocos2d::Sprite* m_flame = m_dungeon->runAnimationForever(frames, 24, getPosX(), getPosY(), 2);
+	m_flame->setScale(0.6f * GLOBAL_SPRITE_SCALE);
+	m_flames.push_back(m_flame);
+
+	float x = getPosX();
+	float y = getPosY() - 0.35f;
+	m_dungeon->queueMoveSprite(m_flame, x, y, 0.0f);
+}
+void Tree::spriteCleanup() {
+	m_dungeon->queueRemoveSprite(getSprite());
+	setSprite(nullptr);
+
+	for (auto &it : m_flames)
+		m_dungeon->queueRemoveSprite(it);
+}
+
+TreeRoot::TreeRoot(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, TREE_ROOT, "Bone_32x32.png", 0) {
+	setCanBeIgnited(true);
+
+	setSprite(dungeon.createSprite(x, y, 1, getImageName()));
+}
+
+void TreeRoot::activeTrapAction(Actors &a) {
+	if (!m_lit)
+		return;
+
+	int x = getPosX();
+	int y = getPosY();
+
+	if (m_litTurns == 0) {
+		m_dungeon->removeLightSource(x, y, getName());
+		destroyTrap();
+		return;
+	}
+
+	checkBurn(x, y);
+
+	if (m_dungeon->hero(x, y)) {
+		if (m_dungeon->getPlayer()->canBeBurned())
+			m_dungeon->getPlayer()->addAffliction(std::make_shared<Burn>(*m_dungeon->getPlayer(), 6));
+	}
+
+	if (m_dungeon->enemy(x, y)) {
+		int pos = m_dungeon->findMonster(x, y);
+		if (pos != -1)
+			if (m_dungeon->getMonsters().at(pos)->canBeBurned())
+				m_dungeon->giveAffliction(pos, std::make_shared<Burn>(*m_dungeon->getPlayer(), 6));
+	}
+
+	m_litTurns--;
+}
+void TreeRoot::trapAction(Actors &a) {
+	if (a.isFlying())
+		return;
+
+	int roll = 1 + randInt(100) + a.getLuck();
+
+	if (roll <= 10) {
+
+		if (a.canBeStunned()) {
+			playMiss();
+			a.getSprite()->setRotation(90);
+
+			a.addAffliction(std::make_shared<Stun>(1));
+		}
+	}
+}
+void TreeRoot::ignite() {
+	// If already lit, do nothing
+	if (m_lit)
+		return;
+
+	m_lit = true;
+
+	m_dungeon->addLightSource(getPosX(), getPosY(), 3, getName());
+
+	cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("Fire%04d.png", 8);
+	m_flame = m_dungeon->runAnimationForever(frames, 24, getPosX(), getPosY(), 2);
+	m_flame->setScale(0.6f * GLOBAL_SPRITE_SCALE);
+
+	float x = getPosX();
+	float y = getPosY() - 0.35f;
+	m_dungeon->queueMoveSprite(m_flame, x, y, 0.0f);
+}
+void TreeRoot::spriteCleanup() {
+	m_dungeon->queueRemoveSprite(getSprite());
+	setSprite(nullptr);
+
+	if (m_flame != nullptr)
+		m_dungeon->queueRemoveSprite(m_flame);
+}
+
+MalevolentPlant::MalevolentPlant(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, MALEVOLENT_PLANT, "Cheese_Wedge_48x48.png", 4) {
+	setCanBeIgnited(true);
+
+	setSprite(dungeon.createSprite(x, y, 1, getImageName()));
+
+	setWallFlag(true);
+	dungeon[y*dungeon.getCols() + x].wall = true;
+}
+
+void MalevolentPlant::activeTrapAction(Actors &a) {
+	if (randReal(1, 100) > 90) {
+		m_primed = true;
+		return;
+	}
+
+	if (!m_primed)
+		return;
+
+	if (playerIsAdjacent(*m_dungeon->getPlayer(), getPosX(), getPosY(), true)) {
+		m_dungeon->damagePlayer(getDmg());
+	}
+
+	m_primed = false;
+}
+void MalevolentPlant::trapAction(Actors &a) {
+	playSound("Grass2.mp3");
+	destroyTrap();
+}
+void MalevolentPlant::ignite() {
+	int x = getPosX();
+	int y = getPosY();
+
+	if (isDestroyed())
+		return;
+
+	destroyTrap();
+
+	cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
+	m_dungeon->runSingleAnimation(frames, 120, x, y, 2);
+
+	for (int i = x - 1; i < x + 2; i++) {
+		for (int j = y - 1; j < y + 2; j++) {
+
+			if (m_dungeon->enemy(i, j) || m_dungeon->trap(i, j))
+				m_dungeon->runSingleAnimation(frames, 120, i, j, 2);
+
+			checkBurn(i, j);
+
+			if (m_dungeon->enemy(i, j)) {
+				int pos = m_dungeon->findMonster(i, j);
+				if (pos != -1) {
+					if (m_dungeon->getMonsters().at(pos)->canBeBurned())
+						m_dungeon->giveAffliction(pos, std::make_shared<Burn>(*m_dungeon->getPlayer(), 8));					
+				}
+			}
+		}
+	}
+
+	// Create an ember where it was
+	m_dungeon->addTrap(std::make_shared<Ember>(*m_dungeon, x, y, 6 + randInt(3)));
+}
+
 //		FIREBAR
-Firebar::Firebar(Dungeon &dungeon, int x, int y, int rows) : Traps(x, y, FIREBAR, "Firebar_Totem_48x48.png", 5) {
+Firebar::Firebar(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, FIREBAR, "Firebar_Totem_48x48.png", 5) {
 	m_clockwise = randInt(2);
 	m_angle = 1 + randInt(8);
 
@@ -6242,31 +6729,33 @@ Firebar::Firebar(Dungeon &dungeon, int x, int y, int rows) : Traps(x, y, FIREBAR
 
 	setSprite(dungeon.createSprite(x, y, 1, getImageName()));
 
-	setInitialFirePosition(x, y, rows);
+	setInitialFirePosition(x, y);
 
-	setTemporary(false);
 	setActive(true);
 	setWallFlag(true);
 	setExtraSpritesFlag(true);
 	setEmitsLight(true);
+
+	dungeon[y*dungeon.getCols() + x].wall = true;
 }
-Firebar::Firebar(int x, int y, std::string firebar) : Traps(x, y, firebar, "Firebar_Totem_48x48.png", 5) {
+Firebar::Firebar(Dungeon &dungeon, int x, int y, std::string firebar) : Traps(&dungeon, x, y, firebar, "Firebar_Totem_48x48.png", 5) {
 	m_clockwise = randInt(2);
 	m_angle = 1 + randInt(8);
 
-	setTemporary(false);
 	setActive(true);
 	setWallFlag(true);
 	setExtraSpritesFlag(true);
 	setEmitsLight(true);
+
+	dungeon[y*dungeon.getCols() + x].wall = true;
 }
 
-void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
-	int rows = dungeon.getRows();
-	int cols = dungeon.getCols();
+void Firebar::activeTrapAction(Actors &a) {
+	int rows = m_dungeon->getRows();
+	int cols = m_dungeon->getCols();
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
 	int mx = getPosX();
 	int my = getPosY();
@@ -6285,7 +6774,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	if (isClockwise()) {
 		switch (getAngle()) {
 		case 1:
-			setFirePosition(dungeon, 'r');
+			setFirePosition('r');
 
 			if (my == 1) {
 				m_innerFire->getSprite()->setVisible(false);
@@ -6293,7 +6782,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			break;
 		case 2:
-			setFirePosition(dungeon, 'r');
+			setFirePosition('r');
 
 			if (my == 1 || mx == cols - 2) {
 				m_innerFire->getSprite()->setVisible(false);
@@ -6301,7 +6790,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			break;
 		case 3:
-			setFirePosition(dungeon, 'd');
+			setFirePosition('d');
 
 			// if spinner is on the left or right edge boundary, hide the projectiles
 			if (mx == cols - 2) {
@@ -6310,7 +6799,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			break;
 		case 4:
-			setFirePosition(dungeon, 'd');
+			setFirePosition('d');
 
 			// if spinner is on the bottom or right edge boundary, hide the projectiles
 			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2)) || mx == cols - 2) {
@@ -6319,7 +6808,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			break;
 		case 5:
-			setFirePosition(dungeon, 'l');
+			setFirePosition('l');
 
 			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2))) {
 				m_innerFire->getSprite()->setVisible(false);
@@ -6327,7 +6816,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			break;
 		case 6:
-			setFirePosition(dungeon, 'l');
+			setFirePosition('l');
 
 			// if spinner is on the left or bottom edge boundary, hide the projectiles
 			if (my == rows - 2 || mx == 1) {
@@ -6336,7 +6825,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			break;
 		case 7:
-			setFirePosition(dungeon, 'u');
+			setFirePosition('u');
 
 			// if spinner is on the left edge boundary, hide the projectiles
 			if (mx == 1) {
@@ -6345,7 +6834,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			break;
 		case 8:
-			setFirePosition(dungeon, 'u');
+			setFirePosition('u');
 
 			// if spinner is on the left or top edge boundary, hide the projectiles
 			if (!(my != 1 && !(my == 2 && mx == 1)) || mx == 1) {
@@ -6366,7 +6855,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	else {
 		switch (getAngle()) {
 		case 1:
-			setFirePosition(dungeon, 'l');
+			setFirePosition('l');
 
 			if (my == 1) {
 				m_innerFire->getSprite()->setVisible(false);
@@ -6374,7 +6863,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			break;
 		case 2:
-			setFirePosition(dungeon, 'u');
+			setFirePosition('u');
 
 			// if spinner is on the left or right edge boundary, hide the projectiles
 			if (my == 1 || mx == cols - 2) {
@@ -6383,7 +6872,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			break;
 		case 3:
-			setFirePosition(dungeon, 'u');
+			setFirePosition('u');
 
 			// if spinner is on the right edge boundary, hide the projectiles
 			if (mx == cols - 2) {
@@ -6392,7 +6881,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			break;
 		case 4:
-			setFirePosition(dungeon, 'r');
+			setFirePosition('r');
 
 			// if spinner is on the bottom or right edge boundary, hide the projectiles
 			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2)) || mx == cols - 2) {
@@ -6401,7 +6890,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			break;
 		case 5:
-			setFirePosition(dungeon, 'r');
+			setFirePosition('r');
 
 			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2))) {
 				m_innerFire->getSprite()->setVisible(false);
@@ -6409,7 +6898,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			break;
 		case 6:
-			setFirePosition(dungeon, 'd');
+			setFirePosition('d');
 
 			// if spinner is on the left or bottom edge boundary, hide the projectiles
 			if (mx == 1 || my == rows - 2) {
@@ -6418,7 +6907,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			break;
 		case 7:
-			setFirePosition(dungeon, 'd');
+			setFirePosition('d');
 
 			// if spinner is on the left or top edge boundary, hide the projectiles
 			if (!(my != 1 && !(my == 2 && mx == 1)) || mx == 1) {
@@ -6427,7 +6916,7 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			break;
 		case 8:
-			setFirePosition(dungeon, 'l');
+			setFirePosition('l');
 
 			// if spinner is on the left or top edge boundary, hide the projectiles
 			if (!(my != 1 && !(my == 2 && mx == 1)) || mx == 1) {
@@ -6445,17 +6934,17 @@ void Firebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			setAngle(getAngle() - 1);
 	}
 
-	if (playerWasHit(*dungeon.getPlayerVector().at(0))) {
+	if (playerWasHit(*m_dungeon->getPlayerVector().at(0))) {
 		playSound("Fire3.mp3");
 
-		dungeon.damagePlayer(getDmg());
+		m_dungeon->damagePlayer(getDmg());
 
-		if (dungeon.getPlayer()->canBeBurned() && 1 + randInt(100) + dungeon.getPlayer()->getLuck() < 80)
-			a.addAffliction(std::make_shared<Burn>());
+		if (m_dungeon->getPlayer()->canBeBurned() && 1 + randInt(100) + m_dungeon->getPlayer()->getLuck() < 80)
+			a.addAffliction(std::make_shared<Burn>(*m_dungeon->getPlayer(), 5));
 	}
 }
 
-void Firebar::setInitialFirePosition(int x, int y, int rows) {
+void Firebar::setInitialFirePosition(int x, int y) {
 
 	/* 8 1 2
 	*  7 X 3
@@ -6536,83 +7025,12 @@ void Firebar::setInitialFirePosition(int x, int y, int rows) {
 		}
 	}
 
-	// set sprite positions
-	if (isClockwise()) {
-		switch (getAngle()) {
-		case 1:
-			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 2:
-			m_innerFire->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 3:
-			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 4:
-			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 5:
-			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 6:
-			m_innerFire->getSprite()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 7:
-			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 8:
-			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		}
-	}
-	else {
-		switch (getAngle()) {
-		case 1:
-			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 2:
-			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 3:
-			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 4:
-			m_innerFire->getSprite()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 5:
-			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 6:
-			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 7:
-			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 8:
-			m_innerFire->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		}
-	}
+	m_dungeon->queueMoveSprite(m_innerFire->getSprite(), m_innerFire->getPosX(), m_innerFire->getPosY());
+	m_dungeon->queueMoveSprite(m_outerFire->getSprite(), m_outerFire->getPosX(), m_outerFire->getPosY());
 
 	setSpriteVisibility(false);
 }
-void Firebar::setFirePosition(Dungeon &dungeon, char move) {
+void Firebar::setFirePosition(char move) {
 	switch (move) {
 	case 'l':
 		m_innerFire->setPosX(m_innerFire->getPosX() - 1);
@@ -6632,22 +7050,12 @@ void Firebar::setFirePosition(Dungeon &dungeon, char move) {
 		break;
 	}
 
-	dungeon.queueMoveSprite(m_innerFire->getSprite(), m_innerFire->getPosX(), m_innerFire->getPosY());
-	dungeon.queueMoveSprite(m_outerFire->getSprite(), m_outerFire->getPosX(), m_outerFire->getPosY());
+	m_dungeon->queueMoveSprite(m_innerFire->getSprite(), m_innerFire->getPosX(), m_innerFire->getPosY());
+	m_dungeon->queueMoveSprite(m_outerFire->getSprite(), m_outerFire->getPosX(), m_outerFire->getPosY());
 
 }
 
-int Firebar::getAngle() const {
-	return m_angle;
-}
-void Firebar::setAngle(int angle) {
-	m_angle = angle;
-}
-bool Firebar::isClockwise() const {
-	return m_clockwise;
-}
-
-bool Firebar::playerWasHit(const Actors &a) {
+bool Firebar::playerWasHit(const Actors &a) const {
 	if ((m_innerFire->getPosX() == a.getPosX() && m_innerFire->getPosY() == a.getPosY()) ||
 		(m_outerFire->getPosX() == a.getPosX() && m_outerFire->getPosY() == a.getPosY()))
 		return true;
@@ -6664,23 +7072,23 @@ void Firebar::setSpriteVisibility(bool visible) {
 	m_outerFire->getSprite()->setVisible(visible);
 }
 
-void Firebar::spriteCleanup(Dungeon &dungeon) {
+void Firebar::spriteCleanup() {
 	if (getSprite() != nullptr) {
-		dungeon.queueRemoveSprite(getSprite());
+		m_dungeon->queueRemoveSprite(getSprite());
 		setSprite(nullptr);
 	}
 
 	if (m_innerFire != nullptr) {
-		dungeon.queueRemoveSprite(m_innerFire->getSprite());
+		m_dungeon->queueRemoveSprite(m_innerFire->getSprite());
 	}
 
 	if (m_outerFire != nullptr) {
-		dungeon.queueRemoveSprite(m_outerFire->getSprite());
+		m_dungeon->queueRemoveSprite(m_outerFire->getSprite());
 	}
 }
 
 //		DOUBLE FIREBAR
-DoubleFirebar::DoubleFirebar(Dungeon &dungeon, int x, int y, int rows) : Firebar(x, y, DOUBLE_FIREBAR) {
+DoubleFirebar::DoubleFirebar(Dungeon &dungeon, int x, int y) : Firebar(dungeon, x, y, DOUBLE_FIREBAR) {
 	auto inner = dungeon.createSprite(x, y, 0, "Spinner_Buddy_48x48.png");
 	auto outer = dungeon.createSprite(x, y, 0, "Spinner_Buddy_48x48.png");
 	auto innerMirror = dungeon.createSprite(x, y, 0, "Spinner_Buddy_48x48.png");
@@ -6697,15 +7105,15 @@ DoubleFirebar::DoubleFirebar(Dungeon &dungeon, int x, int y, int rows) : Firebar
 
 	setSprite(dungeon.createSprite(x, y, 1, getImageName()));
 
-	setInitialFirePosition(x, y, rows);
+	setInitialFirePosition(x, y);
 }
 
-void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
-	int maxrows = dungeon.getRows();
-	int maxcols = dungeon.getCols();
+void DoubleFirebar::activeTrapAction(Actors &a) {
+	int rows = m_dungeon->getRows();
+	int cols = m_dungeon->getCols();
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
 	int mx = getPosX();
 	int my = getPosY();
@@ -6723,19 +7131,14 @@ void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	if (isClockwise()) {
 		switch (getAngle()) {
 		case 1: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'r');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'R');
-			setFirePosition(dungeon, 'r');
+			setFirePosition('r');
 
 			if (my == 1) {
 				m_innerFire->getSprite()->setVisible(false);
 				m_outerFire->getSprite()->setVisible(false);
 			}
-			// opposite fire buddies
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'l');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'L');
 
-			if (!(my != maxrows - 2 && !(my == maxrows - 3 && mx == maxcols - 2))) {
+			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2))) {
 				m_innerFireMirror->getSprite()->setVisible(false);
 				m_outerFireMirror->getSprite()->setVisible(false);
 			}
@@ -6743,41 +7146,28 @@ void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		}
 				break;
 		case 2: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'r');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'R');
-
-			setFirePosition(dungeon, 'r');
+			setFirePosition('r');
 			// if firebar is on the left or right edge boundary, hide the projectiles
-			if (my == 1 || mx == maxcols - 2) {
+			if (my == 1 || mx == cols - 2) {
 				m_innerFire->getSprite()->setVisible(false);
 				m_outerFire->getSprite()->setVisible(false);
 			}
 
-			// opposite
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'l');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'L');
 
 			// if firebar is on the left or bottom edge boundary, hide the projectiles
-			if (my == maxrows - 2 || mx == 1) {
+			if (my == rows - 2 || mx == 1) {
 				m_innerFireMirror->getSprite()->setVisible(false);
 				m_outerFireMirror->getSprite()->setVisible(false);
 			}
 		}
 				break;
 		case 3: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'd');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'D');
-
-			setFirePosition(dungeon, 'd');
+			setFirePosition('d');
 			// if firebar is on the left or right edge boundary, hide the projectiles
-			if (mx == maxcols - 2) {
+			if (mx == cols - 2) {
 				m_innerFire->getSprite()->setVisible(false);
 				m_outerFire->getSprite()->setVisible(false);
 			}
-
-			// opposite
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'u');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'U');
 
 			// if firebar is on the left edge boundary, hide the projectiles
 			if (mx == 1) {
@@ -6787,20 +7177,13 @@ void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		}
 				break;
 		case 4: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'd');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'D');
-
-			setFirePosition(dungeon, 'd');
+			setFirePosition('d');
 
 			// if firebar is on the bottom or right edge boundary, hide the projectiles
-			if (!(my != maxrows - 2 && !(my == maxrows - 3 && mx == maxcols - 2)) || mx == maxcols - 2) {
+			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2)) || mx == cols - 2) {
 				m_innerFire->getSprite()->setVisible(false);
 				m_outerFire->getSprite()->setVisible(false);
 			}
-
-			// opposite
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'u');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'U');
 
 			// if firebar is on the left or top edge boundary, hide the projectiles
 			if (!(my != 1 && !(my == 2 && mx == 1)) || mx == 1) {
@@ -6810,19 +7193,12 @@ void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		}
 				break;
 		case 5: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'l');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'L');
+			setFirePosition('l');
 
-			setFirePosition(dungeon, 'l');
-
-			if (!(my != maxrows - 2 && !(my == maxrows - 3 && mx == maxcols - 2))) {
+			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2))) {
 				m_innerFire->getSprite()->setVisible(false);
 				m_outerFire->getSprite()->setVisible(false);
 			}
-			// opposite fire
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'r');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'R');
-
 			if (my == 1) {
 				m_innerFireMirror->getSprite()->setVisible(false);
 				m_outerFireMirror->getSprite()->setVisible(false);
@@ -6830,31 +7206,23 @@ void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		}
 				break;
 		case 6: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'l');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'L');
-			setFirePosition(dungeon, 'l');
+			setFirePosition('l');
 
 			// if firebar is on the left or bottom edge boundary, hide the projectiles
-			if (my == maxrows - 2 || mx == 1) {
+			if (my == rows - 2 || mx == 1) {
 				m_innerFire->getSprite()->setVisible(false);
 				m_outerFire->getSprite()->setVisible(false);
 			}
 
-			// opposite
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'r');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'R');
-
 			// if firebar is on the left or right edge boundary, hide the projectiles
-			if (my == 1 || mx == maxcols - 2) {
+			if (my == 1 || mx == cols - 2) {
 				m_innerFireMirror->getSprite()->setVisible(false);
 				m_outerFireMirror->getSprite()->setVisible(false);
 			}
 		}
 				break;
 		case 7: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'u');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'U');
-			setFirePosition(dungeon, 'u');
+			setFirePosition('u');
 
 			// if firebar is on the left edge boundary, hide the projectiles
 			if (mx == 1) {
@@ -6862,21 +7230,15 @@ void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 				m_outerFire->getSprite()->setVisible(false);
 			}
 
-			// opposite
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'd');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'D');
-
 			// if firebar is on the left or right edge boundary, hide the projectiles
-			if (mx == maxcols - 2) {
+			if (mx == cols - 2) {
 				m_innerFireMirror->getSprite()->setVisible(false);
 				m_outerFireMirror->getSprite()->setVisible(false);
 			}
 		}
 				break;
 		case 8: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'u');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'U');
-			setFirePosition(dungeon, 'u');
+			setFirePosition('u');
 
 			// if firebar is on the left or top edge boundary, hide the projectiles
 			if (!(my != 1 && !(my == 2 && mx == 1)) || mx == 1) {
@@ -6884,12 +7246,8 @@ void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 				m_outerFire->getSprite()->setVisible(false);
 			}
 
-			// opposite
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'd');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'D');
-
 			// if firebar is on the bottom or right edge boundary, hide the projectiles
-			if (!(my != maxrows - 2 && !(my == maxrows - 3 && mx == maxcols - 2)) || mx == maxcols - 2) {
+			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2)) || mx == cols - 2) {
 				m_innerFireMirror->getSprite()->setVisible(false);
 				m_outerFireMirror->getSprite()->setVisible(false);
 			}
@@ -6907,61 +7265,43 @@ void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	else {
 		switch (getAngle()) {
 		case 1: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'l');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'L');
-			setFirePosition(dungeon, 'l');
+			setFirePosition('l');
 
 			if (my == 1) {
 				m_innerFire->getSprite()->setVisible(false);
 				m_outerFire->getSprite()->setVisible(false);
 			}
 
-			// opposite
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'r');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'R');
-
-			if (!(my != maxrows - 2 && !(my == maxrows - 3 && mx == maxcols - 2))) {
+			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2))) {
 				m_innerFireMirror->getSprite()->setVisible(false);
 				m_outerFireMirror->getSprite()->setVisible(false);
 			}
 		}
 				break;
 		case 2: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'u');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'U');
-			setFirePosition(dungeon, 'u');
+			setFirePosition('u');
 
 			// if firebar is on the left or right edge boundary, hide the projectiles
-			if (my == 1 || mx == maxcols - 2) {
+			if (my == 1 || mx == cols - 2) {
 				m_innerFire->getSprite()->setVisible(false);
 				m_outerFire->getSprite()->setVisible(false);
 			}
 
-			// opposite
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'd');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'D');
-
 			// if firebar is on the left or bottom edge boundary, hide the projectiles
-			if (mx == 1 || my == maxrows - 2) {
+			if (mx == 1 || my == rows - 2) {
 				m_innerFireMirror->getSprite()->setVisible(false);
 				m_outerFireMirror->getSprite()->setVisible(false);
 			}
 		}
 				break;
 		case 3: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'u');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'U');
-			setFirePosition(dungeon, 'u');
+			setFirePosition('u');
 
 			// if firebar is on the right edge boundary, hide the projectiles
-			if (mx == maxcols - 2) {
+			if (mx == cols - 2) {
 				m_innerFire->getSprite()->setVisible(false);
 				m_outerFire->getSprite()->setVisible(false);
 			}
-
-			// opposite
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'd');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'D');
 
 			// if firebar is on the left or top edge boundary, hide the projectiles
 			if (!(my != 1 && !(my == 2 && mx == 1)) || mx == 1) {
@@ -6971,19 +7311,13 @@ void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		}
 				break;
 		case 4: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'r');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'R');
-			setFirePosition(dungeon, 'r');
+			setFirePosition('r');
 
 			// if firebar is on the bottom or right edge boundary, hide the projectiles
-			if (!(my != maxrows - 2 && !(my == maxrows - 3 && mx == maxcols - 2)) || mx == maxcols - 2) {
+			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2)) || mx == cols - 2) {
 				m_innerFire->getSprite()->setVisible(false);
 				m_outerFire->getSprite()->setVisible(false);
 			}
-
-			// opposite
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'l');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'L');
 
 			// if firebar is on the left or top edge boundary, hide the projectiles
 			if (!(my != 1 && !(my == 2 && mx == 1)) || mx == 1) {
@@ -6993,19 +7327,12 @@ void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		}
 				break;
 		case 5: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'r');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'R');
-			setFirePosition(dungeon, 'r');
+			setFirePosition('r');
 
-			if (!(my != maxrows - 2 && !(my == maxrows - 3 && mx == maxcols - 2))) {
+			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2))) {
 				m_innerFire->getSprite()->setVisible(false);
 				m_outerFire->getSprite()->setVisible(false);
 			}
-
-			// opposite
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'l');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'L');
-
 
 			if (my == 1) {
 				m_innerFireMirror->getSprite()->setVisible(false);
@@ -7014,31 +7341,23 @@ void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		}
 				break;
 		case 6: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'd');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'D');
-			setFirePosition(dungeon, 'd');
+			setFirePosition('d');
 
 			// if firebar is on the left or bottom edge boundary, hide the projectiles
-			if (mx == 1 || my == maxrows - 2) {
+			if (mx == 1 || my == rows - 2) {
 				m_innerFire->getSprite()->setVisible(false);
 				m_outerFire->getSprite()->setVisible(false);
 			}
 
-			// opposite
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'u');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'U');
-
 			// if firebar is on the left or right edge boundary, hide the projectiles
-			if (my == 1 || mx == maxcols - 2) {
+			if (my == 1 || mx == cols - 2) {
 				m_innerFireMirror->getSprite()->setVisible(false);
 				m_outerFireMirror->getSprite()->setVisible(false);
 			}
 		}
 				break;
 		case 7: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'd');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'D');
-			setFirePosition(dungeon, 'd');
+			setFirePosition('d');
 
 			// if firebar is on the left or top edge boundary, hide the projectiles
 			if (!(my != 1 && !(my == 2 && mx == 1)) || mx == 1) {
@@ -7046,21 +7365,15 @@ void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 				m_outerFire->getSprite()->setVisible(false);
 			}
 
-			// opposite
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'u');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'U');
-
 			// if firebar is on the right edge boundary, hide the projectiles
-			if (mx == maxcols - 2) {
+			if (mx == cols - 2) {
 				m_innerFireMirror->getSprite()->setVisible(false);
 				m_outerFireMirror->getSprite()->setVisible(false);
 			}
 		}
 				break;
 		case 8: {
-			//dungeon.queueMoveSprite(m_innerFire->getSprite(), 'l');
-			//dungeon.queueMoveSprite(m_outerFire->getSprite(), 'L');
-			setFirePosition(dungeon, 'l');
+			setFirePosition('l');
 
 			// if firebar is on the left or top edge boundary, hide the projectiles
 			if (!(my != 1 && !(my == 2 && mx == 1)) || mx == 1) {
@@ -7068,12 +7381,8 @@ void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 				m_outerFire->getSprite()->setVisible(false);
 			}
 
-			// opposite
-			//dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), 'r');
-			//dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), 'R');
-
 			// if firebar is on the bottom or right edge boundary, hide the projectiles
-			if (!(my != maxrows - 2 && !(my == maxrows - 3 && mx == maxcols - 2)) || mx == maxcols - 2) {
+			if (!(my != rows - 2 && !(my == rows - 3 && mx == cols - 2)) || mx == cols - 2) {
 				m_innerFireMirror->getSprite()->setVisible(false);
 				m_outerFireMirror->getSprite()->setVisible(false);
 			}
@@ -7088,17 +7397,17 @@ void DoubleFirebar::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			setAngle(getAngle() - 1);
 	}
 
-	if (playerWasHit(*dungeon.getPlayerVector().at(0))) {
+	if (playerWasHit(*m_dungeon->getPlayerVector().at(0))) {
 		playSound("Fire3.mp3");
 
-		dungeon.damagePlayer(getDmg());
+		m_dungeon->damagePlayer(getDmg());
 
-		if (dungeon.getPlayer()->canBeBurned() && 1 + randInt(100) + dungeon.getPlayer()->getLuck() < 80)
-			a.addAffliction(std::make_shared<Burn>());
+		if (m_dungeon->getPlayer()->canBeBurned() && 1 + randInt(100) + m_dungeon->getPlayer()->getLuck() < 80)
+			a.addAffliction(std::make_shared<Burn>(*m_dungeon->getPlayer(), 5));
 	}
 }
 
-void DoubleFirebar::setInitialFirePosition(int x, int y, int rows) {
+void DoubleFirebar::setInitialFirePosition(int x, int y) {
 	if (isClockwise()) {
 		switch (getAngle()) {
 		case 1:
@@ -7220,131 +7529,14 @@ void DoubleFirebar::setInitialFirePosition(int x, int y, int rows) {
 		}
 	}
 
-	// set sprite positions
-	if (isClockwise()) {
-		switch (getAngle()) {
-		case 1:
-			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 2:
-			m_innerFire->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 3:
-			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 4:
-			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 5:
-			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 6:
-			m_innerFire->getSprite()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 7:
-			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 8:
-			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
-			break;
-		}
-	}
-	else {
-		switch (getAngle()) {
-		case 1:
-			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 2:
-			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 3:
-			m_innerFire->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 4:
-			m_innerFire->getSprite()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 5:
-			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 6:
-			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y))*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - y)*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 7:
-			m_innerFire->getSprite()->setPosition((x - 1) * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition((x - 2) * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition((x + 1) * SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition((x + 2) * SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		case 8:
-			m_innerFire->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFire->getSprite()->setPosition(x * SPACING_FACTOR - X_OFFSET, (rows - (y - 2))*SPACING_FACTOR - Y_OFFSET);
-			// opposite
-			m_innerFireMirror->getSprite()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 1))*SPACING_FACTOR - Y_OFFSET);
-			m_outerFireMirror->getSprite()->setPosition((x)* SPACING_FACTOR - X_OFFSET, (rows - (y + 2))*SPACING_FACTOR - Y_OFFSET);
-			break;
-		}
-	}
+	m_dungeon->queueMoveSprite(m_innerFire->getSprite(), m_innerFire->getPosX(), m_innerFire->getPosY());
+	m_dungeon->queueMoveSprite(m_outerFire->getSprite(), m_outerFire->getPosX(), m_outerFire->getPosY());
+	m_dungeon->queueMoveSprite(m_innerFireMirror->getSprite(), m_innerFireMirror->getPosX(), m_innerFireMirror->getPosY());
+	m_dungeon->queueMoveSprite(m_outerFireMirror->getSprite(), m_outerFireMirror->getPosX(), m_outerFireMirror->getPosY());
 
 	setSpriteVisibility(false);
 }
-bool DoubleFirebar::playerWasHit(const Actors &a) {
+bool DoubleFirebar::playerWasHit(const Actors &a) const {
 	if ((m_innerFire->getPosX() == a.getPosX() && m_innerFire->getPosY() == a.getPosY()) ||
 		(m_outerFire->getPosX() == a.getPosX() && m_outerFire->getPosY() == a.getPosY()) ||
 		(m_innerFireMirror->getPosX() == a.getPosX() && m_innerFireMirror->getPosY() == a.getPosY()) ||
@@ -7353,7 +7545,7 @@ bool DoubleFirebar::playerWasHit(const Actors &a) {
 
 	return false;
 }
-void DoubleFirebar::setFirePosition(Dungeon &dungeon, char move) {
+void DoubleFirebar::setFirePosition(char move) {
 	switch (move) {
 	case 'l':
 		m_innerFire->setPosX(m_innerFire->getPosX() - 1);
@@ -7381,10 +7573,10 @@ void DoubleFirebar::setFirePosition(Dungeon &dungeon, char move) {
 		break;
 	}
 
-	dungeon.queueMoveSprite(m_innerFire->getSprite(), m_innerFire->getPosX(), m_innerFire->getPosY());
-	dungeon.queueMoveSprite(m_outerFire->getSprite(), m_outerFire->getPosX(), m_outerFire->getPosY());
-	dungeon.queueMoveSprite(m_innerFireMirror->getSprite(), m_innerFireMirror->getPosX(), m_innerFireMirror->getPosY());
-	dungeon.queueMoveSprite(m_outerFireMirror->getSprite(), m_outerFireMirror->getPosX(), m_outerFireMirror->getPosY());
+	m_dungeon->queueMoveSprite(m_innerFire->getSprite(), m_innerFire->getPosX(), m_innerFire->getPosY());
+	m_dungeon->queueMoveSprite(m_outerFire->getSprite(), m_outerFire->getPosX(), m_outerFire->getPosY());
+	m_dungeon->queueMoveSprite(m_innerFireMirror->getSprite(), m_innerFireMirror->getPosX(), m_innerFireMirror->getPosY());
+	m_dungeon->queueMoveSprite(m_outerFireMirror->getSprite(), m_outerFireMirror->getPosX(), m_outerFireMirror->getPosY());
 }
 
 void DoubleFirebar::setSpriteColor(cocos2d::Color3B color) {
@@ -7400,39 +7592,52 @@ void DoubleFirebar::setSpriteVisibility(bool visible) {
 	m_outerFireMirror->getSprite()->setVisible(visible);
 }
 
-void DoubleFirebar::spriteCleanup(Dungeon &dungeon) {
+void DoubleFirebar::spriteCleanup() {
 	if (getSprite() != nullptr) {
-		dungeon.queueRemoveSprite(getSprite());
+		m_dungeon->queueRemoveSprite(getSprite());
 		setSprite(nullptr);
 	}
 
 	if (m_innerFire != nullptr) {
-		dungeon.queueRemoveSprite(m_innerFire->getSprite());
+		m_dungeon->queueRemoveSprite(m_innerFire->getSprite());
 	}
 
 	if (m_outerFire != nullptr) {
-		dungeon.queueRemoveSprite(m_outerFire->getSprite());
+		m_dungeon->queueRemoveSprite(m_outerFire->getSprite());
 	}
 
 	if (m_innerFireMirror != nullptr) {
-		dungeon.queueRemoveSprite(m_innerFireMirror->getSprite());
+		m_dungeon->queueRemoveSprite(m_innerFireMirror->getSprite());
 	}
 
 	if (m_outerFireMirror != nullptr) {
-		dungeon.queueRemoveSprite(m_outerFireMirror->getSprite());
+		m_dungeon->queueRemoveSprite(m_outerFireMirror->getSprite());
 	}
 }
 
 //		LAVA
-Lava::Lava(Dungeon &dungeon, int x, int y) : Traps(x, y, "Lava", "Lava_Tile1_48x48.png", 8) {
-	setTemporary(false);
+Lava::Lava(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, LAVA, "Lava_Tile1_48x48.png", 8) {
 	setActive(false);
 	setLethal(true);
 
 	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
 }
 
-void Lava::trapAction(Dungeon &dungeon, Actors &a) {
+void Lava::activeTrapAction(Actors &a) {
+	int x = getPosX();
+	int y = getPosY();
+
+	if (m_dungeon->hero(x, y)) {
+		trapAction(*m_dungeon->getPlayer());
+	}
+
+	if (m_dungeon->enemy(x, y)) {
+		int pos = m_dungeon->findMonster(x, y);
+		if (pos != -1)
+			trapAction(*m_dungeon->getMonsters().at(pos));
+	}
+}
+void Lava::trapAction(Actors &a) {
 	if (!a.isFlying()) {
 		// lava sound
 		if (a.isPlayer())
@@ -7443,7 +7648,7 @@ void Lava::trapAction(Dungeon &dungeon, Actors &a) {
 	if (!(a.lavaImmune() || a.isFlying())) {
 
 		if (a.isPlayer())
-			dungeon.damagePlayer(getDmg());
+			m_dungeon->damagePlayer(getDmg());
 		else
 			a.setHP(a.getHP() - getDmg());
 
@@ -7456,14 +7661,191 @@ void Lava::trapAction(Dungeon &dungeon, Actors &a) {
 			// failed the save roll
 			if (roll < 100) {
 				a.setBurned(true);
-				a.addAffliction(std::make_shared<Burn>());
+				a.addAffliction(std::make_shared<Burn>(*m_dungeon->getPlayer(), 8));
 			}
 		}
 	}
 }
 
+//		MAGMA TIDE
+MagmaTide::MagmaTide(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, MAGMA_TIDE, "Lava_Tile1_48x48.png", 8) {
+	setLethal(true);
+
+	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
+	//getSprite()->setScale(2.4f);
+
+	m_wait = 8 + randInt(5);
+	m_maxWait = m_wait;
+
+	m_stage = 1 + randInt(7);
+}
+
+void MagmaTide::activeTrapAction(Actors &a) {
+	int x = getPosX();
+	int y = getPosY();
+
+	if (m_wait > 0)
+		m_wait--;
+
+	if (m_wait == 0) {
+
+		if (m_stage == 6)
+			m_stage = 1;
+		else
+			m_stage++;
+
+		float scaleFactor = GLOBAL_SPRITE_SCALE;
+		switch (m_stage) {
+		case 1: scaleFactor = GLOBAL_SPRITE_SCALE; m_wait = m_maxWait; break;
+		case 2: scaleFactor = 2.4f; m_wait = 1; break;
+		case 3: scaleFactor = GLOBAL_SPRITE_SCALE; m_wait = 1; break;
+		case 4: scaleFactor = 2.4f; m_wait = 1; break;
+		case 5: scaleFactor = 4.0f; m_wait = m_maxWait; break;
+		case 6: scaleFactor = 2.4f; m_wait = 1; break;
+		}
+
+		m_dungeon->queueCustomAction(getSprite(), cocos2d::ScaleTo::create(0.1f, scaleFactor));
+
+		//m_expanded = !m_expanded;
+
+		/*if (m_expanded)
+			m_dungeon->queueCustomAction(getSprite(), cocos2d::ScaleTo::create(0.1f, 4.0f));
+		else
+			m_dungeon->queueCustomAction(getSprite(), cocos2d::ScaleTo::create(0.1f, 2.4f));*/
+
+		//m_wait = m_maxWait;
+	}
+
+	int range = 0;
+
+	switch (m_stage) {
+	case 1: range = 0; break;
+	case 2: range = 1; break;
+	case 3: range = 0; break;
+	case 4: range = 1; break;
+	case 5: range = 2; break;
+	case 6: range = 1; break;
+	}
+	
+	//int range = (m_expanded ? 2 : 1);
+
+	for (int i = x - range; i < x + range + 1; i++) {
+		for (int j = y - range; j < y + range + 1; j++) {
+
+			if (!m_dungeon->withinBounds(i, j))
+				continue;
+
+			if (m_dungeon->enemy(i, j)) {
+				int pos = m_dungeon->findMonster(i, j);
+				if (pos != -1)
+					trapAction(*m_dungeon->getMonsters().at(pos));				
+			}
+
+			if (m_dungeon->hero(i, j))
+				trapAction(*m_dungeon->getPlayer());
+
+			checkBurn(i, j);
+		}
+	}
+}
+void MagmaTide::trapAction(Actors &a) {
+	if (!a.isFlying()) {
+		// lava sound
+		if (a.isPlayer())
+			playSound("Fire4.mp3");
+	}
+
+	// if not immune to lava or flying, then burn them
+	if (!(a.lavaImmune() || a.isFlying())) {
+
+		if (a.isPlayer())
+			m_dungeon->damagePlayer(getDmg());
+		else
+			a.setHP(a.getHP() - getDmg());
+
+		// if actor is still alive and can be burned
+		if (a.getHP() > 0 && a.canBeBurned()) {
+
+			// chance to burn
+			int roll = randInt(100) - a.getLuck();
+
+			// failed the save roll
+			if (roll < 100) {
+				a.setBurned(true);
+				a.addAffliction(std::make_shared<Burn>(*m_dungeon->getPlayer(), 8));
+			}
+		}
+	}
+}
+
+//		MOLTEN PILLAR
+MoltenPillar::MoltenPillar(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, MOLTEN_PILLAR, "Ruby_48x48.png", 0) {
+	m_maxWait = m_wait;
+	setWallFlag(true);
+	setDestructible(true);
+	setSprite(dungeon.createSprite(x, y, 1, getImageName()));
+
+	dungeon.addLightSource(x, y, 4, getName());
+	dungeon[y*dungeon.getCols() + x].wall = true;
+}
+
+void MoltenPillar::activeTrapAction(Actors &a) {
+
+	int x = getPosX();
+	int y = getPosY();
+
+	if (m_wait > 0)
+		m_wait--;
+
+	if (m_wait == 0) {
+		if (m_stage == 2)
+			m_stage = 1;
+		else
+			m_stage++;
+
+		m_wait = m_maxWait;
+	}
+	else
+		return;
+
+	double strength;
+	switch (m_stage) {
+	case 1: strength = 3; break;
+	case 2: strength = 4; break;
+	}
+
+	m_dungeon->removeLightSource(x, y, getName());
+	m_dungeon->addLightSource(x, y, strength, getName());
+}
+void MoltenPillar::trapAction(Actors &a) {
+	playHitSmasher();
+
+	if (a.getStr() >= m_strengthCutoff) {
+		m_strength--;
+	}
+
+	if (m_strength == 0) {
+		destroyTrap();
+	}
+}
+void MoltenPillar::drops() {
+	int x = getPosX();
+	int y = getPosY();
+
+	m_dungeon->addTrap(std::make_shared<Lava>(*m_dungeon, x, y));
+
+	if (randReal(1, 100) + m_dungeon->getPlayer()->getLuck() > 98) {
+		int cols = m_dungeon->getCols();
+
+		(*m_dungeon)[y*cols + x].object = std::make_shared<MagmaHeart>(x, y);
+		(*m_dungeon)[y*cols + x].object->setSprite(m_dungeon->createSprite(x, y, -1, (*m_dungeon)[y*cols + x].object->getImageName()));
+		(*m_dungeon)[y*cols + x].item = true;
+		m_dungeon->addItem((*m_dungeon)[y*cols + x].object);
+	}
+}
+
 //		SPRINGS
-Spring::Spring(Dungeon &dungeon, int x, int y, bool trigger, char move) : Traps(x, y, SPRING, "Spring_Arrow_Left_48x48.png", 0) {
+Spring::Spring(Dungeon &dungeon, int x, int y, bool trigger, char move) : Traps(&dungeon, x, y, SPRING, "Spring_Arrow_Left_48x48.png", 0) {
 	/* Move key:
 	*  2 u 1
 	*  l x r
@@ -7497,7 +7879,6 @@ Spring::Spring(Dungeon &dungeon, int x, int y, bool trigger, char move) : Traps(
 	m_isTrigger = trigger;
 	m_triggered = false;
 	m_multidirectional = false;
-	setTemporary(false);
 	setActive(trigger); // if it's a trigger, then it's active
 	setDestructible(true);
 
@@ -7518,8 +7899,10 @@ Spring::Spring(Dungeon &dungeon, int x, int y, bool trigger, char move) : Traps(
 
 	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
 	getSprite()->setScale(0.5f);
+
+	oppositeSprings();
 }
-Spring::Spring(Dungeon &dungeon, int x, int y, bool trigger, bool known, bool cardinal) : Traps(x, y, SPRING, "Spring_Arrow_Left_48x48.png", 0) {
+Spring::Spring(Dungeon &dungeon, int x, int y, bool trigger, bool known, bool cardinal) : Traps(&dungeon, x, y, SPRING, "Spring_Arrow_Left_48x48.png", 0) {
 	/* Move key:
 	*  2 u 1
 	*  l x r
@@ -7547,7 +7930,6 @@ Spring::Spring(Dungeon &dungeon, int x, int y, bool trigger, bool known, bool ca
 	m_isTrigger = trigger;
 	m_triggered = false;
 	m_multidirectional = true;
-	setTemporary(false);
 	setActive(trigger); // if it's a trigger, then it's active
 	setDestructible(true);
 
@@ -7555,16 +7937,18 @@ Spring::Spring(Dungeon &dungeon, int x, int y, bool trigger, bool known, bool ca
 
 	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
 	getSprite()->setScale(0.5f);
+
+	oppositeSprings();
 }
 
-void Spring::activeTrapAction(Dungeon &dungeon, Actors &a) {
+void Spring::activeTrapAction(Actors &a) {
 	int x = a.getPosX();
 	int y = a.getPosY();
 
 	int tx = getPosX();
 	int ty = getPosY();
 
-	int cols = dungeon.getCols();
+	int cols = m_dungeon->getCols();
 
 	// if it's not a trigger, return
 	if (!isTrigger())
@@ -7656,9 +8040,9 @@ void Spring::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		}
 	}
 
-	wall = dungeon[(y + m)*cols + x + n].wall;
-	enemy = dungeon[(y + m)*cols + x + n].enemy;
-	hero = dungeon[(y + m)*cols + x + n].hero;
+	wall = m_dungeon->wall(x + n, y + m);
+	enemy = m_dungeon->enemy(x + n, y + m);
+	hero = m_dungeon->hero(x + n, y + m);
 
 	// if space is free, move the actor there
 	if (a.isPlayer()) {
@@ -7666,35 +8050,35 @@ void Spring::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			// play trigger sound effect
 			playSound("Spring_Bounce.mp3", x, y, tx, ty);
 
-			a.moveTo(dungeon, x + n, y + m);
+			a.moveTo(x + n, y + m);
 
 			// check if there was a trap at this position
-			if (dungeon[(y + m)*cols + x + n].trap)
-				dungeon.trapEncounter(x + n, y + m);			
+			if (m_dungeon->trap(x + n, y + m))
+				m_dungeon->trapEncounter(x + n, y + m);			
 		}
 	}
 	// else it was a monster
 	else {
 		if (!(wall || enemy || hero)) {
 			// play trigger sound effect
-			playSound("Spring_Bounce.mp3", dungeon.getPlayer()->getPosX(), dungeon.getPlayer()->getPosY(), tx, ty);
+			playSound("Spring_Bounce.mp3", m_dungeon->getPlayer()->getPosX(), m_dungeon->getPlayer()->getPosY(), tx, ty);
 
-			a.moveTo(dungeon, x + n, y + m);
+			a.moveTo(x + n, y + m);
 
 			// Check if there was a trap at this position
-			if (dungeon[(y + m)*cols + x + n].trap)
-				dungeon.singleMonsterTrapEncounter(dungeon.findMonster(a.getPosX(), a.getPosY()));		
+			if (m_dungeon->trap(x + n, y + m))
+				m_dungeon->singleMonsterTrapEncounter(m_dungeon->findMonster(a.getPosX(), a.getPosY()));		
 		}
 	}
 }
-void Spring::trapAction(Dungeon &dungeon, Actors &a) {
+void Spring::trapAction(Actors &a) {
 	int x = a.getPosX();
 	int y = a.getPosY();
 
 	int tx = getPosX();
 	int ty = getPosY();
 
-	int cols = dungeon.getCols();
+	int cols = m_dungeon->getCols();
 
 	// if actor is flying, return
 	if (a.isFlying() || a.isHeavy())
@@ -7713,7 +8097,7 @@ void Spring::trapAction(Dungeon &dungeon, Actors &a) {
 		// if actor is on the same tile as the spring, trigger it
 		if (tx == x && ty == y && !triggered()) {
 			// play trigger sound effect
-			cocos2d::experimental::AudioEngine::play2d("Spring_Trigger.mp3", false, 1.0f);
+			playSound("Spring_Trigger.mp3");
 
 			m_triggered = true;
 
@@ -7785,58 +8169,46 @@ void Spring::trapAction(Dungeon &dungeon, Actors &a) {
 		}
 	}
 
-	wall = dungeon[(y + m)*cols + x + n].wall;
-	enemy = dungeon[(y + m)*cols + x + n].enemy;
-	hero = dungeon[(y + m)*cols + x + n].hero;
+	wall = m_dungeon->wall(x + n, y + m);
+	enemy = m_dungeon->enemy(x + n, y + m);
+	hero = m_dungeon->hero(x + n, y + m);
 
 	// if space is free, move the actor there
 	if (a.isPlayer()) {
 		if (!(wall || enemy)) {
 			// play trigger sound effect
-			int px = dungeon.getPlayer()->getPosX();
-			int py = dungeon.getPlayer()->getPosY();
+			int px = m_dungeon->getPlayer()->getPosX();
+			int py = m_dungeon->getPlayer()->getPosY();
 			playSound("Spring_Bounce.mp3", px, py, getPosX(), getPosY());
 
-			a.moveTo(dungeon, x + n, y + m);
+			a.moveTo(x + n, y + m);
 
 			// check if there was a trap at this position
-			if (dungeon[(y + m)*cols + x + n].trap)
-				dungeon.trapEncounter(x + n, y + m);		
+			if (m_dungeon->trap(x + n, y + m))
+				m_dungeon->trapEncounter(x + n, y + m);		
 		}
 	}
 	// else it was a monster
 	else {
 		if (!(wall || enemy || hero)) {
 			// play trigger sound effect
-			int px = dungeon.getPlayer()->getPosX();
-			int py = dungeon.getPlayer()->getPosY();
+			int px = m_dungeon->getPlayer()->getPosX();
+			int py = m_dungeon->getPlayer()->getPosY();
 			playSound("Spring_Bounce.mp3", px, py, getPosX(), getPosY());
 
-			a.moveTo(dungeon, x + n, y + m);
+			a.moveTo(x + n, y + m);
 
 			// Check if there was a trap at this position
-			if (dungeon[(y + m)*cols + x + n].trap)
-				dungeon.singleMonsterTrapEncounter(dungeon.findMonster(a.getPosX(), a.getPosY()));
+			if (m_dungeon->trap(x + n, y + m))
+				m_dungeon->singleMonsterTrapEncounter(m_dungeon->findMonster(a.getPosX(), a.getPosY()));
 		}
 	}
 }
 
-char Spring::getDirection() const {
-	return m_dir;
-}
-void Spring::setDirection(char dir) {
-	m_dir = dir;
-}
-bool Spring::isTrigger() const {
-	return m_isTrigger;
-}
-bool Spring::triggered() const {
-	return m_triggered;
-}
 void Spring::setImage() {
 	// set image name
 	std::string image;
-	switch (getDirection()) {
+	switch (m_dir) {
 	case 'l': image = "Spring_Arrow_Left_48x48.png"; break;
 	case 'r': image = "Spring_Arrow_Right_48x48.png"; break;
 	case 'u': image = "Spring_Arrow_Up_48x48.png"; break;
@@ -7852,15 +8224,6 @@ void Spring::setImage() {
 	}
 	setImageName(image);
 }
-bool Spring::isMultiDirectional() const {
-	return m_multidirectional;
-}
-bool Spring::isAny() const {
-	return m_any;
-}
-bool Spring::isCardinal() const {
-	return m_cardinal;
-}
 bool Spring::isOpposite(const Spring &other) const {
 	char dir1 = getDirection();
 	char dir2 = other.getDirection();
@@ -7875,9 +8238,11 @@ bool Spring::isOpposite(const Spring &other) const {
 	case '3': return dir2 == '1';
 	case '4': return dir2 == '2';
 	}
+
+	return false;
 }
-void Spring::oppositeSprings(Dungeon &dungeon) {
-	int cols = dungeon.getCols();
+void Spring::oppositeSprings() {
+	int cols = m_dungeon->getCols();
 	int x = getPosX();
 	int y = getPosY();
 
@@ -7894,14 +8259,13 @@ void Spring::oppositeSprings(Dungeon &dungeon) {
 	case '4': n = 1, m = 1; break;	// Q4
 	}
 
-	bool isTrap = dungeon[(y + m)*cols + (x + n)].trap;
-	if (isTrap) {
+	if (m_dungeon->trap(x + n, y + m)) {
 
-		int pos = dungeon.findTrap(x + n, y + m);
-		if (pos != -1 && (dungeon.getTraps().at(pos)->getName() == SPRING || dungeon[(y + m)*cols + (x + n)].trap_name == SPRING)) {
+		int pos = m_dungeon->findTrap(x + n, y + m);
+		if (pos != -1 && m_dungeon->getTraps().at(pos)->getName() == SPRING) {
 
 			// while the two springs point toward each other, reroll this spring's direction
-			std::shared_ptr<Spring> spring = std::dynamic_pointer_cast<Spring>(dungeon.getTraps().at(pos));
+			std::shared_ptr<Spring> spring = std::dynamic_pointer_cast<Spring>(m_dungeon->getTraps().at(pos));
 			while (spring->isOpposite(*this)) {
 
 				switch (1 + randInt(8)) {
@@ -7921,15 +8285,14 @@ void Spring::oppositeSprings(Dungeon &dungeon) {
 
 			// if spring had to be turned, recursively check for more springs in the new direction it's facing
 			if (dir != getDirection()) {
-				oppositeSprings(dungeon);
+				oppositeSprings();
 			}
 		}
 	}
 }
 
 //		TURRETS
-Turret::Turret(Dungeon &dungeon, int x, int y, char dir, int range) : Traps(x, y, TURRET, "Spring_Arrow_Left_48x48.png", 4), m_dir(dir), m_range(range), m_triggered(false) {
-	setTemporary(false);
+Turret::Turret(Dungeon &dungeon, int x, int y, char dir, int range) : Traps(&dungeon, x, y, TURRET, "Spring_Arrow_Left_48x48.png", 4), m_dir(dir), m_range(range), m_triggered(false) {
 	setActive(true);
 	setWallFlag(true);
 
@@ -7944,9 +8307,11 @@ Turret::Turret(Dungeon &dungeon, int x, int y, char dir, int range) : Traps(x, y
 	setImageName(image);
 
 	setSprite(dungeon.createSprite(x, y, 1, getImageName()));
+
+	dungeon[y*dungeon.getCols() + x].wall = true;
 }
 
-void Turret::activeTrapAction(Dungeon &dungeon, Actors &a) {
+void Turret::activeTrapAction(Actors &a) {
 	int ax = a.getPosX();
 	int ay = a.getPosY();
 
@@ -7961,74 +8326,25 @@ void Turret::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	}
 
 	// check to get triggered
-	if (!isTriggered()) {
-		switch (m_dir) {
-		case 'l': {
-			// if turret and actor are on the same column, and the actor is within shooting range, and there aren't any walls in the way, get triggered
-			if (ay == ty && tx - ax >= 1 && tx - ax <= m_range && !dungeon.wallCollision('x', ax, tx)) {
-				// play trigger sound effect
-				playSound("Turret_Trigger.mp3");
+	if (!m_triggered) {
 
-				std::string image = "Spring_Arrow_Left_Red_48x48.png";
-				getSprite()->removeFromParent();
-				setSprite(dungeon.createSprite(tx, ty, 1, image));
+		if (hasLineOfSight(*m_dungeon, m_dir, tx, ty, ax, ay) && playerInLinearRange(m_range, tx, ty, ax, ay)) {
+			playSound("Turret_Trigger.mp3");
+			getSprite()->removeFromParent();
 
-				m_triggered = true;
-				return;
+			switch (m_dir) {
+			case 'l': setSprite(m_dungeon->createSprite(tx, ty, 1, "Spring_Arrow_Left_Red_48x48.png")); break;
+			case 'r': setSprite(m_dungeon->createSprite(tx, ty, 1, "Spring_Arrow_Right_Red_48x48.png")); break;
+			case 'u': setSprite(m_dungeon->createSprite(tx, ty, 1, "Spring_Arrow_Up_Red_48x48.png")); break;
+			case 'd': setSprite(m_dungeon->createSprite(tx, ty, 1, "Spring_Arrow_Down_Red_48x48.png")); break;
 			}
-			break;
-		}
-		case 'r': {
-			// if turret and actor are on the same column, and the actor is within shooting range, and there aren't any walls in the way, get triggered
-			if (ay == ty && ax - tx >= 1 && ax - tx <= m_range && !dungeon.wallCollision('x', ax, tx)) {
-				// play trigger sound effect
-				playSound("Turret_Trigger.mp3");
 
-				std::string image = "Spring_Arrow_Right_Red_48x48.png";
-				getSprite()->removeFromParent();
-				setSprite(dungeon.createSprite(tx, ty, 1, image));
-
-				m_triggered = true;
-				return;
-			}
-			break;
-		}
-		case 'u': {
-			// if turret and actor are on the same row, and the actor is within shooting range, and there aren't any walls in the way, get triggered
-			if (ax == tx && ty - ay >= 1 && ty - ay <= m_range && !dungeon.wallCollision('y', ay, ty)) {
-				// play trigger sound effect
-				playSound("Turret_Trigger.mp3");
-
-				std::string image = "Spring_Arrow_Up_Red_48x48.png";
-				getSprite()->removeFromParent();
-				setSprite(dungeon.createSprite(tx, ty, 1, image));
-
-				m_triggered = true;
-				return;
-			}
-			break;
-		}
-		case 'd': {
-			// if turret and actor are on the same row, and the actor is within shooting range, and there aren't any walls in the way, get triggered
-			if (ax == tx && ay - ty >= 1 && ay - ty <= m_range && !dungeon.wallCollision('y', ay, ty)) {
-				// play trigger sound effect
-				playSound("Turret_Trigger.mp3");
-
-				std::string image = "Spring_Arrow_Down_Red_48x48.png";
-				getSprite()->removeFromParent();
-				setSprite(dungeon.createSprite(tx, ty, 1, image));
-
-				m_triggered = true;
-				return;
-			}
-			break;
-		}
+			m_triggered = true;
 		}
 
 		return;
 	}
 
-	// play shoot sound effect
 	playSound("Gunshot1.mp3");
 
 	// else if it is triggered, shoot in the proper direction
@@ -8038,7 +8354,7 @@ void Turret::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	case 'u':
 	case 'd':
 		// if turret and actor are on the same row, and there aren't any walls in the way, shoot them
-		checkLineOfFire(dungeon);
+		checkLineOfFire();
 		break;
 	}
 
@@ -8050,194 +8366,73 @@ void Turret::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	case 'd': image = "Spring_Arrow_Down_48x48.png"; break;
 	}
 	getSprite()->removeFromParent();
-	setSprite(dungeon.createSprite(tx, ty, 1, image));
+	setSprite(m_dungeon->createSprite(tx, ty, 1, image));
 
 	m_cooldown = true;
 	m_triggered = false;
 }
-void Turret::checkLineOfFire(Dungeon &dungeon) {
-	int cols = dungeon.getCols();
-	
-	int tx = getPosX();
-	int ty = getPosY();
+void Turret::checkLineOfFire() {
+	int x = getPosX();
+	int y = getPosY();
 
-	bool wall, enemy, hero;
+	int n, m;
+	setDirectionalOffsets(m_dir, n, m);
 
-	switch (m_dir) {
-	case 'l': {
-		tx--;
-		wall = dungeon[ty*cols + tx].wall;
-		enemy = dungeon[ty*cols + tx].enemy;
-		hero = dungeon[ty*cols + tx].hero;
-		while (!wall) {
-			// if turret and actor are on the same column, and there aren't any walls in the way, shoot them
-			if (hero) {
-				int damage = getDmg();
-				// if player was blocking and successfully shielded the shot, reduce the damage taken
-				if (dungeon.getPlayer()->canBlock() && dungeon.getPlayer()->didBlock(getPosX(), getPosY())) {
-					damage = std::max(0, dungeon.getPlayer()->blockedDamageReduction() - damage);
-					dungeon.getPlayerVector()[0]->successfulBlock();
-				}
-				dungeon.damagePlayer(damage);
+	while (!m_dungeon->wall(x + n, y + m)) {
 
-				return;
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
+		m_dungeon->runSingleAnimation(frames, 120, x + n, y + m, 2);
+
+		// if turret and actor are on the same column, and there aren't any walls in the way, shoot them
+		if (m_dungeon->hero(x + n, y + m)) {
+			int damage = getDmg();
+
+			// if player was blocking and successfully shielded the shot, reduce the damage taken
+			if (m_dungeon->getPlayer()->canBlock() && m_dungeon->getPlayer()->didBlock(getPosX(), getPosY())) {
+				damage = std::max(0, m_dungeon->getPlayer()->blockedDamageReduction() - damage);
+				m_dungeon->getPlayerVector()[0]->successfulBlock();
 			}
-			if (enemy) {
-				int pos = dungeon.findMonster(tx, ty);
-				dungeon.damageMonster(pos, getDmg());
 
-				return; // remove this if it's a piercing turret (laser)
-			}
-			tx--;
-			wall = dungeon[ty*cols + tx].wall;
-			enemy = dungeon[ty*cols + tx].enemy;
-			hero = dungeon[ty*cols + tx].hero;
+			m_dungeon->damagePlayer(damage);
+
+			return;
 		}
-		break;
-	}
-	case 'r': {
-		tx++;
-		wall = dungeon[ty*cols + tx].wall;
-		enemy = dungeon[ty*cols + tx].enemy;
-		hero = dungeon[ty*cols + tx].hero;
-		while (!wall) {
-			// if turret and actor are on the same column, and there aren't any walls in the way, shoot them
-			if (hero) {
-				int damage = getDmg();
-				// if player was blocking and successfully shielded the shot, reduce the damage taken
-				if (dungeon.getPlayer()->canBlock() && dungeon.getPlayer()->didBlock(getPosX(), getPosY())) {
-					damage = std::max(0, dungeon.getPlayer()->blockedDamageReduction() - damage);
-					dungeon.getPlayerVector()[0]->successfulBlock();
-				}
-				dungeon.damagePlayer(damage);
 
-				return;
-			}
-			if (enemy) {
-				int pos = dungeon.findMonster(tx, ty);
-				dungeon.damageMonster(pos, getDmg());
+		if (m_dungeon->enemy(x + n, y + m)) {
+			int pos = m_dungeon->findMonster(x + n, y + m);
+			m_dungeon->damageMonster(pos, getDmg(), DamageType::PIERCING);
 
-				return; // remove this if it's a piercing turret (laser)
-			}
-			tx++;
-			wall = dungeon[ty*cols + tx].wall;
-			enemy = dungeon[ty*cols + tx].enemy;
-			hero = dungeon[ty*cols + tx].hero;
+			return; // remove this if it's a piercing turret (laser)
 		}
-		break;
+
+		incrementDirectionalOffsets(m_dir, n, m);
 	}
-	case 'u': {
-		ty--;
-		wall = dungeon[ty*cols + tx].wall;
-		enemy = dungeon[ty*cols + tx].enemy;
-		hero = dungeon[ty*cols + tx].hero;
-		while (!wall) {
-			// if turret and actor are on the same column, and there aren't any walls in the way, shoot them
-			if (hero) {
-				int damage = getDmg();
-				// if player was blocking and successfully shielded the shot, reduce the damage taken
-				if (dungeon.getPlayer()->canBlock() && dungeon.getPlayer()->didBlock(getPosX(), getPosY())) {
-					damage = std::max(0, dungeon.getPlayer()->blockedDamageReduction() - damage);
-					dungeon.getPlayerVector()[0]->successfulBlock();
-				}
-				dungeon.damagePlayer(damage);
-
-				return;
-			}
-			if (enemy) {
-				int pos = dungeon.findMonster(tx, ty);
-				dungeon.damageMonster(pos, getDmg());
-
-				return; // remove this if it's a piercing turret (laser)
-			}
-			ty--;
-			wall = dungeon[ty*cols + tx].wall;
-			enemy = dungeon[ty*cols + tx].enemy;
-			hero = dungeon[ty*cols + tx].hero;
-		}
-		break;
-	}
-	case 'd': {
-		ty++;
-		wall = dungeon[ty*cols + tx].wall;
-		enemy = dungeon[ty*cols + tx].enemy;
-		hero = dungeon[ty*cols + tx].hero;
-		while (!wall) {
-			// if turret and actor are on the same column, and there aren't any walls in the way, shoot them
-			if (hero) {
-				int damage = getDmg();
-				// if player was blocking and successfully shielded the shot, reduce the damage taken
-				if (dungeon.getPlayer()->canBlock() && dungeon.getPlayer()->didBlock(getPosX(), getPosY())) {
-					damage = std::max(0, dungeon.getPlayer()->blockedDamageReduction() - damage);
-					dungeon.getPlayerVector()[0]->successfulBlock();
-				}
-				dungeon.damagePlayer(damage);
-
-				return;
-			}
-			if (enemy) {
-				int pos = dungeon.findMonster(tx, ty);
-				dungeon.damageMonster(pos, getDmg());
-
-				return; // remove this if it's a piercing turret (laser)
-			}
-			ty++;
-			wall = dungeon[ty*cols + tx].wall;
-			enemy = dungeon[ty*cols + tx].enemy;
-			hero = dungeon[ty*cols + tx].hero;
-		}
-		break;
-	}
-	}
-}
-
-char Turret::getDirection() const {
-	return m_dir;
-}
-void Turret::setDirection(char dir) {
-	m_dir = dir;
-}
-int Turret::getRange() const {
-	return m_range;
-}
-void Turret::setRange(int range) {
-	m_range = range;
-}
-bool Turret::isTriggered() const {
-	return m_triggered;
-}
-void Turret::setTrigger(bool trigger) {
-	m_triggered = trigger;
-}
-bool Turret::onCooldown() const {
-	return m_cooldown;
-}
-void Turret::setCooldown(bool cooldown) {
-	m_cooldown = cooldown;
 }
 
 //		MOVING BLOCKS
-MovingBlock::MovingBlock(Dungeon &dungeon, int x, int y, char pattern, int spaces) : Traps(x, y, MOVING_BLOCK, "Breakable_Crate_48x48.png", 10), m_pattern(pattern), m_spaces(spaces) {
+MovingBlock::MovingBlock(Dungeon &dungeon, int x, int y, char pattern, int spaces) : Traps(&dungeon, x, y, MOVING_BLOCK, "Breakable_Crate_48x48.png", 10), m_pattern(pattern), m_spaces(spaces) {
 	m_counter = spaces;
 	m_dir = (randInt(2) == 0 ? -1 : 1);
 
-	setTemporary(false);
 	setActive(true);
 	setWallFlag(true);
 
 	setSprite(dungeon.createSprite(x, y, 3, getImageName()));
+
+	if (dungeon.countTrapNumber(x, y) <= 1)
+		dungeon[y*dungeon.getCols() + x].trap = false;
+
+	dungeon[y*dungeon.getCols() + x].wall = true;
 }
 
-void MovingBlock::activeTrapAction(Dungeon &dungeon, Actors &a) {
-	int cols = dungeon.getCols();
+void MovingBlock::activeTrapAction(Actors &a) {
+	int cols = m_dungeon->getCols();
 
 	int ax = a.getPosX();
 	int ay = a.getPosY();
 
 	int tx = getPosX();
 	int ty = getPosY();
-
-	bool wall, enemy, hero;
 
 	switch (getPattern()) {
 	case 'h': {
@@ -8247,43 +8442,41 @@ void MovingBlock::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			flip();
 		}
 
-		wall = dungeon[ty*cols + tx + m_dir].wall;
-		enemy = dungeon[ty*cols + tx + m_dir].enemy;
-		hero = dungeon[ty*cols + tx + m_dir].hero;
-
-		if (wall) {
+		if (m_dungeon->wall(tx + m_dir, ty)) {
 			resetCounter();
 			flip();
 			return;
 		}
 
-		if (dungeon[ty*cols + (tx + m_dir + m_dir)].wall) {
+		/*if (m_dungeon->wall(tx + m_dir + m_dir, ty)) {
 
-			if (hero) {
+			if (m_dungeon->hero(tx + m_dir, ty)) {
 				playBoneCrunch();
 
-				dungeon.damagePlayer(1000);
+				m_dungeon->damagePlayer(1000);
 			}
 
-			if (enemy) {
-				int pos = dungeon.findMonster(tx + m_dir, ty);
+			if (m_dungeon->enemy(tx + m_dir, ty)) {
+				int pos = m_dungeon->findMonster(tx + m_dir, ty);
 				if (pos != -1) {
-					playSound("Bone_Crack1.mp3", dungeon.getPlayer()->getPosX(), dungeon.getPlayer()->getPosY(), tx, ty);
+					playSound("Bone_Crack1.mp3", m_dungeon->getPlayer()->getPosX(), m_dungeon->getPlayer()->getPosY(), tx, ty);
 
-					dungeon.getMonsters().at(pos)->setDestroyed(true);
+					m_dungeon->getMonsters().at(pos)->setDestroyed(true);
 				}
 			}
-		}
+		}*/
 
-		else if (enemy || hero) {
+		else if (m_dungeon->enemy(tx + m_dir, ty) || m_dungeon->hero(tx + m_dir, ty)) {
 			char move = m_dir == 1 ? 'r' : 'l';
-			dungeon.linearActorPush(tx + m_dir, ty, 1, move, false, true);
+			m_dungeon->linearActorPush(tx + m_dir, ty, 1, 1, move, false, true);
 		}
 
-		setPosX(tx + m_dir);
-		dungeon[ty*cols + tx].wall = false;
-		dungeon[ty*cols + tx + m_dir].wall = true;
-		dungeon.queueMoveSprite(getSprite(), getPosX(), getPosY());
+		if (!(m_dungeon->enemy(tx + m_dir, ty) || m_dungeon->hero(tx + m_dir, ty))) {
+			setPosX(tx + m_dir);
+			(*m_dungeon)[ty*cols + tx].wall = false;
+			(*m_dungeon)[ty*cols + tx + m_dir].wall = true;
+			m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
+		}
 		setCounter(getCounter() - 1);
 
 		break;
@@ -8295,43 +8488,41 @@ void MovingBlock::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			flip();
 		}
 
-		wall = dungeon[(ty + m_dir)*cols + tx].wall;
-		enemy = dungeon[(ty + m_dir)*cols + tx].enemy;
-		hero = dungeon[(ty + m_dir)*cols + tx].hero;
-
-		if (wall) {
+		if (m_dungeon->wall(tx, ty + m_dir)) {
 			resetCounter();
 			flip();
 			return;
 		}
 
-		if (dungeon[(ty + m_dir + m_dir)*cols + tx].wall) {
+		/*if (m_dungeon->wall(tx, ty + m_dir + m_dir)) {
 
-			if (hero) {
+			if (m_dungeon->hero(tx, ty + m_dir)) {
 				playBoneCrunch();
 
-				dungeon.damagePlayer(1000);
+				m_dungeon->damagePlayer(1000);
 			}
 
-			if (enemy) {
-				int pos = dungeon.findMonster(tx, ty + m_dir);
+			if (m_dungeon->enemy(tx, ty + m_dir)) {
+				int pos = m_dungeon->findMonster(tx, ty + m_dir);
 				if (pos != -1) {
-					playSound("Bone_Crack1.mp3", dungeon.getPlayer()->getPosX(), dungeon.getPlayer()->getPosY(), tx, ty);
+					playSound("Bone_Crack1.mp3", m_dungeon->getPlayer()->getPosX(), m_dungeon->getPlayer()->getPosY(), tx, ty);
 
-					dungeon.getMonsters().at(pos)->setDestroyed(true);
+					m_dungeon->getMonsters().at(pos)->setDestroyed(true);
 				}
 			}
-		}
+		}*/
 
-		else if (enemy || hero) {
+		else if (m_dungeon->enemy(tx, ty + m_dir) || m_dungeon->hero(tx, ty + m_dir)) {
 			char move = m_dir == 1 ? 'd' : 'u';
-			dungeon.linearActorPush(tx, ty + m_dir, 1, move, false, true);
+			m_dungeon->linearActorPush(tx, ty + m_dir, 1, 1, move, false, true);
 		}	
 
-		setPosY(ty + m_dir);
-		dungeon[(ty)*cols + tx].wall = false;
-		dungeon[(ty + m_dir)*cols + tx].wall = true;
-		dungeon.queueMoveSprite(getSprite(), getPosX(), getPosY());
+		if (!(m_dungeon->enemy(tx, ty + m_dir) || m_dungeon->hero(tx, ty + m_dir))) {
+			setPosY(ty + m_dir);
+			(*m_dungeon)[(ty)*cols + tx].wall = false;
+			(*m_dungeon)[(ty + m_dir)*cols + tx].wall = true;
+			m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
+		}
 		setCounter(getCounter() - 1);
 
 		break;
@@ -8340,32 +8531,37 @@ void MovingBlock::activeTrapAction(Dungeon &dungeon, Actors &a) {
 }
 
 //		ACTIVE BOMB
-ActiveBomb::ActiveBomb(int x, int y, int timer) : Traps(x, y, ACTIVE_BOMB, "Bomb_48x48.png", 10), m_timer(timer) {
+ActiveBomb::ActiveBomb(Dungeon &dungeon, int x, int y, int timer) : Traps(&dungeon, x, y, ACTIVE_BOMB, "Bomb_48x48.png", 10), m_timer(timer) {
 	m_fuseID = playSoundWithID("Bomb_Fuse2.mp3");
+	setRange(1);
+
+	setSprite(dungeon.createSprite(x, y, 0, getImageName()));
+
+	if (dungeon.countTrapNumber(x, y) <= 1)
+		dungeon[y*dungeon.getCols() + x].trap = false;
 }
-ActiveBomb::ActiveBomb(int x, int y, std::string type, std::string image, int damage, int timer) : Traps(x, y, type, image, damage), m_timer(timer) {
+ActiveBomb::ActiveBomb(Dungeon &dungeon, int x, int y, std::string type, std::string image, int damage, int timer) : Traps(&dungeon, x, y, type, image, damage), m_timer(timer) {
 	m_fuseID = playSoundWithID("Bomb_Fuse2.mp3");
 }
 
-void ActiveBomb::activeTrapAction(Dungeon &dungeon, Actors &a) {
-	if (getTimer() > 0) {
-		setTimer(getTimer() - 1);
+void ActiveBomb::activeTrapAction(Actors &a) {
+	if (m_timer > 0) {
+		m_timer--;
 	}
 	else {
 		// play explosion sound effect
 		playSound("Explosion.mp3");
 
-		explosion(dungeon, a);
+		explosion();
 
-		destroyTrap(dungeon);
+		destroyTrap();
 	}
 }
-void ActiveBomb::explosion(Dungeon &dungeon, Actors &a) {
-	int maxrows = dungeon.getRows();
-	int maxcols = dungeon.getCols();
+void ActiveBomb::explosion() {
+	int cols = m_dungeon->getCols();
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
 	int x = getPosX();
 	int y = getPosY();
@@ -8376,157 +8572,73 @@ void ActiveBomb::explosion(Dungeon &dungeon, Actors &a) {
 	cocos2d::experimental::AudioEngine::stop(m_fuseID);
 
 	// explosion animation
-	cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("Explosion%04d.png", 8);
-	dungeon.runSingleAnimation(frames, 24, x, y, 2);
+	cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("Explosion%04d.png", 8);
+	m_dungeon->runSingleAnimation(frames, 24, x, y, 2);
 
-	// check if player was hit or if there is anything to destroy
-	if (getName() == ACTIVE_MEGA_BOMB) {
-		// flash floor tiles
-		flashFloor(dungeon, x, y, true);
+	// flash floor tiles
+	flashFloor(*m_dungeon, x, y, m_range == 1 ? false : true);
 
-		//	if player is caught in the explosion and is not immune to explosions
-		if (abs(px - x) <= 2 && abs(py - y) <= 2 && !dungeon.getPlayer()->explosionImmune()) {
-			dungeon.damagePlayer(20);
+	// If player is caught in the explosion and is not immune to explosions
+	if (abs(px - x) <= m_range && abs(py - y) <= m_range && !m_dungeon->getPlayer()->explosionImmune())
+		m_dungeon->damagePlayer(getDmg());
 
-			if (dungeon.getPlayerVector()[0]->getHP() <= 0)
-				dungeon.getPlayerVector()[0]->setDeath(getName());
-		}
+	// Destroy stuff
+	for (int i = x - m_range; i < x + m_range + 1; i++) {
+		for (int j = y - m_range; j < y + m_range + 1; j++) {
 
-		//	destroy stuff
-		for (int j = y - 2; j < y + 3; j++) {
-			for (int k = x - 2; k < x + 3; k++) {
-				if (j != -1 && j != maxrows && !(k == -1 && j <= 0) && !(k == maxcols && j >= maxrows - 1)) { // boundary check
+			if (m_dungeon->withinBounds(i, j)) {
 
-					// destroy any walls in the way
-					if (dungeon[j*maxcols + k].wall_type == REG_WALL) {
-						dungeon[j*maxcols + k].wall = false;
+				if (m_dungeon->wall(i, j))
+					m_dungeon->destroyWall(i, j);
+				
+				if (m_dungeon->gold(i, j) != 0)
+					m_dungeon->removeGold(i, j);
 
-						// call remove sprite
-						dungeon.removeSprite(dungeon.wall_sprites, k, j);
-					}
-
-					// destroy any gold in the way
-					if (dungeon[j*maxcols + k].gold != 0) {
-						dungeon[j*maxcols + k].gold = 0;
-
-						dungeon.removeSprite(dungeon.money_sprites, k, j);
-					}
-
-					// Don't destroy the exit!!
-					if (dungeon[j*maxcols + k].exit) {
-						continue;
-					}
-
-					// destroy any destructible traps
-					if (dungeon[j*maxcols + k].trap) {
-						int n = dungeon.findTrap(k, j);
-
-						if (n != -1) {
-							if (dungeon.getTraps().at(n)->isDestructible()) {
-								dungeon.getTraps().at(n)->destroyTrap(dungeon);
-							}
-							else if (dungeon.getTraps().at(n)->isExplosive()) {
-								std::shared_ptr<ActiveBomb> bomb = std::dynamic_pointer_cast<ActiveBomb>(dungeon.getTraps().at(n));
-								bomb->explosion(dungeon, a);
-								bomb.reset();
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	// else is regular bomb
-	else {
-		// flash floor tiles
-		flashFloor(dungeon, x, y, false);
-
-		//	if player is caught in the explosion and not immune to explosions
-		if (abs(px - x) <= 1 && abs(py - y) <= 1 && !dungeon.getPlayer()->explosionImmune()) {
-			dungeon.damagePlayer(10);
-
-			if (dungeon.getPlayer()->getHP() <= 0)
-				dungeon.getPlayerVector()[0]->setDeath(getName());
-		}
-
-		//	destroy stuff
-		for (int j = y - 1; j < y + 2; j++) {
-			for (int k = x - 1; k < x + 2; k++) {
-
-				// destroy walls
-				if (dungeon[j*maxcols + k].wall_type == REG_WALL) {
-					dungeon[j*maxcols + k].wall = false;
-
-					// call remove sprite twice to remove top and bottom walls
-					dungeon.removeSprite(dungeon.wall_sprites, k, j);
-				}
-
-				// destroy any gold
-				if (dungeon[j*maxcols + k].gold != 0) {
-					dungeon[j*maxcols + k].gold = 0;
-
-					dungeon.removeSprite(dungeon.money_sprites, k, j);
-				}
-
-				// Don't destroy the exit!!
-				if (dungeon[j*maxcols + k].exit) {
+				if (m_dungeon->exit(i, j))
 					continue;
-				}
+				
+				checkExplosion(i, j);
+				/*if (m_dungeon->trap(i, j)) {
+					int pos = m_dungeon->findTrap(i, j);
 
-				// destroy any destructible traps
-				if (dungeon[j*maxcols + k].trap) {
-					int n = dungeon.findTrap(k, j);
-
-					if (n != -1) {
-						if (dungeon.getTraps().at(n)->isDestructible()) {
-							dungeon.getTraps().at(n)->destroyTrap(dungeon);
+					if (pos != -1) {
+						if (m_dungeon->getTraps().at(pos)->isDestructible()) {
+							m_dungeon->getTraps().at(pos)->destroyTrap();
 						}
-						else if (dungeon.getTraps().at(n)->isExplosive()) {
-							std::shared_ptr<ActiveBomb> bomb = std::dynamic_pointer_cast<ActiveBomb>(dungeon.getTraps().at(n));
-							bomb->explosion(dungeon, a);
+						else if (m_dungeon->getTraps().at(pos)->isExplosive()) {
+							std::shared_ptr<ActiveBomb> bomb = std::dynamic_pointer_cast<ActiveBomb>(m_dungeon->getTraps().at(pos));
+							bomb->explosion(a);
 							bomb.reset();
 						}
 					}
-				}
+				}*/
 			}
 		}
 	}
 
-
-	// find any monsters caught in the blast
-	int pos = dungeon.findTrap(x, y); // finds the bomb
-
-	for (unsigned i = 0; i < dungeon.getMonsters().size(); i++) {
-		mx = dungeon.getMonsters().at(i)->getPosX();
-		my = dungeon.getMonsters().at(i)->getPosY();
-
-		if (getName() == ACTIVE_MEGA_BOMB) {
-			if (abs(mx - x) <= 2 && abs(my - y) <= 2) {
-				int damage = 20 + (dungeon.getPlayer()->explosionImmune() ? 10 : 0);
-				dungeon.damageMonster(i, damage);
-			}
-		}
-		// else is a regular bomb
-		else if (abs(mx - x) <= 1 && abs(my - y) <= 1) {
-			int damage = 10 + (dungeon.getPlayer()->explosionImmune() ? 5 : 0);
-			dungeon.damageMonster(i, damage);
-		}
+	// Find any monsters caught in the blast
+	for (unsigned i = 0; i < m_dungeon->getMonsters().size(); i++) {
+		mx = m_dungeon->getMonsters().at(i)->getPosX();
+		my = m_dungeon->getMonsters().at(i)->getPosY();
+	
+		if (abs(mx - x) <= m_range && abs(my - y) <= m_range) {
+			int damage = getDmg() + (m_dungeon->getPlayer()->explosionImmune() ? 10 : 0);
+			m_dungeon->damageMonster(i, damage, DamageType::EXPLOSIVE);
+		}	
 	}
-}
-
-int ActiveBomb::getTimer() const {
-	return m_timer;
-}
-void ActiveBomb::setTimer(int timer) {
-	m_timer = timer;
 }
 
 //		ACTIVE MEGA BOMB
-ActiveMegaBomb::ActiveMegaBomb(int x, int y) : ActiveBomb(x, y, ACTIVE_MEGA_BOMB, "Bomb_48x48.png", 20) {
+ActiveMegaBomb::ActiveMegaBomb(Dungeon &dungeon, int x, int y) : ActiveBomb(dungeon, x, y, ACTIVE_MEGA_BOMB, "Bomb_48x48.png", 20) {
+	setRange(2);
 
+	setSprite(dungeon.createSprite(x, y, 0, getImageName()));
+
+	if (dungeon.countTrapNumber(x, y) <= 1)
+		dungeon[y*dungeon.getCols() + x].trap = false;
 }
 
-void ActiveMegaBomb::activeTrapAction(Dungeon &dungeon, Actors &a) {
+void ActiveMegaBomb::activeTrapAction(Actors &a) {
 	if (getTimer() > 0) {
 		setTimer(getTimer() - 1);
 	}
@@ -8534,210 +8646,157 @@ void ActiveMegaBomb::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		// play explosion sound effect
 		playSound("Mega_Explosion.mp3");
 
-		explosion(dungeon, a);
+		explosion();
 
-		destroyTrap(dungeon);
+		destroyTrap();
 	}
 }
 
-//		POISON BOMB
-PoisonBomb::PoisonBomb(int x, int y, int turns) : ActiveBomb(x, y, POISON_BOMB, "Green_Orb_32x32.png", 6, 0) {
-	m_turns = turns;
-	m_blown = false;
-	setTemporary(true);
+//		ACTIVE POISON BOMB
+ActivePoisonBomb::ActivePoisonBomb(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, ACTIVE_POISON_BOMB, "Green_Orb_32x32.png", 6) {
+	m_fuseID = playSoundWithID("Bomb_Fuse2.mp3");
+
 	setActive(false);
 	setExplosive(true);
+
+	setSprite(dungeon.createSprite(x, y, -1, getImageName()));
 }
 
-void PoisonBomb::activeTrapAction(Dungeon &dungeon, Actors &a) {
-
-	int rows = dungeon.getRows();
-	int cols = dungeon.getCols();
-
-	int x = getPosX();
-	int y = getPosY();
-
-	int ax = a.getPosX();
-	int ay = a.getPosY();
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
-
-	if (!m_triggered)
-		return;
-	
-
-	// add effect to show poison
-	poisonCloud(dungeon, x, y, 0.0f, cocos2d::Color3B(35, 140, 35));
-
-	// damage anything else that's in the cloud
-	radiusCheck(dungeon, a);
-
-	// if actor is in range, and turns are left on the poison cloud, add poison
-	if (abs(ax - x) <= 2 && abs(ay - y) <=2 && !(ay == y - 2 && ax == x - 2) && !(ay == y - 2 && ax == x + 2) && !(ay == y + 2 && ax == x - 2) && !(ay == y + 2 && ax == x + 2) && m_turns > 0) {
-
-		if (a.canBePoisoned()) {
-			a.addAffliction(std::make_shared<Poison>(4, 4, 1, 1));
-		}
-	}
-
-
-	// if turns have run out, remove the gas cloud
-	else if (m_turns == 0) {
-		// remove poison cloud effect
-		//poisonCloud(dungeon, x, y, 0.2f, cocos2d::Color3B(200, 200, 200));
-
-		setDestroyed(true);
-		return;
-	}
-	m_turns--;
-}
-void PoisonBomb::trapAction(Dungeon &dungeon, Actors &a) {
-
-	if (!m_set) {
+void ActivePoisonBomb::trapAction(Actors &a) {
+	/*if (!m_set) {
 		m_set = true;
 		return;
-	}
+	}*/
 
-	int rows = dungeon.getRows();
-	int cols = dungeon.getCols();
 	int x = getPosX();
 	int y = getPosY();
+
 	int ax = a.getPosX();
 	int ay = a.getPosY();
 
 	// if it hasn't been set off yet and something is standing on it
-	if (!m_triggered && ax == x && ay == y) {
-		explosion(dungeon, a);
-
-		return;
-	}
-	else if (m_triggered) {
-		activeTrapAction(dungeon, a);
-	}
-}
-void PoisonBomb::explosion(Dungeon &dungeon, Actors &a) {
-	int rows = dungeon.getRows();
-	int cols = dungeon.getCols();
-	int x = getPosX();
-	int y = getPosY();
-	int ax = a.getPosX();
-	int ay = a.getPosY();
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
-
-	// poison sound effect
-	playSound("Poison_Bomb_Explosion.mp3");
-
-
-	// if bomb was set off by Actor a (bombs can set this off too)
 	if (ax == x && ay == y) {
-		// the enemy that sets the bomb off receives the most damage
-		if (a.isPlayer())
-			dungeon.damagePlayer(getDmg());
-		else
-			a.setHP(a.getHP() - getDmg());
+		explosion();
 
-		if (a.canBePoisoned()) {
-			a.addAffliction(std::make_shared<Poison>(8, 4, 1, 1));
-		}
+		destroyTrap();
 	}
-
-	radiusCheck(dungeon, a);
-	m_blown = true; // flag so that damage is not repeatedly dealt after initial explosion
-
-	dungeon[y*cols + x].trap_name = "";
-	dungeon[y*cols + x].trap = false;
-	m_triggered = true;
-
-	// add effect to show poison
-	poisonCloud(dungeon, x, y, 0.8f, cocos2d::Color3B(35, 140, 35));
-	getSprite()->setVisible(false); // hide the sprite because the trap still needs to exist
 }
-void PoisonBomb::radiusCheck(Dungeon &dungeon, Actors &a) {
-	int rows = dungeon.getRows();
-	int cols = dungeon.getCols();
+void ActivePoisonBomb::explosion() {
 	int x = getPosX();
 	int y = getPosY();
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
-
-
-	int pos, mx, my;
 	
-	// hurt anyone that was in the blast radius: damage is reduced depending on how far from the blast you were
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
+
+	playSound("Poison_Bomb_Explosion.mp3", px, py, x, y);
+	cocos2d::experimental::AudioEngine::stop(m_fuseID);
+
+	int mx, my;
+
+	// Damage anything that was in the blast radius: damage is reduced depending on how far from the blast they were
 	for (int i = y - 2; i < y + 3; i++) {
 		for (int j = x - 2; j < x + 3; j++) {
 
 			// boundary and corner check
-			if (i != -1 && i != rows && !(j == -1 && i <= 0) && !(j == cols && i >= rows - 1) && !(j == x && i == y) &&
-				!(i == y - 2 && j == x - 2) && !(i == y - 2 && j == x + 2) && !(i == y + 2 && j == x - 2) && !(i == y + 2 && j == x + 2)) { 
+			if (m_dungeon->withinBounds(j, i) &&
+				!(i == y - 2 && j == x - 2) && !(i == y - 2 && j == x + 2) && !(i == y + 2 && j == x - 2) && !(i == y + 2 && j == x + 2)) {
 
 				// check if player was hit, and they were not the one that set the bomb off
-				if (j == px && i == py && !(px == a.getPosX() && py == a.getPosY())) {
+				if (m_dungeon->hero(j, i)) {
 
-					// if bomb just exploded
-					if (!m_blown) {
-						// if on the outer ring, damage is reduced by 4. if inner ring, damage reduced by 2
-						int damageReduction = (abs(px - j) == 2 || abs(py - i) == 2 ? 4 : 2);
-						dungeon.getPlayerVector()[0]->setHP(dungeon.getPlayer()->getHP() - (getDmg() - damageReduction));
+					// if on the outer ring, damage is reduced by 4. if inner ring, damage reduced by 2
+					int damageReduction = (abs(px - j) == 2 || abs(py - i) == 2 ? 4 : abs(px - j) == 1 && abs(py - i) == 1 ? 2 : 0);
+					m_dungeon->damagePlayer(getDmg() - damageReduction);
 
-						if (dungeon.getPlayer()->canBePoisoned()) {
-							dungeon.getPlayerVector()[0]->addAffliction(std::make_shared<Poison>(8, 4, 1, 1));
-						}
-					}
-					// otherwise add a weaker poison
-					else if (dungeon.getPlayer()->canBePoisoned()) {
-						dungeon.getPlayerVector()[0]->addAffliction(std::make_shared<Poison>(4, 4, 1, 1));
-					}
+					if (m_dungeon->getPlayer()->canBePoisoned())
+						m_dungeon->getPlayerVector()[0]->addAffliction(std::make_shared<Poison>(*m_dungeon->getPlayer(), 8, 4, 1, 1));
+
 				}
 
 				// check for enemies in the gas cloud
-				if (dungeon[i*cols + j].enemy) {
-					pos = dungeon.findMonster(j, i);
+				if (m_dungeon->enemy(j, i)) {
+					int pos = m_dungeon->findMonster(j, i);
 
 					if (pos != -1) {
-						mx = dungeon.getMonsters()[pos]->getPosX();
-						my = dungeon.getMonsters()[pos]->getPosY();
+						mx = m_dungeon->getMonsters()[pos]->getPosX();
+						my = m_dungeon->getMonsters()[pos]->getPosY();
 
-						// check if any monsters were hit, and they were not the one that the bomb off
-						if (j == mx && i == my && !(mx == a.getPosX() && my == a.getPosY())) {
+						// if on the outer ring, damage is reduced by 4. if inner ring, damage reduced by 2
+						int damageReduction = (abs(mx - j) == 2 || abs(my - i) == 2 ? 4 : abs(mx - j) == 1 && abs(my - i) == 1 ? 2 : 0);
+						m_dungeon->damageMonster(pos, getDmg() - damageReduction, DamageType::MAGICAL);
 
-							// if bomb just exploded
-							if (!m_blown) {
-								// if on the outer ring, damage is reduced by 4. if inner ring, damage reduced by 2
-								int damageReduction = (abs(mx - j) == 2 || abs(my - i) == 2 ? 4 : 2);
-								dungeon.damageMonster(pos, getDmg() - damageReduction);
-
-								if (dungeon.getMonsters()[pos]->canBePoisoned()) {
-									dungeon.getMonsters()[pos]->addAffliction(std::make_shared<Poison>(8, 4, 1, 1));
-								}
-							}
-							// else add a weaker poison
-							else if (dungeon.getMonsters()[pos]->canBePoisoned()) {
-								dungeon.getMonsters()[pos]->addAffliction(std::make_shared<Poison>(4, 4, 1, 1));
-							}
-						}
+						if (m_dungeon->getMonsters()[pos]->canBePoisoned())
+							m_dungeon->getMonsters()[pos]->addAffliction(std::make_shared<Poison>(*m_dungeon->getPlayer(), 8, 4, 1, 1));
 					}
 				}
+
+				checkPoison(j, i);
 			}
 		}
 	}
+
+	poisonCloud(*m_dungeon, x, y, 0.8f, cocos2d::Color3B(35, 140, 35));
+}
+void ActivePoisonBomb::explode() {
+	explosion();
+	destroyTrap();
+}
+void ActivePoisonBomb::drops() {
+	m_dungeon->addTrap(std::make_shared<PoisonCloud>(*m_dungeon, getPosX(), getPosY(), 12));
+}
+
+PoisonCloud::PoisonCloud(Dungeon &dungeon, int x, int y, int turns) : Traps(&dungeon, x, y, POISON_CLOUD, "Bomb_48x48.png", 10), m_turns(turns) {
+	dungeon[y*dungeon.getCols() + x].trap = false;
+}
+
+void PoisonCloud::activeTrapAction(Actors &a) {
+	int x = getPosX();
+	int y = getPosY();
+
+	poisonCloud(*m_dungeon, x, y, 0.0f, cocos2d::Color3B(35, 140, 35));
+
+	for (int i = y - 2; i < y + 3; i++) {
+		for (int j = x - 2; j < x + 3; j++) {
+
+			// boundary and corner check
+			if (m_dungeon->withinBounds(j, i) &&
+				!(i == y - 2 && j == x - 2) && !(i == y - 2 && j == x + 2) && !(i == y + 2 && j == x - 2) && !(i == y + 2 && j == x + 2)) {
+
+				if (m_dungeon->hero(j, i)) {
+					if (m_dungeon->getPlayer()->canBePoisoned())
+						m_dungeon->getPlayerVector()[0]->addAffliction(std::make_shared<Poison>(*m_dungeon->getPlayer(), 4, 4, 1, 1));					
+				}
+
+				if (m_dungeon->enemy(j, i)) {
+					int pos = m_dungeon->findMonster(j, i);
+					if (pos != -1) {
+						if (m_dungeon->getMonsters()[pos]->canBePoisoned())
+							m_dungeon->getMonsters()[pos]->addAffliction(std::make_shared<Poison>(*m_dungeon->getPlayer(), 4, 4, 1, 1));
+					}
+				}
+
+				checkPoison(j, i);
+			}
+		}
+	}
+
+	m_turns--;
+	if (m_turns == 0)
+		destroyTrap();
 }
 
 //		BEAR TRAP
-SetBearTrap::SetBearTrap(int x, int y) : Traps(x, y, BEAR_TRAP, "Blue_Toy_32x32.png", 4) {
-	
+SetBearTrap::SetBearTrap(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, BEAR_TRAP, "Blue_Toy_32x32.png", 4) {
+	setSprite(dungeon.createSprite(x, y, -1, getImageName()));
 }
 
-void SetBearTrap::trapAction(Dungeon &dungeon, Actors &a) {
+void SetBearTrap::trapAction(Actors &a) {
 
 	if (!m_set) {
 		m_set = true;
 		return;
 	}
 
-	int rows = dungeon.getRows();
-	int cols = dungeon.getCols();
 	int x = getPosX();
 	int y = getPosY();
 	int ax = a.getPosX();
@@ -8750,35 +8809,39 @@ void SetBearTrap::trapAction(Dungeon &dungeon, Actors &a) {
 	// if it hasn't been set off yet and something is standing on it
 	if (ax == x && ay == y) {
 		// metal close sound effect
-		playSound("Metal_Hit8.mp3", dungeon.getPlayer()->getPosX(), dungeon.getPlayer()->getPosY(), x, y);
+		playSound("Metal_Hit8.mp3", m_dungeon->getPlayer()->getPosX(), m_dungeon->getPlayer()->getPosY(), x, y);
 
 		a.setHP(a.getHP() - getDmg());
 		a.addAffliction(std::make_shared<Bleed>(5));
 		a.addAffliction(std::make_shared<Cripple>(15));
 
-		destroyTrap(dungeon);
+		destroyTrap();
 	}
 }
 
 //		CRUMBLE FLOOR
-CrumbleFloor::CrumbleFloor(Dungeon &dungeon, int x, int y, int strength) : Traps(x, y, CRUMBLE_FLOOR, "Crumble_Floor1_48x48.png", 0), m_strength(strength) {
+CrumbleFloor::CrumbleFloor(Dungeon &dungeon, int x, int y, int strength) : Traps(&dungeon, x, y, CRUMBLE_FLOOR, "Crumble_Floor1_48x48.png", 0), m_strength(strength) {
 	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
 }
-CrumbleFloor::CrumbleFloor(int x, int y, int strength, std::string name, std::string image) : Traps(x, y, name, image, 0), m_strength(strength) {
+CrumbleFloor::CrumbleFloor(Dungeon &dungeon, int x, int y, int strength, std::string name, std::string image) : Traps(&dungeon, x, y, name, image, 0), m_strength(strength) {
 
 }
 
-void CrumbleFloor::activeTrapAction(Dungeon &dungeon, Actors &a) {
-	//int ax = a.getPosX();
-	//int ay = a.getPosY();
+void CrumbleFloor::activeTrapAction(Actors &a) {
 	int x = getPosX();
 	int y = getPosY();
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
 	if (!m_crossed || m_triggerer == nullptr)
 		return;
+
+	if (m_triggerer->isDead()) {
+		m_triggerer = nullptr;
+		m_crossed = false;
+		return;
+	}
 
 	int tx = m_triggerer->getPosX();
 	int ty = m_triggerer->getPosY();
@@ -8801,39 +8864,27 @@ void CrumbleFloor::activeTrapAction(Dungeon &dungeon, Actors &a) {
 
 			setDestroyed(true);
 
-			if (this->getName() == CRUMBLE_FLOOR) {
-				std::shared_ptr<Traps> pit = std::make_shared<Pit>(dungeon, x, y);
-				pit->setSprite(dungeon.createSprite(x, y, -4, pit->getImageName()));
-				dungeon.getTraps().push_back(pit);
-			}
-			else if (this->getName() == CRUMBLE_LAVA) {
-				std::shared_ptr<Traps> lava = std::make_shared<Lava>(dungeon, x, y);
-				lava->setSprite(dungeon.createSprite(x, y, -4, lava->getImageName()));
-				dungeon.getTraps().push_back(lava);
-			}
+			crumble();
 		}
 		else if (m_strength == 1 && !(tx == x && ty == y)) {
 			getSprite()->removeFromParent();
-			setSprite(dungeon.createSprite(x, y, -4, "Crumble_Floor3_48x48.png"));
+			setSprite(m_dungeon->createSprite(x, y, -4, "Crumble_Floor3_48x48.png"));
 		}
 		else if (m_strength == 2 && !(tx == x && ty == y)) {
 			getSprite()->removeFromParent();
-			setSprite(dungeon.createSprite(x, y, -4, "Crumble_Floor2_48x48.png"));
+			setSprite(m_dungeon->createSprite(x, y, -4, "Crumble_Floor2_48x48.png"));
 		}
 	}
 
 }
-void CrumbleFloor::trapAction(Dungeon &dungeon, Actors &a) {
+void CrumbleFloor::trapAction(Actors &a) {
 	int ax = a.getPosX();
 	int ay = a.getPosY();
 	int x = getPosX();
 	int y = getPosY();
 
-	// if tile was walked over, reduce strength of the floor
-	if (m_crossed) {
-		//activeTrapAction(dungeon, a);
+	if (m_crossed)
 		return;
-	}
 
 	// if player just walked on it, then flag it for next turn
 	if (ax == x && ay == y && !a.isFlying()) {
@@ -8841,44 +8892,56 @@ void CrumbleFloor::trapAction(Dungeon &dungeon, Actors &a) {
 		m_triggerer = &a;
 	}
 }
+void CrumbleFloor::crumble() {
+	m_dungeon->addTrap(std::make_shared<Pit>(*m_dungeon, getPosX(), getPosY()));
+}
 
 
-CrumbleLava::CrumbleLava(Dungeon &dungeon, int x, int y, int strength) : CrumbleFloor(x, y, strength, CRUMBLE_LAVA, "Crumble_Floor1_48x48.png") {
+CrumbleLava::CrumbleLava(Dungeon &dungeon, int x, int y, int strength) : CrumbleFloor(dungeon, x, y, strength, CRUMBLE_LAVA, "Crumble_Floor1_48x48.png") {
 	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
+}
+void CrumbleLava::crumble() {
+	m_dungeon->addTrap(std::make_shared<Lava>(*m_dungeon, getPosX(), getPosY()));
 }
 
 //		EMBER
-Ember::Ember(int x, int y, int turns) : Traps(x, y, EMBER, "Spinner_Buddy_48x48.png", 2), m_turns(turns) {
+Ember::Ember(Dungeon &dungeon, int x, int y, int turns) : Traps(&dungeon, x, y, EMBER, "Spinner_Buddy_48x48.png", 2), m_turns(turns) {
+	setCanBeDoused(true);
 
+	cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("Fire%04d.png", 8);
+	setSprite(dungeon.runAnimationForever(frames, 24, x, y, 2));
+	getSprite()->setScale(0.75f * GLOBAL_SPRITE_SCALE);
+
+	dungeon.addLightSource(x, y, 3, getName());
 }
 
-void Ember::activeTrapAction(Dungeon &dungeon, Actors &a) {
+void Ember::activeTrapAction(Actors &a) {
 	if (isDestroyed())
 		return;
 
-	int cols = dungeon.getCols();
+	int cols = m_dungeon->getCols();
 
 	int x = getPosX();
 	int y = getPosY();
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
-	if (m_turns > 0 && dungeon[y*cols + x].enemy) {
+	if (m_turns > 0 && m_dungeon->enemy(x, y)) {
 
-		int pos = dungeon.findMonster(x, y);
+		int pos = m_dungeon->findMonster(x, y);
 		if (pos != -1) {		
 
 			// If the monster can't be burned, do nothing
-			if (!dungeon.getMonsters().at(pos)->canBeBurned()) {
+			if (!m_dungeon->getMonsters().at(pos)->canBeBurned()) {
 				m_turns--;
 				return;
 			}		
 
 			// 50% chance to burn
-			if (dungeon.getMonsters().at(pos)->canBeBurned() && 1 + randInt(100) + dungeon.getPlayer()->getLuck() > 50) {
+			if (m_dungeon->getMonsters().at(pos)->canBeBurned() && 1 + randInt(100) + m_dungeon->getPlayer()->getLuck() > 50) {
 				playSound("Fire3.mp3", px, py, x, y);
-				dungeon.giveAffliction(pos, std::make_shared<Burn>(4));
+				m_dungeon->giveAffliction(pos, std::make_shared<Burn>(*m_dungeon->getPlayer(), 4));
 			}
 		}
 	}
@@ -8888,20 +8951,17 @@ void Ember::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		return;
 	}
 
-	dungeon.removeLightSource(x, y, getName());
-	destroyTrap(dungeon);
+	destroyTrap();
 }
-void Ember::trapAction(Dungeon &dungeon, Actors &a) {
-	int cols = dungeon.getCols();
-
+void Ember::trapAction(Actors &a) {
 	int x = getPosX();
 	int y = getPosY();
 
 	int ax = a.getPosX();
 	int ay = a.getPosY();
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
 	if (isDestroyed())
 		return;
@@ -8915,28 +8975,39 @@ void Ember::trapAction(Dungeon &dungeon, Actors &a) {
 			a.setHP(a.getHP() - getDmg());
 
 			// If it's the player, then it's less chance to be burned
-			int luck = dungeon.getPlayer()->getLuck() * (a.isPlayer() ? -1 : 1);
+			int luck = m_dungeon->getPlayer()->getLuck() * (a.isPlayer() ? -1 : 1);
 			if (1 + randInt(100) + luck > 50)
-				a.addAffliction(std::make_shared<Burn>(4));
+				a.addAffliction(std::make_shared<Burn>(*m_dungeon->getPlayer(), 4));
 
-			destroyTrap(dungeon);
+			destroyTrap();
 		}
-
-		//destroyTrap(dungeon);
 	}
+}
+void Ember::douse() {
+	if (isDestroyed())
+		return;
+
+	destroyTrap();
+}
+void Ember::spriteCleanup() {
+	auto scale = cocos2d::ScaleTo::create(0.1f, 0.0f);
+	auto fade = cocos2d::FadeOut::create(0.1f);
+	cocos2d::Vector<cocos2d::FiniteTimeAction*> v;
+	v.pushBack(scale);
+	v.pushBack(fade);
+
+	m_dungeon->queueRemoveSpriteWithMultipleActions(getSprite(), v);
 }
 
 //		WEB
-Web::Web(Dungeon &dungeon, int x, int y, int stickiness) : Traps(x, y, WEB, "Spider_Web.png", 0), m_stickiness(stickiness) {
+Web::Web(Dungeon &dungeon, int x, int y, int stickiness) : Traps(&dungeon, x, y, WEB, "Spider_Web.png", 0), m_stickiness(stickiness) {
 	setDestructible(true);
 	setCanBeIgnited(true);
 
 	setSprite(dungeon.createSprite(x, y, 0, getImageName()));
 }
 
-void Web::trapAction(Dungeon &dungeon, Actors &a) {
-	int cols = dungeon.getCols();
-
+void Web::trapAction(Actors &a) {
 	int x = getPosX();
 	int y = getPosY();
 
@@ -8953,123 +9024,942 @@ void Web::trapAction(Dungeon &dungeon, Actors &a) {
 		if (a.canBeStunned())
 			a.addAffliction(std::make_shared<Stun>(m_stickiness));
 		
-		destroyTrap(dungeon);
+		destroyTrap();
 	}
 }
-void Web::ignite(Dungeon &dungeon) {
-	int cols = dungeon.getCols();
-
+void Web::ignite() {
 	int x = getPosX();
 	int y = getPosY();
 
 	if (isDestroyed())
 		return;
 
-	destroyTrap(dungeon);
+	destroyTrap();
 
-	cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
-	dungeon.runSingleAnimation(frames, 120, x, y, 2);
+	cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
+	m_dungeon->runSingleAnimation(frames, 120, x, y, 2);
 
 	for (int i = x - 1; i < x + 2; i++) {
 		for (int j = y - 1; j < y + 2; j++) {
 
-			if (dungeon[j*cols + i].trap) {
-				int pos = dungeon.findTrap(i, j);
+			if (m_dungeon->enemy(i, j) || m_dungeon->trap(i, j))
+				m_dungeon->runSingleAnimation(frames, 120, i, j, 2);
+
+			checkBurn(i, j);
+
+			if (m_dungeon->enemy(i, j)) {
+				int pos = m_dungeon->findMonster(i, j);
 				if (pos != -1) {
-					if (dungeon.getTraps().at(pos)->canBeIgnited()) {
-						cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
-						dungeon.runSingleAnimation(frames, 120, i, j, 2);
-
-						dungeon.getTraps().at(pos)->ignite(dungeon);
-					}
-				}
-			}
-
-			if (dungeon[j*cols + i].enemy) {
-				int pos = dungeon.findMonster(i, j);
-				if (pos != -1) {
-					if (dungeon.getMonsters().at(pos)->canBeBurned()) {
-						cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
-						dungeon.runSingleAnimation(frames, 120, i, j, 2);
-
-						dungeon.giveAffliction(pos, std::make_shared<Burn>(8));
-					}
+					if (m_dungeon->getMonsters().at(pos)->canBeBurned())
+						m_dungeon->giveAffliction(pos, std::make_shared<Burn>(*m_dungeon->getPlayer(), 8));				
 				}
 			}
 		}
 	}
 
 	// Create an ember where it was
-	std::shared_ptr<Traps> ember = std::make_shared<Ember>(x, y, 2 + randInt(3));
-	dungeon.getTraps().push_back(ember);
+	m_dungeon->addTrap(std::make_shared<Ember>(*m_dungeon, x, y, 2 + randInt(3)));
+}
 
-	frames = dungeon.getAnimation("Fire%04d.png", 8);
-	ember->setSprite(dungeon.runAnimationForever(frames, 24, x, y, 2));
-	ember->getSprite()->setScale(0.75f * GLOBAL_SPRITE_SCALE);
+//		WIND TUNNEL
+WindTunnel::WindTunnel(Dungeon &dungeon, int x, int y, char dir) : Traps(&dungeon, x, y, WIND_TUNNEL, "Spider_Web.png", 0), m_dir(dir) {
+	setWallFlag(true);
 
-	dungeon[(y)*cols + (x)].trap = true;
-	dungeon.addLightSource(x, y, 3, ember->getName());
+	std::string image;
+	switch (dir) {
+	case 'l': image = "Spring_Arrow_Left_48x48.png"; break;
+	case 'r': image = "Spring_Arrow_Right_48x48.png"; break;
+	case 'u': image = "Spring_Arrow_Up_48x48.png"; break;
+	case 'd': image = "Spring_Arrow_Down_48x48.png"; break;
+	}
+	setImageName(image);
+
+	setSprite(dungeon.createSprite(x, y, 1, getImageName()));
+}
+
+void WindTunnel::activeTrapAction(Actors &a) {
+	int cols = m_dungeon->getCols();
+
+	int x = getPosX();
+	int y = getPosY();
+
+	int n = 0, m = 0;
+	switch (m_dir) {
+	case 'l': n = -1; m = 0; break;
+	case 'r': n = 1; m = 0; break;
+	case 'u': n = 0; m = -1; break;
+	case 'd': n = 0; m = 1; break;
+	}
+
+	int range = 15;
+	int currentRange = 1;
+
+	while (!m_dungeon->wall(x + n, y + m) && currentRange <= range) {
+
+		if (m_dungeon->hero(x + n, y + m) || m_dungeon->enemy(x + n, y + m)) {
+			m_dungeon->linearActorPush(x + n, y + m, 1, range, m_dir);
+			break;
+		}
+
+		switch (m_dir) {
+		case 'l': n--; m = 0; break;
+		case 'r': n++; m = 0; break;
+		case 'u': n = 0; m--; break;
+		case 'd': n = 0; m++; break;
+		}
+
+		currentRange++;
+	}
+}
+
+//		QUICKSAND
+Quicksand::Quicksand(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, QUICKSAND, "Cheese_Wedge_48x48.png", 0) {
+	m_depth = 0;
+	m_maxDepth = 3;
+	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
+}
+
+void Quicksand::activeTrapAction(Actors &a) {
+	int x = getPosX();
+	int y = getPosY();
+
+	if (m_capturedActor && m_capturedActor->isDead()) {
+		m_capturedActor.reset();
+		m_capturedActor = nullptr;
+	}
+	else if (m_capturedActor && m_capturedActor->getPosX() == x && m_capturedActor->getPosY() == y) {
+
+		if (m_capturedActor->isPlayer()) {
+
+			if (directionIsOppositeTo(m_dungeon->getPlayer()->facingDirection(), m_pDir)) {
+				playSound("Grass2.mp3");
+				m_dungeon->queueCustomAction(m_capturedActor->getSprite(), cocos2d::ScaleBy::create(0.08f, 1.25f));
+
+				m_depth--;
+				if (m_depth == 0) {
+					m_capturedActor.reset();
+					m_capturedActor = nullptr;
+					return;
+				}
+			}
+			else {
+				m_depth++;
+				m_dungeon->queueCustomAction(m_capturedActor->getSprite(), cocos2d::ScaleBy::create(0.08f, 0.8f));
+
+				if (m_depth == m_maxDepth) {
+					playSound("Female_Falling_Scream_License.mp3");
+					deathFade(m_capturedActor->getSprite());
+
+					m_capturedActor->setSuperDead(true);
+					m_depth = 0;
+				}
+			}
+			
+			m_pDir = m_dungeon->getPlayer()->facingDirection();
+		}
+		else {
+			m_depth++;
+			m_dungeon->queueCustomAction(m_capturedActor->getSprite(), cocos2d::ScaleBy::create(0.08f, 0.8f));
+
+			if (m_depth == m_maxDepth) {
+				deathFade(m_capturedActor->getSprite());
+				m_capturedActor->setSuperDead(true);
+				m_depth = 0;
+			}
+		}
+
+		m_capturedActor->addAffliction(std::make_shared<Stun>(1));
+
+		return;
+	}
+	else if (m_capturedActor && (m_capturedActor->getPosX() != x || m_capturedActor->getPosY() != y)) {
+		m_capturedActor.reset();
+		m_capturedActor = nullptr;
+	}
+
+	if (m_dungeon->hero(x, y)) {
+		m_pDir = m_dungeon->getPlayer()->facingDirection();
+		m_dungeon->getPlayer()->addAffliction(std::make_shared<Stun>(1));
+		m_capturedActor = m_dungeon->getPlayer();
+
+		m_depth++;
+		m_dungeon->queueCustomAction(m_capturedActor->getSprite(), cocos2d::ScaleBy::create(0.08f, 0.8f));
+	}
+
+	if (m_dungeon->enemy(x, y)) {
+		int pos = m_dungeon->findMonster(x, y);
+		if (pos != -1) {
+			m_dungeon->giveAffliction(pos, std::make_shared<Stun>(1));
+			m_capturedActor = m_dungeon->getMonsters().at(pos);
+
+			m_depth++;
+			m_dungeon->queueCustomAction(m_capturedActor->getSprite(), cocos2d::ScaleBy::create(0.08f, 0.8f));
+		}
+	}
+}
+
+//		CACTUS
+Cactus::Cactus(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, CACTUS, "Cheese_Wedge_48x48.png", 5) {
+	setCanBeIgnited(true);
+	setWallFlag(true);
+	setSprite(dungeon.createSprite(x, y, 1, getImageName()));
+
+	dungeon[y*dungeon.getCols() + x].wall = true;
+}
+
+void Cactus::trapAction(Actors &a) {
+
+	if (!a.isPlayer())
+		return;
+
+	m_dungeon->damagePlayer(getDmg());
+
+	destroyTrap();
+}
+void Cactus::ignite() {
+	setDestroyed(true); // Prevents CactusWater from dropping
+
+	int x = getPosX();
+	int y = getPosY();
+
+	auto frames = getAnimationFrameVector("frame%04d.png", 63);
+	m_dungeon->runSingleAnimation(frames, 120, x, y, 2);
+
+	m_dungeon->addTrap(std::make_shared<Ember>(*m_dungeon, x, y, 6 + randInt(4)));
+
+	destroyTrap();
+}
+void Cactus::drops() {
+	if (isDestroyed())
+		return;
+
+	if (randReal(1, 100) + m_dungeon->getPlayer()->getLuck() > 95)
+		m_dungeon->createItem(std::make_shared<CactusWater>(getPosX(), getPosY()));
+}
+
+MovingTile::MovingTile(Dungeon &dungeon, int x, int y, int spaces) : Traps(&dungeon, x, y, MOVING_TILE, "Cheese_Wedge_48x48.png", 0), m_spaces(spaces), m_maxSpaces(spaces) {
+	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
+
+	dungeon[y*dungeon.getCols() + x].trap = false;
+}
+
+void MovingTile::moveTo(int x, int y, float time) {
+	m_dungeon->queueMoveSprite(getSprite(), x, y, time);
+	setPosX(x); setPosY(y);
+}
+void MovingTile::activeTrapAction(Actors &a) {
+	if (m_spaces == 0) {
+		m_spaces = m_maxSpaces;
+		setDirection();
+	}
+
+	int x = getPosX();
+	int y = getPosY();
+
+	int cols = m_dungeon->getCols();
+
+	int n, m;
+	setDirectionalOffsets(m_dir, n, m);
+
+	if (m_dungeon->itemObject(x, y)) {
+		m_dungeon->itemObject(x, y)->setPosX(x + n); m_dungeon->itemObject(x, y)->setPosY(y + m);
+		(*m_dungeon)[(y + m)*cols + (x + n)].object = m_dungeon->itemObject(x, y);
+		(*m_dungeon)[(y + m)*cols + (x + n)].item = true;
+		m_dungeon->queueMoveSprite((*m_dungeon)[(y + m)*cols + (x + n)].object->getSprite(), x + n, y + m);
+
+		(*m_dungeon)[y*cols + x].object.reset();
+		(*m_dungeon)[y*cols + x].object = nullptr;
+		(*m_dungeon)[y*cols + x].item = false;
+	}
+
+	if (m_dungeon->trap(x, y)) {
+		std::vector<int> indexes = m_dungeon->findTraps(x, y);
+		for (unsigned int i = 0; i < indexes.size(); i++)
+			m_dungeon->getTraps().at(indexes.at(i))->moveTo(x + n, y + m);
+	}
+
+	if (m_dungeon->hero(x, y)) {
+		if (!(m_dungeon->enemy(x + n, y + m) || m_dungeon->wall(x + n, y + m)))
+			m_dungeon->getPlayer()->moveTo(x + n, y + m);
+	}
+
+	if (m_dungeon->enemy(x, y)) {
+		if (!(m_dungeon->hero(x + n, y + m) || m_dungeon->wall(x + n, y + m))) {
+			int pos = m_dungeon->findMonster(x, y);
+			if (pos != -1)
+				m_dungeon->getMonsters().at(pos)->moveTo(x + n, y + m);
+		}
+	}
+
+	moveTo(x + n, y + m);
+
+	m_spaces--;
+}
+
+LinearMovingTile::LinearMovingTile(Dungeon &dungeon, int x, int y, char dir, int spaces) : MovingTile(dungeon, x, y, spaces) {
+	m_dir = dir;
+}
+
+void LinearMovingTile::setDirection() {
+	switch (m_dir) {
+	case 'l': m_dir = 'r'; break;
+	case 'r': m_dir = 'l'; break;
+	}
+}
+
+SquareMovingTile::SquareMovingTile(Dungeon &dungeon, int x, int y, char dir, int spaces, bool clockwise) 
+	: MovingTile(dungeon, x, y, spaces), m_clockwise(clockwise) {
+	m_dir = dir;
+}
+
+void SquareMovingTile::setDirection() {
+	switch (m_dir) {
+	case 'l': m_dir = m_clockwise ? 'u' : 'd'; break;
+	case 'r': m_dir = m_clockwise ? 'd' : 'u'; break;
+	case 'u': m_dir = m_clockwise ? 'r' : 'l'; break;
+	case 'd': m_dir = m_clockwise ? 'l' : 'r'; break;
+	}
+}
+
+LavaGrating::LavaGrating(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, LAVA_GRATING, "Cheese_Wedge_48x48.png", 0) {
+	setSprite(dungeon.createSprite(x, y, -4, getImageName()));
+	getSprite()->setScale(4.0f);
+
+	m_lava = dungeon.createSprite(x, y, -4, "Lava_Tile1_48x48.png");
+	m_lava->setVisible(false);
+	m_lava->setScale(4.0f);
+
+	dungeon[y*dungeon.getCols() + x].trap = false;
+}
+
+void LavaGrating::activeTrapAction(Actors &a) {
+	int x = getPosX();
+	int y = getPosY();
+
+	int bodyCount = 0;
+	std::vector<int> monsterIndexes;
+	bool heroOnTop = false;
+	for (int i = x - 2; i < x + 3; i++) {
+		for (int j = y - 2; j < y + 3; j++) {
+
+			if (!m_dungeon->withinBounds(i, j))
+				continue;
+
+			if (m_dungeon->hero(i, j)) {
+				heroOnTop = true;
+				bodyCount++;
+			}
+
+			if (m_dungeon->enemy(i, j)) {
+				int pos = m_dungeon->findMonster(i, j);
+				if (pos != -1) {
+					monsterIndexes.push_back(pos);
+					bodyCount++;
+				}			
+			}
+		}
+	}
+
+	if (bodyCount >= 3) {
+		m_lava->setVisible(true);
+
+		for (auto it : monsterIndexes) {
+			m_dungeon->damageMonster(it, 8, DamageType::MAGICAL);
+			if (m_dungeon->getMonsters().at(it)->canBeBurned())
+				m_dungeon->giveAffliction(it, std::make_shared<Burn>(*m_dungeon->getPlayer(), 6));
+		}
+
+		if (heroOnTop) {
+			m_dungeon->damagePlayer(8);
+			if (m_dungeon->getPlayer()->canBeBurned())
+				m_dungeon->getPlayer()->addAffliction(std::make_shared<Burn>(*m_dungeon->getPlayer(), 6));
+		}
+	}
+	else
+		m_lava->setVisible(false);
+}
+
+//		LIGHT ABSORBER
+LightAbsorber::LightAbsorber(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, LIGHT_ABSORBER, "Cheese_Wedge_48x48.png", 0) {
+	setWallFlag(true);
+
+	setSprite(dungeon.createSprite(x, y, 1, getImageName()));
+
+	dungeon[y*dungeon.getCols() + x].wall = true;
+}
+void LightAbsorber::activeTrapAction(Actors &a) {
+	int cols = m_dungeon->getCols();
+
+	int x = getPosX();
+	int y = getPosY();
+
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
+
+	if (m_activated && abs(px - x) <= 4 && abs(py - y) <= 4) {
+
+		m_dungeon->getPlayer()->setVision(m_dungeon->getPlayer()->getVision() + m_lightReductionLevel);
+
+		if (abs(px - x) <= 1 && abs(py - y) <= 1)
+			m_lightReductionLevel = 4;
+		
+		else if (abs(px - x) <= 2 && abs(py - y) <= 2)
+			m_lightReductionLevel = 3;
+		
+		else if (abs(px - x) <= 3 && abs(py - y) <= 3)
+			m_lightReductionLevel = 2;
+		
+		else if (abs(px - x) <= 4 && abs(py - y) <= 4) 
+			m_lightReductionLevel = 1;		
+		
+
+		m_dungeon->getPlayer()->setVision(m_dungeon->getPlayer()->getVision() - m_lightReductionLevel);
+	}
+	else if (m_activated && !(abs(px - x) <= 4 && abs(py - y) <= 4)) {
+		m_dungeon->getPlayer()->setVision(m_dungeon->getPlayer()->getVision() + m_lightReductionLevel);
+		m_lightReductionLevel = 1;
+		m_activated = false;
+	}
+	else if (!m_activated && abs(px - x) <= 4 && abs(py - y) <= 4) {
+		m_dungeon->getPlayer()->setVision(m_dungeon->getPlayer()->getVision() - m_lightReductionLevel);
+		m_activated = true;
+	}
+}
+
+WatcherStatue::WatcherStatue(Dungeon &dungeon, int x, int y, std::string image, char dir) : Traps(&dungeon, x, y, WATCHER_STATUE, "Cheese_Wedge_48x48.png", 0), m_dir(dir) {
+	setWallFlag(true);
+
+	setSprite(dungeon.createSprite(x, y, 1, getImageName()));
+
+	dungeon[y*dungeon.getCols() + x].wall = true;
+}
+
+void WatcherStatue::activeTrapAction(Actors &a) {
+	char move = m_dungeon->getPlayer()->facingDirection();
+
+	if (m_cooldown > 0) {
+		m_cooldown--;
+		return;
+	}
+
+	if (m_primed) {
+		react();
+		m_cooldown = 3;
+		m_primed = false;
+		return;
+	}
+
+	if (directionIsOppositeTo(m_dir, move) && hasLineOfSight(*m_dungeon, m_dir, getPosX(), getPosY(), m_dungeon->getPlayer()->getPosX(), m_dungeon->getPlayer()->getPosY())) {
+		if (!m_primed) {
+			playSound("Smasher_Spawns.mp3", *m_dungeon->getPlayer(), getPosX(), getPosY());
+
+			m_primed = true;
+			return;
+		}
+	}
+}
+
+FireballWatcher::FireballWatcher(Dungeon &dungeon, int x, int y, char dir) : WatcherStatue(dungeon, x, y, "Cheese_Wedge_48x48.png", dir) {
+
+}
+
+void FireballWatcher::react() {
+	int x = getPosX();
+	int y = getPosY();
+
+	int n, m;
+	setDirectionalOffsets(m_dir, n, m);
+
+	while (!(m_dungeon->wall(x + n, y + m) || m_dungeon->enemy(x + n, y + m) || m_dungeon->hero(x + n, y + m))) {
+
+		// fire explosion animation
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
+		m_dungeon->runSingleAnimation(frames, 120, x + n, y + m, 2);
+
+		incrementDirectionalOffsets(m_dir, n, m);
+	}
+
+	// play fire blast explosion sound effect
+	playSound("Fireblast_Spell2.mp3");
+
+	x += n;
+	y += m;
+
+	for (int i = x - 1; i < x + 2; i++) {
+		for (int j = y - 1; j < y + 2; j++) {
+
+			// fire explosion animation
+			cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
+			m_dungeon->runSingleAnimation(frames, 120, i, j, 2);
+
+			if (m_dungeon->enemy(i, j)) {
+
+				int pos = m_dungeon->findMonster(i, j);
+				if (pos != -1) {
+					m_dungeon->damageMonster(pos, 10, DamageType::MAGICAL);
+
+					// If they can be burned, roll for a high chance to burn
+					if (m_dungeon->getMonsters().at(pos)->canBeBurned()) {
+						int turns = 6 + (m_dungeon->getPlayer()->hasHarshAfflictions() ? 6 : 0);
+						m_dungeon->giveAffliction(pos, std::make_shared<Burn>(*m_dungeon->getPlayer(), turns));
+					}
+				}
+			}
+
+			if (m_dungeon->hero(i, j)) {
+				m_dungeon->damagePlayer(10);
+				if (m_dungeon->getPlayer()->canBeBurned())
+					m_dungeon->getPlayer()->addAffliction(std::make_shared<Burn>(*m_dungeon->getPlayer(), 6));
+			}
+
+			checkBurn(i, j);
+		}
+	}
+}
+
+FreezeWatcher::FreezeWatcher(Dungeon &dungeon, int x, int y, char dir) : WatcherStatue(dungeon, x, y, "Cheese_Wedge_48x48.png", dir) {
+
+}
+
+void FreezeWatcher::react() {
+	if (m_dungeon->getPlayer()->canBeFrozen()) {
+		m_dungeon->getPlayer()->addAffliction(std::make_shared<Freeze>(3));
+	}
+}
+
+DartWatcher::DartWatcher(Dungeon &dungeon, int x, int y, char dir) : WatcherStatue(dungeon, x, y, "Cheese_Wedge_48x48.png", dir) {
+
+}
+
+void DartWatcher::react() {
+	int x = getPosX();
+	int y = getPosY();
+
+	int n, m;
+	setDirectionalOffsets(m_dir, n, m);
+
+	while (!(m_dungeon->wall(x + n, y + m) || m_dungeon->enemy(x + n, y + m) || m_dungeon->hero(x + n, y + m))) {
+
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
+		m_dungeon->runSingleAnimation(frames, 120, x + n, y + m, 2);
+
+		incrementDirectionalOffsets(m_dir, n, m);
+	}
+
+	playMiss();
+
+	x += n;
+	y += m;
+
+	if (m_dungeon->enemy(x, y)) {
+
+		int pos = m_dungeon->findMonster(x, y);
+		if (pos != -1) {
+			m_dungeon->damageMonster(pos, 2, DamageType::MAGICAL);
+
+			if (m_dungeon->getMonsters().at(pos)->canBePoisoned()) {
+				int turns = 15;
+				m_dungeon->giveAffliction(pos, std::make_shared<Poison>(*m_dungeon->getPlayer(), turns, 3, 2, 2));
+			}
+		}
+	}
+
+	if (m_dungeon->hero(x, y)) {
+		if (m_dungeon->getPlayer()->canBlock() && m_dungeon->getPlayer()->didBlock(getPosX(), getPosY())) {
+			m_dungeon->getPlayerVector()[0]->successfulBlock();
+			return;
+		}
+
+		m_dungeon->damagePlayer(2);
+		if (m_dungeon->getPlayer()->canBePoisoned())
+			m_dungeon->getPlayer()->addAffliction(std::make_shared<Poison>(*m_dungeon->getPlayer(), 15, 3, 2, 2));
+	}
+}
+
+CrumbleWatcher::CrumbleWatcher(Dungeon &dungeon, int x, int y, char dir) : WatcherStatue(dungeon, x, y, "Cheese_Wedge_48x48.png", dir) {
+
+}
+
+void CrumbleWatcher::react() {
+	if (!m_dungeon->trap(m_dungeon->getPlayer()->getPosX(), m_dungeon->getPlayer()->getPosY())) {
+		m_dungeon->addTrap(std::make_shared<CrumbleFloor>(*m_dungeon, m_dungeon->getPlayer()->getPosX(), m_dungeon->getPlayer()->getPosY(), 1));
+	}
+}
+
+SpawnWatcher::SpawnWatcher(Dungeon &dungeon, int x, int y, char dir) : WatcherStatue(dungeon, x, y, "Cheese_Wedge_48x48.png", dir) {
+
+}
+
+void SpawnWatcher::react() {
+	int cols = m_dungeon->getCols();
+	int x = m_dungeon->getPlayer()->getPosX();
+	int y = m_dungeon->getPlayer()->getPosY();
+
+	std::vector<std::pair<int, int>> coords;
+	for (int i = x - 3; i < x + 4; i++) {
+		for (int j = y - 3; j < y + 4; j++) {
+
+			// Ignore all but the outer ring
+			if (!m_dungeon->withinBounds(i, j) || (abs(i - x) <= 2 || abs(j - y) <= 2))
+				continue;
+
+			coords.push_back(std::make_pair(i, j));
+		}
+	}
+
+	int n = 3; // Number of enemies to spawn
+	while (!coords.empty() && n > 0) {
+		int index = randInt((int)coords.size());
+		std::pair<int, int> pair = coords[index];
+		coords.erase(coords.begin() + index);
+
+		if (!m_dungeon->enemy(pair.first, pair.second)) {
+			std::shared_ptr<Monster> m = std::make_shared<SpectralSword>(m_dungeon, pair.first, pair.second);
+			m_dungeon->getMonsters().push_back(m);
+
+			n--;
+		}
+	}
+}
+
+GuardianWatcher::GuardianWatcher(Dungeon &dungeon, int x, int y, char dir) : WatcherStatue(dungeon, x, y, "Cheese_Wedge_48x48.png", dir) {
+
+}
+
+void GuardianWatcher::react() {
+	m_dungeon->getMonsters().push_back(std::make_shared<Watcher>(m_dungeon, getPosX(), getPosY()));
+
+	destroyTrap();
 }
 
 //		DECOY
-Decoy::Decoy(int x, int y, int range, int turns, std::string name, std::string image) : Traps(x, y, name, image, 0), m_attractRange(range), m_turns(turns) {
+Decoy::Decoy(Dungeon &dungeon, int x, int y, int range, int turns, std::string name, std::string image) : Traps(&dungeon, x, y, name, image, 0), m_attractRange(range), m_turns(turns) {
 
 }
 
 //		ROTTING DECOY
-RottingDecoy::RottingDecoy(int x, int y, int bites) : Decoy(x, y, bites, 8, ROTTING_DECOY, "Honeycomb_48x48.png") {
-
+RottingDecoy::RottingDecoy(Dungeon &dungeon, int x, int y, int bites) : Decoy(dungeon, x, y, 8, bites, ROTTING_DECOY, "Honeycomb_48x48.png") {
+	setSprite(dungeon.createSprite(x, y, -1, getImageName()));
 }
 
-void RottingDecoy::activeTrapAction(Dungeon &dungeon, Actors &a) {
-
-	int cols = dungeon.getCols();
-
+void RottingDecoy::activeTrapAction(Actors &a) {
 	int x = getPosX();
 	int y = getPosY();
+
+	if (isDestroyed())
+		return;
 
 	// Find any monsters adjacent and poison them
 	for (int i = x - 1; i < x + 2; i++) {
 		for (int j = y - 1; j < y + 2; j++) {
 
-			if (isDestroyed())
-				return;
-
-			int pos = dungeon.findMonster(i, j);
-			if (pos != -1) {
-				trapAction(dungeon, *dungeon.getMonsters().at(pos));
-			}
+			int pos = m_dungeon->findMonster(i, j);
+			if (pos != -1)
+				trapAction(*m_dungeon->getMonsters().at(pos));			
 		}
 	}
 }
-void RottingDecoy::trapAction(Dungeon &dungeon, Actors &a) {
+void RottingDecoy::trapAction(Actors &a) {
 
 	// Does nothing to the player
 	if (a.isPlayer())
 		return;
 
-	if (a.canBePoisoned()) {
-		a.addAffliction(std::make_shared<Poison>(2, 2, 1, 1));	
-	}
-
+	if (a.canBePoisoned())
+		a.addAffliction(std::make_shared<Poison>(*m_dungeon->getPlayer(), 2, 2, 1, 1));
+	
 	decTurns();
-	if (getTurns() == 0) {
-		destroyTrap(dungeon);
+	if (getTurns() == 0)
+		destroyTrap();
+}
+
+EnergyHelix::EnergyHelix(Dungeon &dungeon, int x, int y, char dir, char dir2) : Traps(&dungeon, x, y, ENERGY_HELIX, "Fireblast_Spell_48x48.png", 0), m_dir(dir), m_secondaryDir(dir2) {
+	m_maxSpaces = m_spaces;
+	m_currentDir = dir;
+
+	cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("Fire%04d.png", 8);
+	setSprite(dungeon.runAnimationForever(frames, 24, x, y, 2));
+	getSprite()->setScale(0.75f * GLOBAL_SPRITE_SCALE);
+
+	if (dungeon.countTrapNumber(x, y) <= 1)
+		dungeon[y*dungeon.getCols() + x].trap = false;
+
+	dungeon.addLightSource(x, y, 3, getName());
+}
+void EnergyHelix::moveTo(int x, int y, float time) {
+	m_dungeon->removeLightSource(getPosX(), getPosY(), getName());
+	m_dungeon->addLightSource(x, y, 3, getName());
+
+	m_dungeon->queueMoveSprite(getSprite(), x, y, time);
+	setPosX(x); setPosY(y);
+}
+void EnergyHelix::activeTrapAction(Actors &a) {
+	int x = getPosX();
+	int y = getPosY();
+
+	if (m_dungeon->hero(x, y)) {
+		playSound("Fire3.mp3", *m_dungeon->getPlayer(), x, y);
+
+		if (m_dungeon->getPlayer()->canBeBurned())
+			m_dungeon->getPlayer()->addAffliction(std::make_shared<Burn>(*m_dungeon->getPlayer(), 7));
+
+		destroyTrap();
+		return;
 	}
+
+	if (m_dungeon->wall(x, y)) {
+		destroyTrap();
+		return;
+	}
+
+	if (m_spaces == 0) {
+		m_spaces = m_maxSpaces;
+
+		if (m_currentDir == m_dir)
+			m_currentDir = m_secondaryDir;
+		else
+			m_currentDir = m_dir;
+	}
+
+	int n, m;
+	setDirectionalOffsets(m_currentDir, n, m);
+
+	moveTo(x + n, y + m);
+
+	if (m_dungeon->hero(x + n, y + m)) {
+		playSound("Fire3.mp3", *m_dungeon->getPlayer(), x, y);
+
+		if (m_dungeon->getPlayer()->canBeBurned())
+			m_dungeon->getPlayer()->addAffliction(std::make_shared<Burn>(*m_dungeon->getPlayer(), 7));
+
+		destroyTrap();
+		return;
+	}
+
+	if (m_dungeon->wall(x + n, y + m)) {
+		destroyTrap();
+		return;
+	}
+
+	m_spaces--;
+}
+void EnergyHelix::spriteCleanup() {
+	auto scale = cocos2d::ScaleTo::create(0.1f, 0.0f);
+	auto fade = cocos2d::FadeOut::create(0.1f);
+	cocos2d::Vector<cocos2d::FiniteTimeAction*> v;
+	v.pushBack(scale);
+	v.pushBack(fade);
+
+	m_dungeon->queueRemoveSpriteWithMultipleActions(getSprite(), v);
 }
 
-//		FIRE PILLARS
-FirePillars::FirePillars(int x, int y, int limit) : Traps(x, y, FIRE_PILLARS, "Fireblast_Spell_48x48.png", 0), m_limit(limit) {
+AbyssalMaw::AbyssalMaw(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, ABYSSAL_MAW, "Puddle.png", 10) {
+	if (dungeon.countTrapNumber(x, y) <= 1)
+		dungeon[y*dungeon.getCols() + x].trap = false;
 
+	setSprite(dungeon.createSprite(x, y, -1, getImageName()));
 }
-void FirePillars::activeTrapAction(Dungeon &dungeon, Actors &a) {
-	int cols = dungeon.getCols();
+
+void AbyssalMaw::activeTrapAction(Actors &a) {
+	if (m_wait > 0) {
+		m_wait--;
+		return;
+	}
 
 	int x = getPosX();
 	int y = getPosY();
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	playSound("Fireblast_Spell1.mp3");
+
+	auto frames = getAnimationFrameVector("frame%04d.png", 63);
+	m_dungeon->runSingleAnimation(frames, 120, x, y, 2);
+
+	if (m_dungeon->hero(x, y))
+		m_dungeon->damagePlayer(getDmg());
+
+	destroyTrap();
+}
+
+Goop::Goop(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, GOOP, "Puddle.png", 0) {
+	setSprite(dungeon.createSprite(x, y, -3, getImageName()));
+}
+
+void Goop::activeTrapAction(Actors &a) {
+	int x = getPosX();
+	int y = getPosY();
+
+	if (m_dungeon->hero(x, y))
+		trapAction(*m_dungeon->getPlayer());
+	else if (m_dungeon->enemy(x, y)) {
+		int pos = m_dungeon->findMonster(x, y);
+		if (pos != -1)
+			trapAction(*m_dungeon->getMonsters().at(pos));
+	}
+}
+void Goop::trapAction(Actors &a) {
+	if (a.isFlying())
+		return;
+
+	playSound("Puddle_Splash.mp3", *m_dungeon->getPlayer(), getPosX(), getPosY());
+
+	if (a.isPlayer())
+		a.addAffliction(std::make_shared<Stuck>(2));
+	else
+		a.addAffliction(std::make_shared<Stun>(2));
+
+	destroyTrap();
+}
+
+MiniEruption::MiniEruption(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, MINI_ERUPTION, "Puddle.png", 5) {
+	if (dungeon.countTrapNumber(x, y) <= 1)
+		dungeon[y*dungeon.getCols() + x].trap = false;
+
+	//setSprite(dungeon.createSprite(x, y, -1, getImageName()));
+}
+
+void MiniEruption::addCoords() {
+	m_coords.clear();
+
+	int x = getPosX();
+	int y = getPosY();
+
+	m_coords.push_back(std::make_pair(x - m_radius, y));
+	m_coords.push_back(std::make_pair(x + m_radius, y));
+	m_coords.push_back(std::make_pair(x, y - m_radius));
+	m_coords.push_back(std::make_pair(x, y + m_radius));
+}
+void MiniEruption::activeTrapAction(Actors &a) {
+	if (m_turns == -1) {
+		m_turns++;
+		return;
+	}
+
+	if (m_turns > m_maxTurns) {
+		setDestroyed(true);
+
+		return;
+	}
+
+	playSound("Fireblast_Spell1.mp3", *m_dungeon->getPlayer(), getPosX(), getPosY());
+	playSound("Earthquake_Spell2.mp3", *m_dungeon->getPlayer(), getPosX(), getPosY());
+
+	addCoords();
+
+	for (unsigned int i = 0; i < m_coords.size(); i++) {
+		int x = m_coords[i].first;
+		int y = m_coords[i].second;
+
+		if (!m_dungeon->withinBounds(x, y))
+			continue;
+
+		if (!m_dungeon->wall(x, y) || m_dungeon->wallObject(x, y) && m_dungeon->wallObject(x, y)->isDestructible()) {
+			auto frames = getAnimationFrameVector("frame%04d.png", 63);
+			m_dungeon->runSingleAnimation(frames, 120, x, y, 2);
+		}
+
+		if (m_dungeon->wallObject(x, y) && m_dungeon->wallObject(x, y)->isDestructible())
+			m_dungeon->destroyWall(x, y);
+		
+		if (m_dungeon->hero(x, y)) {
+			m_dungeon->damagePlayer(getDmg());
+			if (!m_dungeon->getPlayer()->isFlying() && m_dungeon->getPlayer()->canBeBurned())
+				m_dungeon->getPlayer()->addAffliction(std::make_shared<Burn>(*m_dungeon->getPlayer(), 6));
+		}
+
+		if (m_dungeon->enemy(x, y)) {
+			int pos = m_dungeon->findMonster(x, y);
+			if (pos != -1) {
+				if (!m_dungeon->getMonsters().at(pos)->isFlying() && m_dungeon->getMonsters().at(pos)->canBeBurned())
+					m_dungeon->giveAffliction(pos, std::make_shared<Burn>(*m_dungeon->getPlayer(), 6));
+			}
+		}
+	}
+
+	m_turns++;
+	m_radius++;
+}
+
+Combustion::Combustion(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, COMBUSTION, "Diamond_48x48.png", 10) {
+	setSprite(dungeon.createSprite(x, y, 1, getImageName()));
+
+	setWallFlag(true);
+	dungeon[y*dungeon.getCols() + x].wall = true;
+}
+
+void Combustion::activeTrapAction(Actors &a) {
+	if (m_countdown > 0) {
+		m_countdown--;
+		return;
+	}
+
+	int x = getPosX();
+	int y = getPosY();
+
+	playSound("Explosion.mp3");
+
+	for (int i = x - 1; i < x + 2; i++) {
+		for (int j = y - 1; j < y + 2; j++) {
+
+			if (m_dungeon->hero(i, j))
+				if (!m_dungeon->getPlayer()->explosionImmune())
+					m_dungeon->damagePlayer(getDmg());
+
+			if (m_dungeon->enemy(i, j))
+				m_dungeon->damageMonster(i, j, getDmg(), DamageType::EXPLOSIVE);
+		
+			if (m_dungeon->wallObject(i, j) && m_dungeon->wallObject(i, j)->isDestructible())
+				m_dungeon->destroyWall(i, j);
+
+			if (m_dungeon->gold(i, j) != 0)
+				m_dungeon->removeGold(i, j);
+
+			checkExplosion(i, j);		
+		}
+	}
+
+	for (int i = x - 3; i < x + 4; i++) {
+		for (int j = y - 3; j < y + 4; j++) {
+			if (!m_dungeon->withinBounds(i, j))
+				continue;
+
+			if (m_dungeon->hero(i, j) || m_dungeon->enemy(i, j))
+				m_dungeon->linearActorPush(i, j, 3 - std::max(abs(i - x), abs(j - y)) + 1, 3, getFacingDirectionRelativeTo(x, y, i, j));
+		}
+	}
+
+	destroyTrap();
+}
+
+DirtMound::DirtMound(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, COMBUSTION, "Emerald_48x48.png", 0) {
+	setSprite(dungeon.createSprite(x, y, 1, getImageName()));
+
+	setWallFlag(true);
+	dungeon[y*dungeon.getCols() + x].wall = true;
+}
+
+void DirtMound::trapAction(Actors &a) {
+	int x = getPosX();
+	int y = getPosY();
+
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
+
+	playCrumble(exp(-(abs(px - x) + abs(py - y))) / 3);
+
+	destroyTrap();
+}
+
+//		FIRE PILLARS
+FirePillars::FirePillars(Dungeon &dungeon, int x, int y, int limit) : Traps(&dungeon, x, y, FIRE_PILLARS, "Fireblast_Spell_48x48.png", 0), m_limit(limit) {
+	if (dungeon.countTrapNumber(x, y) <= 1)
+		dungeon[y*dungeon.getCols() + x].trap = false;
+}
+void FirePillars::activeTrapAction(Actors &a) {
+	int x = getPosX();
+	int y = getPosY();
+
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
 	// m_ring value of -1 is to absorb one turn before acting since the first
 	// ring of fire is launched when FireCascade is used.
@@ -9095,35 +9985,28 @@ void FirePillars::activeTrapAction(Dungeon &dungeon, Actors &a) {
 				continue;
 
 			// Boundary check
-			if (dungeon.withinBounds(i, j)) {
+			if (m_dungeon->withinBounds(i, j)) {
 
-				if (!dungeon[j*cols + i].wall) {
+				if (!m_dungeon->wall(i, j)) {
 					// fire explosion animation
-					cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
-					dungeon.runSingleAnimation(frames, 120, i, j, 2);
+					cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
+					m_dungeon->runSingleAnimation(frames, 120, i, j, 2);
 				}
 
-				if (dungeon[j*cols + i].enemy) {
+				if (m_dungeon->enemy(i, j)) {
 
-					int pos = dungeon.findMonster(i, j);
+					int pos = m_dungeon->findMonster(i, j);
 					if (pos != -1) {
 
 						// If they can be burned
-						if (dungeon.getMonsters().at(pos)->canBeBurned() || dungeon.getPlayer()->hasAfflictionOverride()) {
-							int turns = 10 + dungeon.getPlayer()->getInt() + (dungeon.getPlayer()->hasHarshAfflictions() ? 6 : 0);
-							dungeon.giveAffliction(pos, std::make_shared<Burn>(turns));
+						if (m_dungeon->getMonsters().at(pos)->canBeBurned() || m_dungeon->getPlayer()->hasAfflictionOverride()) {
+							int turns = 10 + m_dungeon->getPlayer()->getInt() + (m_dungeon->getPlayer()->hasHarshAfflictions() ? 6 : 0);
+							m_dungeon->giveAffliction(pos, std::make_shared<Burn>(*m_dungeon->getPlayer(), turns));
 						}
 					}
 				}
 
-				if (dungeon[j*cols + i].trap) {
-
-					int pos = dungeon.findTrap(i, j);
-					if (pos != -1) {
-						if (dungeon.getTraps().at(pos)->canBeIgnited())
-							dungeon.getTraps().at(pos)->ignite(dungeon);
-					}
-				}
+				checkBurn(i, j);
 			}
 		}
 	}
@@ -9132,17 +10015,20 @@ void FirePillars::activeTrapAction(Dungeon &dungeon, Actors &a) {
 }
 
 //		ICE SHARDS
-IceShards::IceShards(int x, int y, int limit) : Traps(x, y, ICE_SHARDS, "Sapphire_48x48.png", 4), m_limit(limit) {
+IceShards::IceShards(Dungeon &dungeon, int x, int y, int limit) : Traps(&dungeon, x, y, ICE_SHARDS, "Sapphire_48x48.png", 4), m_limit(limit) {
+	setSprite(dungeon.createSprite(x, y, -1, getImageName()));
 
+	if (dungeon.countTrapNumber(x, y) <= 1)
+		dungeon[y*dungeon.getCols() + x].trap = false;
 }
-void IceShards::activeTrapAction(Dungeon &dungeon, Actors &a) {
-	int cols = dungeon.getCols();
+void IceShards::activeTrapAction(Actors &a) {
+	int cols = m_dungeon->getCols();
 
 	int x = getPosX();
 	int y = getPosY();
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
 	if (m_shards == 0) {
 		m_shards++;
@@ -9150,17 +10036,14 @@ void IceShards::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	}
 
 	if (m_shards > m_limit) {
-		destroyTrap(dungeon);
-		/*setDestroyed(true);
-		dungeon.queueRemoveSprite(getSprite());*/
+		destroyTrap();
 		return;
 	}
 
 	playSound("Freeze_Spell1.mp3");
 
 	int n, m;
-	bool wall, enemy;
-	
+
 	int k = 1; // Number of directions
 	while (k <= 8) {
 
@@ -9175,28 +10058,25 @@ void IceShards::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		case 8: n = 1; m = 1; break;
 		}
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
-		while (!wall) {
+		while (!m_dungeon->wall(x + n, y + m)) {
 
 			// fire explosion animation
-			cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
-			dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
+			cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
+			m_dungeon->runSingleAnimation(frames, 120, x + n, y + m, 2);
 
-			if (enemy) {
-				int pos = dungeon.findMonster(x + n, y + m);
+			if (m_dungeon->enemy(x + n, y + m)) {
+				int pos = m_dungeon->findMonster(x + n, y + m);
 				if (pos != -1) {
 
 					// Attempt freeze
-					if (dungeon.getMonsters().at(pos)->canBeFrozen() || dungeon.getPlayer()->hasAfflictionOverride()) {
-						if (1 + randInt(100) + dungeon.getPlayer()->getLuck() > 40 - dungeon.getPlayer()->getInt()) {
-							int turns = 3 + dungeon.getPlayer()->getInt() + (dungeon.getPlayer()->hasHarshAfflictions() ? 3 : 0);
-							dungeon.giveAffliction(pos, std::make_shared<Freeze>(turns));
+					if (m_dungeon->getMonsters().at(pos)->canBeFrozen() || m_dungeon->getPlayer()->hasAfflictionOverride()) {
+						if (1 + randInt(100) + m_dungeon->getPlayer()->getLuck() > 40 - m_dungeon->getPlayer()->getInt()) {
+							int turns = 3 + m_dungeon->getPlayer()->getInt() + (m_dungeon->getPlayer()->hasHarshAfflictions() ? 3 : 0);
+							m_dungeon->giveAffliction(pos, std::make_shared<Freeze>(turns));
 						}
 					}
 					
-					dungeon.damageMonster(pos, getDmg() + dungeon.getPlayer()->getInt());
+					m_dungeon->damageMonster(pos, getDmg() + m_dungeon->getPlayer()->getInt(), DamageType::PIERCING);
 				}
 				break;
 			}
@@ -9211,9 +10091,6 @@ void IceShards::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			case 7: n--; m++; break;
 			case 8: n++; m++; break;
 			}
-
-			wall = dungeon[(y + m)*cols + (x + n)].wall;
-			enemy = dungeon[(y + m)*cols + (x + n)].enemy;
 		}
 
 		k++;
@@ -9223,17 +10100,18 @@ void IceShards::activeTrapAction(Dungeon &dungeon, Actors &a) {
 }
 
 //		HAIL STORM
-HailStorm::HailStorm(int x, int y, char dir, int limit) : Traps(x, y, HAIL_STORM, "Sapphire_48x48.png", 4), m_dir(dir), m_limit(limit) {
-
+HailStorm::HailStorm(Dungeon &dungeon, int x, int y, char dir, int limit) : Traps(&dungeon, x, y, HAIL_STORM, "Sapphire_48x48.png", 4), m_dir(dir), m_limit(limit) {
+	if (dungeon.countTrapNumber(x, y) <= 1)
+		dungeon[y*dungeon.getCols() + x].trap = false;
 }
-void HailStorm::activeTrapAction(Dungeon &dungeon, Actors &a) {
-	int cols = dungeon.getCols();
+void HailStorm::activeTrapAction(Actors &a) {
+	int cols = m_dungeon->getCols();
 
 	int x = getPosX();
 	int y = getPosY();
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
 	if (m_turns == 0) {
 		m_turns++;
@@ -9248,8 +10126,6 @@ void HailStorm::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	playSound("Freeze_Spell1.mp3");
 
 	int n, m;
-	bool enemy;
-
 	switch (m_dir) {
 	case 'l': n = -1; m = -2; break;
 	case 'r': n = 1; m = -2; break;
@@ -9262,28 +10138,28 @@ void HailStorm::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		for (int j = 0; j < 5; j++) {
 			
 			// 40% base chance to strike this spot
-			if (dungeon.withinBounds(x + n, y + m) && 1 + randInt(100) + dungeon.getPlayer()->getLuck() > 40 - dungeon.getPlayer()->getInt()) {
+			if (m_dungeon->withinBounds(x + n, y + m) && 1 + randInt(100) + m_dungeon->getPlayer()->getLuck() > 40 - m_dungeon->getPlayer()->getInt()) {
 				// fire explosion animation
-				cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
-				dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
+				cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
+				m_dungeon->runSingleAnimation(frames, 120, x + n, y + m, 2);
 
-				enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
-				if (enemy) {
-					int pos = dungeon.findMonster(x + n, y + m);
+				if (m_dungeon->enemy(x + n, y + m)) {
+					int pos = m_dungeon->findMonster(x + n, y + m);
 					if (pos != -1) {
 
 						// Attempt freeze
-						if (dungeon.getMonsters().at(pos)->canBeFrozen() || dungeon.getPlayer()->hasAfflictionOverride()) {
-							if (1 + randInt(100) + dungeon.getPlayer()->getLuck() > 25 - dungeon.getPlayer()->getInt()) {
-								int turns = 3 + dungeon.getPlayer()->getInt() + (dungeon.getPlayer()->hasHarshAfflictions() ? 3 : 0);
-								dungeon.giveAffliction(pos, std::make_shared<Freeze>(turns));
+						if (m_dungeon->getMonsters().at(pos)->canBeFrozen() || m_dungeon->getPlayer()->hasAfflictionOverride()) {
+							if (1 + randInt(100) + m_dungeon->getPlayer()->getLuck() > 25 - m_dungeon->getPlayer()->getInt()) {
+								int turns = 3 + m_dungeon->getPlayer()->getInt() + (m_dungeon->getPlayer()->hasHarshAfflictions() ? 3 : 0);
+								m_dungeon->giveAffliction(pos, std::make_shared<Freeze>(turns));
 							}
 						}
 
-						dungeon.damageMonster(pos, getDmg() + dungeon.getPlayer()->getInt());
+						m_dungeon->damageMonster(pos, getDmg() + m_dungeon->getPlayer()->getInt(), DamageType::MAGICAL);
 					}
 				}
+
+				checkFreeze(x + n, y + m);
 			}
 
 			switch (m_dir) {
@@ -9307,12 +10183,13 @@ void HailStorm::activeTrapAction(Dungeon &dungeon, Actors &a) {
 }
 
 //		SHOCKWAVES
-Shockwaves::Shockwaves(int x, int y, char dir, int limit) : Traps(x, y, SHOCKWAVES, "Sapphire_48x48.png", 6), m_dir(dir), m_limit(limit) {
-
+Shockwaves::Shockwaves(Dungeon &dungeon, int x, int y, char dir, int limit) : Traps(&dungeon, x, y, SHOCKWAVES, "Sapphire_48x48.png", 6), m_dir(dir), m_limit(limit) {
+	if (dungeon.countTrapNumber(x, y) <= 1)
+		dungeon[y*dungeon.getCols() + x].trap = false;
 }
-void Shockwaves::activeTrapAction(Dungeon &dungeon, Actors &a) {
+void Shockwaves::activeTrapAction(Actors &a) {
 	
-	int cols = dungeon.getCols();
+	int cols = m_dungeon->getCols();
 
 	int x = getPosX();
 	int y = getPosY();
@@ -9323,7 +10200,6 @@ void Shockwaves::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	}
 
 	int n, m;
-	bool wall, enemy, trap;
 
 	// These values determine how many tiles from the center line the ripple covers.
 	// For instance, a value of 2 for the frontWave and 1 for the rearWave indicates
@@ -9351,52 +10227,55 @@ void Shockwaves::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	for (int i = 0; i < 2 * frontWave + 1; i++) {
 
 		// Boundary check
-		if (!dungeon.withinBounds(x + n, y + m))
+		if (!m_dungeon->withinBounds(x + n, y + m))
 			continue;
 
 		//playSound("Earthquake_Spell2.mp3");
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-		trap = dungeon[(y + m)*cols + (x + n)].trap;
-
 		// fire explosion animation
-		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
-		dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
+		m_dungeon->runSingleAnimation(frames, 120, x + n, y + m, 2);
 
-		if (enemy) {
-			int pos = dungeon.findMonster(x + n, y + m);
+		if (m_dungeon->enemy(x + n, y + m)) {
+			int pos = m_dungeon->findMonster(x + n, y + m);
 			if (pos != -1) {
-				if (dungeon.getMonsters().at(pos)->canBeStunned())
-					dungeon.giveAffliction(pos, std::make_shared<Stun>(2));
+				if (m_dungeon->getMonsters().at(pos)->canBeStunned())
+					m_dungeon->giveAffliction(pos, std::make_shared<Stun>(2));
 				
-				dungeon.damageMonster(pos, getDmg());
+				m_dungeon->damageMonster(pos, getDmg(), DamageType::MAGICAL);
+			}
+		}
+
+		if (m_dungeon->underEnemy(x + n, y + m)) {
+			int pos = m_dungeon->findUndergroundMonster(x + n, y + m);
+			if (pos != -1) {
+				if (m_dungeon->getMonsters().at(pos)->canBeStunned())
+					m_dungeon->giveAffliction(pos, std::make_shared<Stun>(2));
+
+				m_dungeon->damageMonster(pos, getDmg(), DamageType::MAGICAL);
 			}
 		}
 
 		// 50% base chance to destroy walls
-		if (wall && dungeon[(y + m)*cols + (x + n)].wall_type == REG_WALL) {
-			if (1 + randInt(100) + dungeon.getPlayer()->getLuck() > 50 - dungeon.getPlayer()->getInt()) {
-				dungeon[(y + m)*cols + (x + n)].wall = false;
-				dungeon.removeSprite(dungeon.wall_sprites, x + n, y + m);
+		if (m_dungeon->wallObject(x + n, y + m) && m_dungeon->wallObject(x + n, y + m)->isDestructible()) {
+			if (1 + randInt(100) + m_dungeon->getPlayer()->getLuck() > 50 - m_dungeon->getPlayer()->getInt()) {
+				m_dungeon->destroyWall(x + n, y + m);
 			}
 		}
 
 		// 50% base chance to destroy destructible traps
-		if (trap) {
-			int pos = dungeon.findTrap(x + n, y + m);
+		if (m_dungeon->trap(x + n, y + m)) {
 
-			if (pos != -1) {
-				if (dungeon.getTraps().at(pos)->isDestructible()) {
-					if (1 + randInt(100) + dungeon.getPlayer()->getLuck() > 50 - dungeon.getPlayer()->getInt()) {
-						dungeon.getTraps().at(pos)->destroyTrap(dungeon);
-					}
+			std::vector<int> indexes = m_dungeon->findTraps(x, y);
+			for (int i = 0; i < (int)indexes.size(); i++) {
+
+				if (m_dungeon->getTraps().at(indexes.at(i))->isDestructible()) {
+					if (1 + randInt(100) + m_dungeon->getPlayer()->getLuck() > 50 - m_dungeon->getPlayer()->getInt())
+						m_dungeon->getTraps().at(indexes.at(i))->destroyTrap();
 				}
-				else if (dungeon.getTraps().at(pos)->isExplosive()) {
-					std::shared_ptr<ActiveBomb> bomb = std::dynamic_pointer_cast<ActiveBomb>(dungeon.getTraps().at(pos));
-					bomb->explosion(dungeon, a);
-					bomb.reset();
-				}
+
+				else if (m_dungeon->getTraps().at(indexes.at(i))->isExplosive())
+					m_dungeon->getTraps().at(indexes.at(i))->explode();
 			}
 		}
 
@@ -9421,52 +10300,54 @@ void Shockwaves::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	for (int i = 0; i < 2 * rearWave + 1; i++) {
 
 		// Boundary check
-		if (!dungeon.withinBounds(x + n, y + m))
+		if (!m_dungeon->withinBounds(x + n, y + m))
 			continue;
 
 		playSound("Earthquake_Spell2.mp3");
 
 		// fire explosion animation
-		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
-		dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
+		m_dungeon->runSingleAnimation(frames, 120, x + n, y + m, 2);
 
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-		trap = dungeon[(y + m)*cols + (x + n)].trap;
-
-		if (enemy) {
-			int pos = dungeon.findMonster(x + n, y + m);
+		if (m_dungeon->enemy(x + n, y + m)) {
+			int pos = m_dungeon->findMonster(x + n, y + m);
 			if (pos != -1) {
-				if (dungeon.getMonsters().at(pos)->canBeStunned())
-					dungeon.giveAffliction(pos, std::make_shared<Stun>(2));
+				if (m_dungeon->getMonsters().at(pos)->canBeStunned())
+					m_dungeon->giveAffliction(pos, std::make_shared<Stun>(2));
 
-				dungeon.damageMonster(pos, getDmg() / 2);
+				m_dungeon->damageMonster(pos, getDmg() / 2, DamageType::MAGICAL);
+			}
+		}
+
+		if (m_dungeon->underEnemy(x + n, y + m)) {
+			int pos = m_dungeon->findUndergroundMonster(x + n, y + m);
+			if (pos != -1) {
+				if (m_dungeon->getMonsters().at(pos)->canBeStunned())
+					m_dungeon->giveAffliction(pos, std::make_shared<Stun>(2));
+
+				m_dungeon->damageMonster(pos, getDmg(), DamageType::MAGICAL);
 			}
 		}
 
 		// 50% base chance to destroy walls
-		if (wall && dungeon[(y + m)*cols + (x + n)].wall_type == REG_WALL) {
-			if (1 + randInt(100) + dungeon.getPlayer()->getLuck() > 50 - dungeon.getPlayer()->getInt()) {
-				dungeon[(y + m)*cols + (x + n)].wall = false;
-				dungeon.removeSprite(dungeon.wall_sprites, x + n, y + m);
+		if (m_dungeon->wallObject(x + n, y + m) && m_dungeon->wallObject(x + n, y + m)->isDestructible()) {
+			if (1 + randInt(100) + m_dungeon->getPlayer()->getLuck() > 50 - m_dungeon->getPlayer()->getInt()) {
+				m_dungeon->destroyWall(x + n, y + m);
 			}
 		}
 
 		// 50% base chance to destroy destructible traps
-		if (trap) {
-			int pos = dungeon.findTrap(x + n, y + m);
+		if (m_dungeon->trap(x + n, y + m)) {
+			std::vector<int> indexes = m_dungeon->findTraps(x, y);
+			for (int i = 0; i < (int)indexes.size(); i++) {
 
-			if (pos != -1) {
-				if (dungeon.getTraps().at(pos)->isDestructible()) {
-					if (1 + randInt(100) + dungeon.getPlayer()->getLuck() > 50 - dungeon.getPlayer()->getInt()) {
-						dungeon.getTraps().at(pos)->destroyTrap(dungeon);
-					}
+				if (m_dungeon->getTraps().at(indexes.at(i))->isDestructible()) {
+					if (1 + randInt(100) + m_dungeon->getPlayer()->getLuck() > 50 - m_dungeon->getPlayer()->getInt())
+						m_dungeon->getTraps().at(indexes.at(i))->destroyTrap();
 				}
-				else if (dungeon.getTraps().at(pos)->isExplosive()) {
-					std::shared_ptr<ActiveBomb> bomb = std::dynamic_pointer_cast<ActiveBomb>(dungeon.getTraps().at(pos));
-					bomb->explosion(dungeon, a);
-					bomb.reset();
-				}
+
+				else if (m_dungeon->getTraps().at(indexes.at(i))->isExplosive())
+					m_dungeon->getTraps().at(indexes.at(i))->explode();
 			}
 		}
 
@@ -9482,11 +10363,17 @@ void Shockwaves::activeTrapAction(Dungeon &dungeon, Actors &a) {
 }
 
 //		ROCK SUMMON
-RockSummon::RockSummon(int x, int y) : Traps(x, y, ROCK_SUMMON, "Diamond_48x48.png", 8) {
+RockSummon::RockSummon(Dungeon &dungeon, int x, int y) : Traps(&dungeon, x, y, ROCK_SUMMON, "Diamond_48x48.png", 8) {
 	setWallFlag(true);
+
+	// Makes the rock interactable
+	dungeon[y*dungeon.getCols() + x].wall = true;
+	dungeon[y*dungeon.getCols() + x].trap = true;
+
+	setSprite(dungeon.createSprite(x, y, -1, getImageName()));
 }
-void RockSummon::trapAction(Dungeon &dungeon, Actors &a) {
-	int cols = dungeon.getCols();
+void RockSummon::trapAction(Actors &a) {
+	int cols = m_dungeon->getCols();
 
 	int x = getPosX();
 	int y = getPosY();
@@ -9495,8 +10382,7 @@ void RockSummon::trapAction(Dungeon &dungeon, Actors &a) {
 	if (!a.isPlayer())
 		return;
 
-	bool wall, enemy, trap;
-	char move = dungeon.getPlayer()->facingDirection();
+	char move = m_dungeon->getPlayer()->facingDirection();
 	
 	int n = 0, m = 0;
 	switch (move) {
@@ -9506,29 +10392,25 @@ void RockSummon::trapAction(Dungeon &dungeon, Actors &a) {
 	case 'd': n = 0; m = 1; break;
 	}
 
-	wall = dungeon[(y + m)*cols + (x + n)].wall;
-	enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-	trap = dungeon[(y + m)*cols + (x + n)].trap;
-
-	while (!wall) {
+	while (!m_dungeon->wall(x + n, y + m)) {
 
 		// fire explosion animation
-		cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
-		dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
+		cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
+		m_dungeon->runSingleAnimation(frames, 120, x + n, y + m, 2);
 
-		if (enemy) {
+		if (m_dungeon->enemy(x + n, y + m)) {
 			playSound("Earthquake_Spell1.mp3");
 
-			int pos = dungeon.findMonster(x + n, y + m);
+			int pos = m_dungeon->findMonster(x + n, y + m);
 			if (pos != -1) {
-				if (dungeon.getMonsters().at(pos)->canBeStunned())
-					dungeon.giveAffliction(pos, std::make_shared<Stun>(4));
+				if (m_dungeon->getMonsters().at(pos)->canBeStunned())
+					m_dungeon->giveAffliction(pos, std::make_shared<Stun>(4));
 
-				dungeon.damageMonster(pos, getDmg());
+				m_dungeon->damageMonster(pos, getDmg(), DamageType::MAGICAL);
 
-				dungeon[y*cols + x].wall = false; // Unmark its spawn location as a wall
+				(*m_dungeon)[y*cols + x].wall = false; // Unmark its spawn location as a wall
 				setDestroyed(true);
-				dungeon.queueRemoveSprite(getSprite());
+				m_dungeon->queueRemoveSprite(getSprite());
 				return;
 			}
 		}
@@ -9539,44 +10421,41 @@ void RockSummon::trapAction(Dungeon &dungeon, Actors &a) {
 		case 'u': n = 0; m--; break;
 		case 'd': n = 0; m++; break;
 		}
-
-		wall = dungeon[(y + m)*cols + (x + n)].wall;
-		enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-		trap = dungeon[(y + m)*cols + (x + n)].trap;
 	}
 	
 	playSound("Earthquake_Spell1.mp3");
 
 	// fire explosion animation
-	cocos2d::Vector<cocos2d::SpriteFrame*> frames = dungeon.getAnimation("frame%04d.png", 63);
-	dungeon.runSingleAnimation(frames, 120, x + n, y + m, 2);
+	cocos2d::Vector<cocos2d::SpriteFrame*> frames = getAnimationFrameVector("frame%04d.png", 63);
+	m_dungeon->runSingleAnimation(frames, 120, x + n, y + m, 2);
 
-	if (wall && dungeon[(y + m)*cols + (x + n)].wall_type == REG_WALL) {
-		dungeon[(y + m)*cols + (x + n)].wall = false;
-		dungeon.removeSprite(dungeon.wall_sprites, x + n, y + m);
-	}
-	else if (wall && trap) {
-		int pos = dungeon.findTrap(x + n, y + m);
-		if (pos != -1) {
-			dungeon.getTraps().at(pos)->trapAction(dungeon, *dungeon.getPlayerVector().at(0));
-		}
+	if (m_dungeon->wallObject(x + n, y + m) && m_dungeon->wallObject(x + n, y + m)->isDestructible())
+		m_dungeon->destroyWall(x + n, y + m);
+
+	else if (m_dungeon->wall(x + n, y + m) && m_dungeon->trap(x + n, y + m)) {
+		int pos = m_dungeon->findTrap(x + n, y + m);
+		if (pos != -1)
+			m_dungeon->getTraps().at(pos)->trapAction(*m_dungeon->getPlayerVector().at(0));		
 	}
 
-	destroyTrap(dungeon);
+	destroyTrap();
 }
 
 //		WIND VORTEX
-WindVortex::WindVortex(int x, int y, int limit) : Traps(x, y, WIND_VORTEX, "Emerald_48x48.png", 5), m_limit(limit) {
+WindVortex::WindVortex(Dungeon &dungeon, int x, int y, int limit) : Traps(&dungeon, x, y, WIND_VORTEX, "Emerald_48x48.png", 5), m_limit(limit) {
+	setSprite(dungeon.createSprite(x, y, -1, getImageName()));
 
+	if (dungeon.countTrapNumber(x, y) <= 1)
+		dungeon[y*dungeon.getCols() + x].trap = false;
 }
-void WindVortex::activeTrapAction(Dungeon &dungeon, Actors &a) {
-	int cols = dungeon.getCols();
+void WindVortex::activeTrapAction(Actors &a) {
+	int cols = m_dungeon->getCols();
 
 	int x = getPosX();
 	int y = getPosY();
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
 
 	if (m_turns == 0) {
@@ -9585,55 +10464,49 @@ void WindVortex::activeTrapAction(Dungeon &dungeon, Actors &a) {
 	}
 
 	if (m_turns > m_limit) {
-		destroyTrap(dungeon);
+		destroyTrap();
 		return;
 	}
 
 	playSound("Wind_Spell1.mp3", px, py, x, y);
 	playSound("Wind_Spell2.mp3", px, py, x, y);
 
-	bool wall, enemy, hero;
-
 	for (int i = x - 2; i < x + 3; i++) {
 		for (int j = y - 2; j < y + 3; j++) {
 
-			if (!dungeon.withinBounds(i, j))
+			if (!m_dungeon->withinBounds(i, j))
 				continue;
-
-			wall = dungeon[j*cols + i].wall;
-			enemy = dungeon[j*cols + i].enemy;
-			hero = dungeon[j*cols + i].hero;
 
 			// Inner ring
 			if (abs(x - i) <= 1 && abs(y - j) <= 1) {
-				if (enemy) {
+				if (m_dungeon->enemy(i, j)) {
 					// Eye of the storm
 					if (i == x && j == y) {
-						int pos = dungeon.findMonster(i, j);
+						int pos = m_dungeon->findMonster(i, j);
 						if (pos != -1) {
-							dungeon.damageMonster(pos, getDmg() + dungeon.getPlayer()->getInt());
+							m_dungeon->damageMonster(pos, getDmg() + m_dungeon->getPlayer()->getInt(), DamageType::MAGICAL);
 						}
 					}
 					else {
-						int pos = dungeon.findMonster(i, j);
+						int pos = m_dungeon->findMonster(i, j);
 						if (pos != -1) {
-							if (dungeon.getMonsters().at(pos)->canBeStunned())
-								dungeon.giveAffliction(pos, std::make_shared<Stun>(1));
+							if (m_dungeon->getMonsters().at(pos)->canBeStunned())
+								m_dungeon->giveAffliction(pos, std::make_shared<Stun>(1));
 						}
 					}
 				}
 				// Pull a new enemy into the center, if possible
-				else if (!enemy && !hero && i == x && j == y) {
+				else if (!m_dungeon->enemy(i, j) && !m_dungeon->hero(i, j) && i == x && j == y) {
 					bool stop = false;
 
 					for (int p = x - 1; p < x + 2; p++) {
 						for (int q = y - 1; q < y + 2; q++) {
-							if (dungeon[q*cols + p].enemy) {
-								int pos = dungeon.findMonster(p, q);
+							if (m_dungeon->enemy(p, q)) {
+								int pos = m_dungeon->findMonster(p, q);
 								if (pos != -1) {
-									dungeon.getMonsters().at(pos)->moveTo(dungeon, x, y);
-									if (dungeon[y*cols + x].trap)
-										dungeon.singleMonsterTrapEncounter(pos);
+									m_dungeon->getMonsters().at(pos)->moveTo(x, y);
+									if (m_dungeon->enemy(x, y))
+										m_dungeon->singleMonsterTrapEncounter(pos);
 
 									stop = true;
 									break;
@@ -9647,7 +10520,7 @@ void WindVortex::activeTrapAction(Dungeon &dungeon, Actors &a) {
 			}
 			// Outer ring
 			else {
-				if (enemy) {
+				if (m_dungeon->enemy(i, j)) {
 					char pullDirection;
 
 					// Diagonals
@@ -9715,7 +10588,7 @@ void WindVortex::activeTrapAction(Dungeon &dungeon, Actors &a) {
 							pullDirection = 'u';
 					}
 
-					dungeon.linearActorPush(i, j, 1, pullDirection, true);
+					m_dungeon->linearActorPush(i, j, 1, 1, pullDirection, true);
 				}
 			}		
 		}
@@ -9725,26 +10598,29 @@ void WindVortex::activeTrapAction(Dungeon &dungeon, Actors &a) {
 }
 
 //		THUNDER CLOUD
-ThunderCloud::ThunderCloud(int x, int y, char dir, int limit) : Traps(x, y, THUNDER_CLOUD, "Emerald_48x48.png", 5), m_dir(dir), m_limit(limit) {
+ThunderCloud::ThunderCloud(Dungeon &dungeon, int x, int y, char dir, int limit) : Traps(&dungeon, x, y, THUNDER_CLOUD, "Emerald_48x48.png", 5), m_dir(dir), m_limit(limit) {
+	setSprite(dungeon.createSprite(x, y, 3, getImageName()));
+	dungeon.addLightSource(x, y, 3, getName());
 
+	if (dungeon.countTrapNumber(x, y) <= 1)
+		dungeon[y*dungeon.getCols() + x].trap = false;
 }
-void ThunderCloud::activeTrapAction(Dungeon &dungeon, Actors &a) {
-	int cols = dungeon.getCols();
+void ThunderCloud::activeTrapAction(Actors &a) {
+	int cols = m_dungeon->getCols();
 
 	int x = getPosX();
 	int y = getPosY();
 
-	int px = dungeon.getPlayer()->getPosX();
-	int py = dungeon.getPlayer()->getPosY();
+	int px = m_dungeon->getPlayer()->getPosX();
+	int py = m_dungeon->getPlayer()->getPosY();
 
 	if (m_turns > m_limit) {
-		destroyTrap(dungeon);
+		destroyTrap();
 		return;
 	}
 
 	m_turns++;
 
-	bool boundary, enemy;
 	int n = 0, m = 0;
 	switch (m_dir) {
 	case 'l': n = -1; m = 0; break;
@@ -9759,17 +10635,13 @@ void ThunderCloud::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		m = 0;
 	}
 	
-
-	boundary = dungeon[(y + m)*cols + (x + n)].boundary;
-	enemy = dungeon[(y + m)*cols + (x + n)].enemy;
-
-	if (enemy) {
+	if (m_dungeon->enemy(x + n, y + m)) {
 		playSound("Shock5.mp3");
 
-		int pos = dungeon.findMonster(x + n, y + m);
+		int pos = m_dungeon->findMonster(x + n, y + m);
 		if (pos != -1) {
-			dungeon.damageMonster(pos, getDmg());
-			dungeon.getPlayer()->chainLightning(dungeon, *dungeon.getMonsters().at(pos));
+			m_dungeon->damageMonster(pos, getDmg(), DamageType::MAGICAL);
+			m_dungeon->getPlayer()->chainLightning(*m_dungeon->getMonsters().at(pos));
 		}
 	}
 
@@ -9778,11 +10650,11 @@ void ThunderCloud::activeTrapAction(Dungeon &dungeon, Actors &a) {
 		return;
 	}
 
-	if (!boundary) {
+	if (!m_dungeon->boundary(x + n, y + m)) {
 		setPosX(x + n); setPosY(y + m);
-		dungeon.queueMoveSprite(getSprite(), getPosX(), getPosY());
-		dungeon.removeLightSource(x, y, getName());
-		dungeon.addLightSource(getPosX(), getPosY(), 3, getName());
+		m_dungeon->queueMoveSprite(getSprite(), getPosX(), getPosY());
+		m_dungeon->removeLightSource(x, y, getName());
+		m_dungeon->addLightSource(getPosX(), getPosY(), 3, getName());
 	}
 
 	m_wait = 1;

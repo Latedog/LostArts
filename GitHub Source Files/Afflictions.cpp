@@ -1,60 +1,23 @@
 #include "cocos2d.h"
 #include "global.h"
 #include "AudioEngine.h"
-#include "Afflictions.h"
-#include "GameObjects.h" // Needed for enum class ImbuementType
 #include "FX.h"
+#include "Afflictions.h"
 #include "Actors.h"
+#include <string>
 #include <memory>
 
 
 // :::: AFFLICTIONS ::::
-Afflictions::Afflictions() {
-
-}
 Afflictions::Afflictions(int turns, int wait, std::string name)
 	: m_maxTurns(turns), m_turnsLeft(turns), m_maxWait(wait), m_waitTime(wait), m_name(name) {
 	m_exhausted = false;
 }
 
-std::string Afflictions::getName() const {
-	return m_name;
-}
-int Afflictions::getMaxTurns() const {
-	return m_maxTurns;
-}
-void Afflictions::setMaxTurns(int max) {
-	m_maxTurns = max;
-}
-int Afflictions::getTurnsLeft() const {
-	return m_turnsLeft;
-}
-void Afflictions::setTurnsLeft(int turns) {
-	m_turnsLeft = turns;
-}
-
-int Afflictions::getMaxWait() const {
-	return m_maxWait;
-}
-int Afflictions::getWaitTime() const {
-	return m_waitTime;
-}
-void Afflictions::setWaitTime(int wait) {
-	m_waitTime = wait;
-}
-
-bool Afflictions::isExhausted() const {
-	return m_exhausted;
-}
-void Afflictions::setExhaustion(bool exhausted) {
-	m_exhausted = exhausted;
-}
-
-					// Afflictions(turns, wait, name)
 
 //		BURN
-Burn::Burn(int turns) : Afflictions(turns, 0, BURN) {
-
+Burn::Burn(Player &player, int turns) : Afflictions(turns, 0, BURN) {
+	m_player = &player;
 }
 
 void Burn::afflict(Actors &a) {
@@ -64,7 +27,7 @@ void Burn::afflict(Actors &a) {
 
 	if (getTurnsLeft() > 0) {
 		// play burn sound effect
-		playSound("On_Fire1.mp3");
+		playSound("On_Fire1.mp3", m_player->getPosX(), m_player->getPosY(), a.getPosX(), a.getPosY());
 
 		a.setHP(a.getHP() - 1);
 		setTurnsLeft(getTurnsLeft() - 1);
@@ -116,14 +79,13 @@ void Bleed::afflict(Actors &a) {
 		// play bleed sound effect
 		playBleed();
 
-		a.setHP(a.getHP() - 1);
+		reduceHealth(a);
 
 		setTurnsLeft(getTurnsLeft() - 1);
 
 		/// check to move this into the LAST else statement later
-		if (getTurnsLeft() == 0) {
-			a.setBleed(false);
-		}
+		if (getTurnsLeft() == 0)
+			a.setBleed(false);		
 
 		// resets wait time
 		setWaitTime(getMaxWait());
@@ -136,6 +98,15 @@ void Bleed::afflict(Actors &a) {
 	else {
 		setExhaustion(true);
 	}
+}
+void Bleed::adjust(Actors &a, Afflictions &affliction) {
+	setWaitTime(std::max(0, getWaitTime() - 1));
+	setTurnsLeft(getTurnsLeft() + affliction.getTurnsLeft());
+
+	m_healthReduction++;
+}
+void Bleed::reduceHealth(Actors &a) {
+	a.setHP(a.getHP() - m_healthReduction);
 }
 
 
@@ -183,6 +154,8 @@ void Freeze::afflict(Actors &a) {
 	}
 	// flag to remove affliction
 	else {
+		untint(a.getSprite());
+
 		a.setFrozen(false);
 		setExhaustion(true);
 	}
@@ -190,21 +163,24 @@ void Freeze::afflict(Actors &a) {
 
 
 //		POISON
-Poison::Poison(int turns, int wait, int str, int dex) : Afflictions(turns, wait, POISON), m_str(str), m_dex(dex) {
-
+Poison::Poison(Player &player, int turns, int wait, int str, int dex) : Afflictions(turns, wait, POISON), m_str(str), m_dex(dex) {
+	m_player = &player;
 }
 
 void Poison::afflict(Actors &a) {
 	// if poison flag hasn't been set yet, set it
 	if (!a.isPoisoned() && getTurnsLeft() != 0) {
 		a.setPoisoned(true);
+
+		m_strTaken = a.getStr() - m_str >= 0 ? m_str : a.getStr();
+		m_dexTaken = a.getDex() - m_dex >= 0 ? m_dex : a.getDex();
 		a.setStr(std::max(0, a.getStr() - m_str));
 		a.setDex(std::max(0, a.getDex() - m_dex));
 	}
 
 	if (getWaitTime() == 0 && getTurnsLeft() > 0) {
 		// poison effect
-		playPoison(0.23f);
+		playPoison(*m_player, a.getPosX(), a.getPosY());
 		tintPoisoned(a.getSprite());
 
 		a.setHP(a.getHP() - 1);
@@ -227,10 +203,30 @@ void Poison::afflict(Actors &a) {
 	// flag to remove affliction
 	else {
 		a.setPoisoned(false);
-		a.setStr(a.getStr() + m_str);
-		a.setDex(a.getDex() + m_dex);
+
+		a.setStr(a.getStr() + m_strTaken);
+		a.setDex(a.getDex() + m_dexTaken);
+
 		setExhaustion(true);
 	}
+}
+void Poison::adjust(Actors &a, Afflictions &affliction) {
+	setTurnsLeft(getTurnsLeft() + affliction.getTurnsLeft());
+
+	if (m_strTaken == -1 || m_dexTaken == -1)
+		return;
+
+	Poison &poison = dynamic_cast<Poison&>(affliction);
+
+	a.setStr(std::max(0, a.getStr() + m_strTaken));
+	m_str = std::max(m_str, poison.getStrengthPenalty());
+	m_strTaken = a.getStr() - m_str >= 0 ? m_str : a.getStr();
+	a.setStr(std::max(0, a.getStr() - m_strTaken));
+
+	a.setDex(std::max(0, a.getDex() + m_dexTaken));
+	m_dex = std::max(m_dex, poison.getDexPenalty());
+	m_dexTaken = a.getDex() - m_dex >= 0 ? m_dex : a.getDex();
+	a.setDex(std::max(0, a.getDex() - m_dexTaken));
 }
 
 
@@ -300,7 +296,7 @@ void Ethereality::afflict(Actors &a) {
 
 
 //		CONFUSION
-Confusion::Confusion(int turns, int bonus) : Afflictions(turns, 0, CONFUSION), m_bonus(bonus) {
+Confusion::Confusion(int turns) : Afflictions(turns, 0, CONFUSION) {
 
 }
 
@@ -308,20 +304,17 @@ void Confusion::afflict(Actors &a) {
 	// if ethereal flag hasn't been set yet, set it
 	if (!a.isConfused()) {
 		a.setConfused(true);
-
-		// dex boost
-		a.setDex(a.getDex() + m_bonus);
 	}
 
 	if (getTurnsLeft() > 0) {
 
-		// if there are at least 3 turns remaining play bird sound
-		if (getTurnsLeft() > 3) {
-			playBirdSound(0.15f);
-		}
-		// else play crow sound to indicate that the effect is about to wear off
-		else {
-			playCrowSound(0.5f);
+		if (a.isPlayer()) {
+			// if there are at least 3 turns remaining play bird sound
+			if (getTurnsLeft() > 3)
+				playBirdSound(0.15f);			
+			// else play crow sound to indicate that the effect is about to wear off
+			else
+				playCrowSound(0.5f);			
 		}
 
 		// decrease the stun count by 1
@@ -331,9 +324,6 @@ void Confusion::afflict(Actors &a) {
 	else {
 		a.setConfused(false);
 		setExhaustion(true);
-
-		// remove dex boost
-		a.setDex(a.getDex() - 3);
 	}
 }
 

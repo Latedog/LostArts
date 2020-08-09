@@ -1,8 +1,13 @@
 #ifndef GUI_H
 #define GUI_H
 
-#include "cocos2d.h"
-
+class cocos2d::Ref;
+class cocos2d::Scene;
+class cocos2d::Sprite;
+class cocos2d::Label;
+class cocos2d::EventListenerKeyboard;
+enum class cocos2d::EventKeyboard::KeyCode;
+class cocos2d::Event;
 class EffectSprite;
 class LightEffect;
 class Dungeon;
@@ -21,7 +26,7 @@ extern cocos2d::EventKeyboard::KeyCode CAST_KEY;
 extern cocos2d::EventKeyboard::KeyCode ITEM_KEY;
 extern cocos2d::EventKeyboard::KeyCode INVENTORY_KEY;
 
-int randInt(int limit);
+
 std::string convertKeycodeToStr(cocos2d::EventKeyboard::KeyCode keyCode);
 
 class MenuScene : public cocos2d::Scene {
@@ -168,7 +173,9 @@ public:
 	void updateItemHUD(); // Switch the sprite displayed
 	void deconstructItemHUD();
 
-	void deconstructTrinketHUD();
+	void constructRelicHUD();
+	void deconstructRelicHUD();
+
 	void deconstructShopHUD();
 	void deconstructBossHUD();
 
@@ -262,8 +269,6 @@ public:
 
 protected:
 	void setCurrentDungeon(int level, std::shared_ptr<Player> player);
-	void renderDungeon(Dungeon &dungeon);
-	Dungeon* getCurrentDungeon();
 	float getTimerSpeed();
 
 	HUDLayer* m_hud;
@@ -276,7 +281,6 @@ protected:
 private:
 	void createPlayerSpriteAndCamera();
 	void setMusic(int level);
-	void setSprites(Dungeon *dungeon);	
 
 	cocos2d::Sprite* createSprite(std::string image, int x, int y, int z);
 
@@ -289,6 +293,7 @@ private:
 	void updateLevelLighting();
 
 	void scheduleTimer();
+	void unscheduleTimer();
 	void pauseMenu();
 	void advanceLevel();
 
@@ -299,11 +304,6 @@ private:
 	cocos2d::Label* label;
 
 	cocos2d::EventListenerKeyboard* kbListener;
-	
-	std::vector<cocos2d::Sprite*> money;
-	std::vector<cocos2d::Sprite*> items;
-	std::vector<cocos2d::Sprite*> walls;
-	std::vector<cocos2d::Sprite*> doors;
 
 	Dungeon *m_currentDungeon = nullptr;
 	int m_level;

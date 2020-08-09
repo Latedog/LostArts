@@ -43,11 +43,12 @@ int playMusic(std::string track, bool loop);
 
 //		SOUND EFFECTS
 void playSound(std::string sound, int px, int py, int x, int y, bool loop = false);
+void playSound(std::string sound, const Player &p, int x, int y, bool loop = false);
 void playSound(std::string sound, float volume = 1.0f, bool loop = false);
 int playSoundWithID(std::string sound, float volume = 1.0f, bool loop = false);
 
 void playBleed(float volume = 1.0f);
-void playPoison(float volume = 1.0f);
+void playPoison(const Player& p, int x, int y);
 void playBirdSound(float volume = 1.0f);
 void playCrowSound(float volume = 1.0f);
 void playGoldDropSound(int gold, int px, int py, int x, int y);
