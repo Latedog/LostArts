@@ -76,3 +76,5 @@
 
 - Added CombustionGolem enemy and associated MiniEruption and Combustion traps
 - Made CombustionGolem immune to explosions
+- Added playerIsAdjacent utility function
+- Added MalevolentPlant trap
