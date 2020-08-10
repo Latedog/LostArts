@@ -116,3 +116,6 @@
 - Removed the sprite rotating done in checkAfflictions since it doesn't belong there
 - Added BenevolentBark enemy
 - Added attackedEnemy flag to the Player class which tracks when the player has attacked an enemy. Used for BenevolentBark enemy.
+- Added enum class StatType
+- Added increase/decrease StatBy functions to the actor class for simpler stat changing
+- Added RPGInABottle item that temporarily allows the player to gain experience on kills, which levels them up
