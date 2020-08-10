@@ -99,3 +99,5 @@
 - Organized Monsters into their expected respective floors
 - Changed all reference dungeon parameters to pointer parameters in the Monster functions
 - Added rollMonster function that chooses a random monster appropriate for the floor
+- Added getCardinalFacingDirectionRelativeTo utility function
+- Added TriHorn enemy
