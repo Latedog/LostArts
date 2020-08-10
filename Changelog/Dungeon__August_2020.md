@@ -112,3 +112,5 @@
 8/10:
 
 - Added TumbleShroom enemy and Spores trap
+- Added Slipped affliction that simply rotations the sprite back upright. Used for when things slip on traps.
+- Removed the sprite rotating done in checkAfflictions since it doesn't belong there
