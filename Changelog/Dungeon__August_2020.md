@@ -108,3 +108,7 @@
 - Added isHarmful identifier to the Afflictions class that helps to identify afflictions to "block" with SuperRoot
 - Added TimedAfflictions subclass to the Afflictions class
 - Added TimedBuff and TimedHeal TimedAfflictions
+
+8/10:
+
+- Added TumbleShroom enemy and Spores trap
