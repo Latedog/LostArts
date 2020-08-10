@@ -105,3 +105,4 @@
 - Added Blindness affliction
 - Added SandBeaver enemy. Still need to implement a blindness effect when player is blinded.
 - Added SuperRoot item. Implemented new style of use item duration that uses time-based duration.
+- Added isHarmful identifier to the Afflictions class that helps to identify afflictions to "block" with SuperRoot
