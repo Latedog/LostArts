@@ -121,3 +121,5 @@
 - Added RPGInABottle item that temporarily allows the player to gain experience on kills, which levels them up
 - Added experience gain related functions to the Player class for RPGInABottle
 - Added a charisma stat to the Actors class
+- Added Tick enemy and Ticked affliction
+- Added DamageType parameter to damagePlayer function. Monsters now have a DamageType characteristic.
