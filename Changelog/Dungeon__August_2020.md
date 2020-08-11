@@ -120,3 +120,4 @@
 - Added increase/decrease StatBy functions to the actor class for simpler stat changing
 - Added RPGInABottle item that temporarily allows the player to gain experience on kills, which levels them up
 - Added experience gain related functions to the Player class for RPGInABottle
+- Added a charisma stat to the Actors class
