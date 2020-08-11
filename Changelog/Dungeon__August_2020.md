@@ -123,3 +123,7 @@
 - Added a charisma stat to the Actors class
 - Added Tick enemy and Ticked affliction
 - Added DamageType parameter to damagePlayer function. Monsters now have a DamageType characteristic.
+
+8/11:
+
+- Implemented Wriggler enemy
