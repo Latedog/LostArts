@@ -127,3 +127,4 @@
 8/11:
 
 - Implemented Wriggler enemy
+- Added extraDeathEffects function to the Monster class
