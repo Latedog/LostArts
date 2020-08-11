@@ -128,3 +128,4 @@
 
 - Implemented Wriggler enemy
 - Added extraDeathEffects function to the Monster class
+- Implemented BarbedCaterpillar enemy
