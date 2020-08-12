@@ -130,3 +130,7 @@
 - Added extraDeathEffects function to the Monster class
 - Implemented BarbedCaterpillar enemy
 - There is now feedback when the player hits the Serpent's tail to indicate that the entire monster is being damaged. (Added line that allows player to directly attack the monster segment in fight() ).
+- Removed removeSegments function from the Monster class. It was only used by Serpents, so this functionality has been absobred into the extraDeathEffects function for Serpents.
+- Added reactToDamage function the Monster class to handle special cases for when a monster is attacked.
+- TumbleShrooms and MagicalBerserkers had their functionality in canBeDamaged moved into reactToDamage functions. This better reflects the behavior that they must be damaged for the effect to trigger. Previously, it triggered even if the player missed.
+- Reduced the Player's attack function into a single if statement for attacks. A separate branch for stunned and frozen was unnecessary.
