@@ -129,3 +129,4 @@
 - Implemented Wriggler enemy
 - Added extraDeathEffects function to the Monster class
 - Implemented BarbedCaterpillar enemy
+- There is now feedback when the player hits the Serpent's tail to indicate that the entire monster is being damaged. (Added line that allows player to directly attack the monster segment in fight() ).
