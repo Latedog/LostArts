@@ -134,3 +134,4 @@
 - Added reactToDamage function the Monster class to handle special cases for when a monster is attacked.
 - TumbleShrooms and MagicalBerserkers had their functionality in canBeDamaged moved into reactToDamage functions. This better reflects the behavior that they must be damaged for the effect to trigger. Previously, it triggered even if the player missed.
 - Reduced the Player's attack function into a single if statement for attacks. A separate branch for stunned and frozen was unnecessary.
+- Added ExoticFeline enemy
