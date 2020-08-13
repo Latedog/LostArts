@@ -141,3 +141,9 @@
 - Fixed a bug with the Charger enemy that would cause its sprite to detach after attacking the player
 - Added SandAlbatross enemy and DustDevil trap
 - Messed around with throwWeaponTo and added a temporary throwing animation
+
+8/13:
+
+- Moved randInt and randReal functions to GameUtils from global.h
+- Removed getPlayerVector function and all instances
+- Removed sprite vector parameter from addSprite and adjusted runAnimationWithCallback to account for this change
