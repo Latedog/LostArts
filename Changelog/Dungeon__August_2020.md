@@ -147,3 +147,5 @@
 - Moved randInt and randReal functions to GameUtils from global.h
 - Removed getPlayerVector function and all instances
 - Removed sprite vector parameter from addSprite and adjusted runAnimationWithCallback to account for this change
+- Removed Monster pointer variable from CreatureLover
+- Moved misc_sprites variable into protected in the Dungeon class
