@@ -139,3 +139,5 @@
 8/12:
 
 - Fixed a bug with the Charger enemy that would cause its sprite to detach after attacking the player
+- Added SandAlbatross enemy and DustDevil trap
+- Messed around with throwWeaponTo and added a temporary throwing animation
