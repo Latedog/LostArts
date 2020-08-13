@@ -152,3 +152,4 @@
 - Removed the getMonsters and getTraps functions and replaced them with monsterAt/trapAt and respective size functions
 - Added trap removal checks in trapEncounter and monsterTrapEncounter
 - Removed all instances of the single findTrap function and removed the endFirst parameter from trapEncounter
+- Removed last public instance of monsterDeath and made monsterDeath protected
