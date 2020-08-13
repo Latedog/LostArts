@@ -150,3 +150,5 @@
 - Removed Monster pointer variable from CreatureLover
 - Moved misc_sprites variable into protected in the Dungeon class
 - Removed the getMonsters and getTraps functions and replaced them with monsterAt/trapAt and respective size functions
+- Added trap removal checks in trapEncounter and monsterTrapEncounter
+- Removed all instances of the single findTrap function and removed the endFirst parameter from trapEncounter
