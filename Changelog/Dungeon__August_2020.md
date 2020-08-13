@@ -149,4 +149,4 @@
 - Removed sprite vector parameter from addSprite and adjusted runAnimationWithCallback to account for this change
 - Removed Monster pointer variable from CreatureLover
 - Moved misc_sprites variable into protected in the Dungeon class
-- Removed the getMonsters and getTraps function and replaced them with monsterAt/trapAt and respective size functions
+- Removed the getMonsters and getTraps functions and replaced them with monsterAt/trapAt and respective size functions
