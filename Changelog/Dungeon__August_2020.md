@@ -165,3 +165,5 @@
 - Fixed inconsistencies in SpikeTrap and TriggerSpike trap code
 - Fixed spike trap spawns for the Smasher fight causing them to be invisible
 - Removed the checkMonsters and fight functions from FirstBoss and devirtualized these functions
+- Removed getDirectionRelativeTo function and old linearActorPush function from the Dungeon class
+- Updated WindVortex trap to use the getFacingDirectionRelativeTo function to clean up the code
