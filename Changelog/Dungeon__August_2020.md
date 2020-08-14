@@ -154,3 +154,8 @@
 - Removed all instances of the single findTrap function and removed the endFirst parameter from trapEncounter
 - Removed last public instance of monsterDeath and made monsterDeath protected
 - Added createMonsterByName utility function
+
+8/14:
+
+- Changed Firebar sprites to use the Ember animation
+- Firebar fireballs now become deactive for a short time after the player runs into one
