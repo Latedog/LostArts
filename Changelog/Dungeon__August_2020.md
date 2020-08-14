@@ -159,3 +159,5 @@
 
 - Changed Firebar sprites to use the Ember animation
 - Firebar fireballs now become deactive for a short time after the player runs into one
+- Moved the guardian check for the Lava level into specialActions()
+- Removed the monsterDeath function from the current SecondFloor and devirtualized the monsterDeath function
