@@ -162,3 +162,6 @@
 - Moved the guardian check for the Lava level into specialActions()
 - Removed the monsterDeath function from the current SecondFloor and devirtualized the monsterDeath function
 - Fixed a "bug" with Smasher which could cause it to get stuck. It checked for wallObjects on the boundary, but the level boundaries are not assigned to the wallObjects during level creation.
+- Fixed inconsistencies in SpikeTrap and TriggerSpike trap code
+- Fixed spike trap spawns for the Smasher fight causing them to be invisible
+- Removed the checkMonsters and fight functions from FirstBoss and devirtualized these functions
