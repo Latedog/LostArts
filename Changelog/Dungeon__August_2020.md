@@ -161,3 +161,4 @@
 - Firebar fireballs now become deactive for a short time after the player runs into one
 - Moved the guardian check for the Lava level into specialActions()
 - Removed the monsterDeath function from the current SecondFloor and devirtualized the monsterDeath function
+- Fixed a "bug" with Smasher which could cause it to get stuck. It checked for wallObjects on the boundary, but the level boundaries are not assigned to the wallObjects during level creation.
