@@ -167,3 +167,5 @@
 - Removed the checkMonsters and fight functions from FirstBoss and devirtualized these functions
 - Removed getDirectionRelativeTo function and old linearActorPush function from the Dungeon class
 - Updated WindVortex trap to use the getFacingDirectionRelativeTo function to clean up the code
+- Finally cleaned up MovingBlock code and separated them into Linear/Square variants
+- Fixed bug with FallingSpikes, causing them to sometimes go through the player
