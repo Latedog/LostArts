@@ -169,3 +169,9 @@
 - Updated WindVortex trap to use the getFacingDirectionRelativeTo function to clean up the code
 - Finally cleaned up MovingBlock code and separated them into Linear/Square variants
 - Fixed bug with FallingSpikes, causing them to sometimes go through the player
+
+8/15:
+
+- Added FacelessHorror, ToweringBrute, SteamBot, and Swapper enemies
+- Fixed a game-crashing bug with RPG in a Bottle. RPG and SuperRoot both used Dungeon parameters to adjust their timers, but if the dungeon was deconstructed, then it would attempt to dereference an object that is now null. To fix this, SuperRoot and RPGInABottle now both give the player special afflictions since all that needed to happen was to apply a timer that could count down.
+- On that note: Added ExperienceGain and AfflictionImmunity timed afflictions
