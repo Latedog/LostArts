@@ -175,3 +175,7 @@
 - Added FacelessHorror, ToweringBrute, SteamBot, and Swapper enemies
 - Fixed a game-crashing bug with RPG in a Bottle. RPG and SuperRoot both used Dungeon parameters to adjust their timers, but if the dungeon was deconstructed, then it would attempt to dereference an object that is now null. To fix this, SuperRoot and RPGInABottle now both give the player special afflictions since all that needed to happen was to apply a timer that could count down.
 - On that note: Added ExperienceGain and AfflictionImmunity timed afflictions
+
+8/16:
+
+- Added offset parameter to setDirectionalOffsets
