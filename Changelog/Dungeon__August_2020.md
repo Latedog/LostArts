@@ -179,3 +179,4 @@
 8/16:
 
 - Added offset parameter to setDirectionalOffsets
+- Finally implemented SkyCrasher without infinite looping or overlapping
