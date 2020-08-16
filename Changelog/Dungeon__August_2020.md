@@ -179,4 +179,5 @@
 8/16:
 
 - Added offset parameter to setDirectionalOffsets
+- Added playerInRectangularRange utility function
 - Finally implemented SkyCrasher without infinite looping or overlapping
