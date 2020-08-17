@@ -181,3 +181,10 @@
 - Added offset parameter to setDirectionalOffsets
 - Added playerInRectangularRange utility function
 - Finally implemented SkyCrasher without infinite looping or overlapping
+
+8/17:
+
+- Added ShieldMaster enemy
+- Defined Coords struct which holds x and y coordinates.
+- Added new chase() function to the Monster class which implements A*. This was done because the current chase function has performance issues when there are multiple enemies that use these functions from afar. This new function performs much better.
+- Defined hash function for Coords struct, a heuristic for the A* search, and another helper utility function for A*.
