@@ -191,3 +191,5 @@
 - Replaced all instances of attemptChase and attemptAllChase with the much faster chase() function
 - The new pathfinding algorithm is now capable of making optimal moves toward the player regardless of enemy configurations, but without going all the way around a structure because there was another enemy between itself and the player
 - Added PseudoDople enemy
+- Fixed a bug where Water would not remove burns from the Player if they were already standing in water
+- Water can now remove burning from monsters
