@@ -190,3 +190,4 @@
 - Defined hash function for Coords struct, a heuristic for the A* search, and another helper utility function for A*.
 - Replaced all instances of attemptChase and attemptAllChase with the much faster chase() function
 - The new pathfinding algorithm is now capable of making optimal moves toward the player regardless of enemy configurations, but without going all the way around a structure because there was another enemy between itself and the player
+- Added PseudoDople enemy
