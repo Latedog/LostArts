@@ -193,3 +193,4 @@
 - Added PseudoDople enemy
 - Fixed a bug where Water would not remove burns from the Player if they were already standing in water
 - Water can now remove burning from monsters
+- Added Flare enemy and FlareCandle trap
