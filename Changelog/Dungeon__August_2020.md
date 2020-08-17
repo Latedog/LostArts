@@ -188,3 +188,5 @@
 - Defined Coords struct which holds x and y coordinates.
 - Added new chase() function to the Monster class which implements A*. This was done because the current chase function has performance issues when there are multiple enemies that use these functions from afar. This new function performs much better.
 - Defined hash function for Coords struct, a heuristic for the A* search, and another helper utility function for A*.
+- Replaced all instances of attemptChase and attemptAllChase with the much faster chase() function
+- The new pathfinding algorithm is now capable of making optimal moves toward the player regardless of enemy configurations, but without going all the way around a structure because there was another enemy between itself and the player
