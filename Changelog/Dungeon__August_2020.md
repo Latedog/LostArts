@@ -199,3 +199,4 @@
 
 - Adjusted setDirectionalOffsets to use the offset parameter for diagonal movement
 - Added BladePsychic enemy and PsychicSlash trap (its attack)
+- Added Electromagnetizer enemy
