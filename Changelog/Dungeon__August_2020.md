@@ -194,3 +194,8 @@
 - Fixed a bug where Water would not remove burns from the Player if they were already standing in water
 - Water can now remove burning from monsters
 - Added Flare enemy and FlareCandle trap
+
+8/18:
+
+- Adjusted setDirectionalOffsets to use the offset parameter for diagonal movement
+- Added BladePsychic enemy and PsychicSlash trap (its attack)
