@@ -200,3 +200,8 @@
 - Adjusted setDirectionalOffsets to use the offset parameter for diagonal movement
 - Added BladePsychic enemy and PsychicSlash trap (its attack)
 - Added Electromagnetizer enemy
+
+8/19:
+
+- Added Disabler enemy, Disabled afflictions, and DisablingField trap
+- Fixed a major bug with Timed afflictions where they would immediately stop working after one turn. The bug was that the m_exhausted variable was not being set in the new Affliction constructor, thus it would inadvertantly cause the afflictions to be destroyed, and thus the values became garbage. The m_exhausted member variable is now set to false in the class declaration.
