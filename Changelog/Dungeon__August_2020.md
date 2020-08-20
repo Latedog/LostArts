@@ -206,3 +206,5 @@
 - Added Disabler enemy, Disabled afflictions, and DisablingField trap
 - Fixed a major bug with Timed afflictions where they would immediately stop working after one turn. The bug was that the m_exhausted variable was not being set in the new Affliction constructor, thus it would inadvertantly cause the afflictions to be destroyed, and thus the values became garbage. The m_exhausted member variable is now set to false in the class declaration.
 - The Monster chase() function now works nondeterministically to add some randomness to their movements. Previously, they would consistently move in the same pattern which could block the player's path constantly.
+- Added IncendiaryInfuser enemy, Incendiary affliction, and ActiveFireBomb trap
+- Changed Monster extraDeathEffects to check for the Incendiary affliction
