@@ -209,3 +209,4 @@
 - Added IncendiaryInfuser enemy, Incendiary affliction, and ActiveFireBomb trap
 - Changed Monster extraDeathEffects to check for the Incendiary affliction
 - Fixed a bug that could allow the player to cheese the game by pausing and unpausing repeatedly. If the player pauses, the level timer is not unscheduled but is instead paused. It is unpaused when the player unpauses.
+- Added DashMaster enemy
