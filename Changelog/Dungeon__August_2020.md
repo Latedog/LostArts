@@ -208,3 +208,4 @@
 - The Monster chase() function now works nondeterministically to add some randomness to their movements. Previously, they would consistently move in the same pattern which could block the player's path constantly.
 - Added IncendiaryInfuser enemy, Incendiary affliction, and ActiveFireBomb trap
 - Changed Monster extraDeathEffects to check for the Incendiary affliction
+- Fixed a bug that could allow the player to cheese the game by pausing and unpausing repeatedly. If the player pauses, the level timer is not unscheduled but is instead paused. It is unpaused when the player unpauses.
