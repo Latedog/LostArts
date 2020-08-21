@@ -225,3 +225,4 @@
 
 - Removed multisegments functions and variables from the Monster class
 - Removed the Actors parameter from the activeTrapAction function
+- Did some encapsulation cleanup on the Traps and Monster classes
