@@ -217,3 +217,4 @@
 - Added AcidicBeast enemy and Acid trap
 - Added getCoords function for diagonals only to be used in the A* algorithm
 - Added another bool parameter to chase to allow for diagonal movement only
+- Added a reverse parameter to setDirectionalOffsets to account for confused movement
