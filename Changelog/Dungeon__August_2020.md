@@ -224,3 +224,4 @@
 8/21:
 
 - Removed multisegments functions and variables from the Monster class
+- Removed the Actors parameter from the activeTrapAction function
