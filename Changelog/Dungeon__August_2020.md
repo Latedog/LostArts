@@ -220,3 +220,7 @@
 - Added a reverse parameter to setDirectionalOffsets to account for confused movement
 - Added DarkCanine enemy
 - Added Z Order constants for proper sprite Z ordering. Adjusted all z sprite orderings to account for this change.
+
+8/21:
+
+- Removed multisegments functions and variables from the Monster class
