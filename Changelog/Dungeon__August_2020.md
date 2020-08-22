@@ -230,3 +230,4 @@
 - Added CRUSHING and LIGHTNING DamageTypes
 - Added LightningStriker, FlameArchaic, MasterConjurer, AdvancedRockSummoner, AscendedShot enemies
 - Added accompanying FlameArchaicFirePillars, MegaRock, and ReflectiveShot traps
+- Added RoyalSwordsman enemy
