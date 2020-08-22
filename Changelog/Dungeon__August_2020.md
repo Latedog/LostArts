@@ -240,3 +240,4 @@
 - Added Wet affliction
 - Water now adds the Wet affliction instead of the other nonsense that was done before
 - Sand now has a chance to spawn SandCentipedes on top of them in the constructor
+- Changed the SandCentipede deathDrops to extraDeathEffects for correct usage
