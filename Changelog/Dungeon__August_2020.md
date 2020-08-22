@@ -223,7 +223,7 @@
 
 8/21:
 
-- Removed multisegments functions and variables from the Monster class
+- Removed multisegment functions and variables from the Monster class
 - Removed the Actors parameter from the activeTrapAction function
 - Did some encapsulation cleanup on the Traps and Monster classes
 - The PsychicSlash is now blockable
@@ -238,3 +238,4 @@
 - Fixed SandCentipede to only move when in Sand
 - Removed m_maxTurns member variable from the Afflictions class
 - Added Wet affliction
+- Water now adds the Wet affliction instead of the other nonsense that was done before
