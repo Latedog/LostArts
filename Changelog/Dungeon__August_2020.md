@@ -226,3 +226,7 @@
 - Removed multisegments functions and variables from the Monster class
 - Removed the Actors parameter from the activeTrapAction function
 - Did some encapsulation cleanup on the Traps and Monster classes
+- The PsychicSlash is now blockable
+- Added CRUSHING and LIGHTNING DamageTypes
+- Added LightningStriker, FlameArchaic, MasterConjurer, AdvancedRockSummoner, AscendedShot enemies
+- Added accompanying FlameArchaicFirePillars, MegaRock, and ReflectiveShot traps
