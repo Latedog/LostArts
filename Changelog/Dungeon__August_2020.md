@@ -239,3 +239,4 @@
 - Removed m_maxTurns member variable from the Afflictions class
 - Added Wet affliction
 - Water now adds the Wet affliction instead of the other nonsense that was done before
+- Sand now has a chance to spawn SandCentipedes on top of them in the constructor
