@@ -236,3 +236,5 @@
 
 - Added LightEntity enemy and LightBeam trap
 - Fixed SandCentipede to only move when in Sand
+- Removed m_maxTurns member variable from the Afflictions class
+- Added Wet affliction
