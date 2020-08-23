@@ -244,3 +244,6 @@
 - Added item and passive helper functions to the Player class to remove reliance on the vectors
 - getRelic() in Player class now returns by value instead of by reference
 - Removed getItems and getPassives from the Player class
+- Water now has a chance to spawn Piranhas
+- Removed the forPlayer functions and variablers from the Drops class
+- Added isHealingItem() functions to Drops class for InjuredExplorer NPC
