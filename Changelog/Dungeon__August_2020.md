@@ -246,4 +246,5 @@
 - Removed getItems and getPassives from the Player class
 - Water now has a chance to spawn Piranhas
 - Removed the forPlayer functions and variablers from the Drops class
+- Added InjuredExplorer NPC
 - Added isHealingItem() functions to Drops class for InjuredExplorer NPC
