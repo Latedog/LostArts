@@ -241,3 +241,5 @@
 - Water now adds the Wet affliction instead of the other nonsense that was done before
 - Sand now has a chance to spawn SandCentipedes on top of them in the constructor
 - Changed the SandCentipede deathDrops to extraDeathEffects for correct usage
+- Added item and passive helper functions to the Player class to remove reliance on the vectors
+- getRelic() in Player class now returns by value and not by reference
