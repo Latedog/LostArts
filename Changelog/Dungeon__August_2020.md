@@ -245,10 +245,14 @@
 - getRelic() in Player class now returns by value instead of by reference
 - Removed getItems and getPassives from the Player class
 - Water now has a chance to spawn Piranhas
-- Removed the forPlayer functions and variablers from the Drops class
+- Removed the forPlayer functions and variables from the Drops class
 - Added InjuredExplorer NPC
 - Added isHealingItem() functions to Drops class for InjuredExplorer NPC
 
 8/23:
 
 - Performed code cleanup and encapsulation for the HUDLayer class
+
+8/24:
+
+- Removed the ShopScene class and combined the limited functionality it had into LevelScene
