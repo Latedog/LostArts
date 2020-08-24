@@ -262,3 +262,7 @@
 - The LevelScene node is now named "Level Scene" so that we can identify it. This is used to unschedule the timer during the level transition, and reschedule it once the transition ends.
 - Created restartGame() function in GUI since there were multiple instances of the same code
 - LevelScene's init function no longer schedules the timer. Instead, it's scheduled after the level transition ends.
+- Moved checks done in checkMonster() into the moveCheck() function for the Monster class
+- Added damagePlayer function to the Monster class
+- Added reactToDamage function to the Player class
+- Removed the attack(Monster) function from the Monster class
