@@ -248,3 +248,7 @@
 - Removed the forPlayer functions and variablers from the Drops class
 - Added InjuredExplorer NPC
 - Added isHealingItem() functions to Drops class for InjuredExplorer NPC
+
+8/23:
+
+- Performed code cleanup and encapsulation for the HUDLayer class
