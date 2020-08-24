@@ -64,25 +64,6 @@ const float SP_ADJUST = 0;
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
-#include <string>
-
-// Return a uniformly distributed random integer from 0 to limit-1 inclusive
-inline int randInt(int limit) {
-	return std::rand() % limit;
-}
-
-// Return a uniformly distributed double between [min, max]
-inline double randReal(int min, int max)
-{
-	if (max < min)
-		std::swap(max, min);
-
-	static std::random_device rd;
-	static std::default_random_engine generator(rd());
-	std::uniform_real_distribution<> distro(min, max);
-	return distro(generator);
-}
-
 extern int X_OFFSET;
 extern int Y_OFFSET;
 extern float SPACING_FACTOR;
@@ -133,10 +114,51 @@ const int FOURTH_SHRINE = 14;
 const char c_PLAYER = '@';
 const char SMASHER = '%';
 
+// Sprite Z Ordering
+const int Z_HUD_LABEL = 220;
+const int Z_HUD_SPRITE = 210;
+const int Z_HUD_ELEMENT = 200;
+const int Z_FLOATERS = 30;
+const int Z_PROJECTILE = 20;
+const int Z_WALL = 10;
+const int Z_ACTOR = 10;
+const int Z_CHEST = 10;
+const int Z_ITEM = 5;
+const int Z_MONEY = 0;
+const int Z_TRAP_TOP = -5;
+const int Z_TRAP_MIDDLE = -10;
+const int Z_TRAP_BOTTOM = -15;
+const int Z_EXIT = -20;
+const int Z_FLOOR = -100;
+
 // Self-explanatory
 const std::string SPAWN_DISALLOWED = "Nothing is allowed to spawn here";
 const std::string NPC_PROMPT = "NPC Prompt";
 const std::string CHEST_PURCHASED = "Chest Purchased";
+
+const std::string PURCHASE = "purchase";
+const std::string EMPTY = "";
+const std::string STAIRCASE = "Stairs";
+const std::string LOCKED_STAIRCASE = "Locked Stairs";
+const std::string DOOR = "Door";
+const std::string BUTTON_UNPRESSED = "Button Unpressed";
+const std::string BUTTON_PRESSED = "Button Pressed";
+const std::string REG_WALL = "Breakable Wall";
+const std::string UNB_WALL = "Unbreakable Wall";
+const std::string BOUNDARY = "Boundary";
+const std::string RANDOM_WALL = "Random Breakable Wall"; // when a level generates, this spot has a random chance to be a wall or an empty space
+const std::string DOOR_VERTICAL = "Vertical Door";
+const std::string DOOR_HORIZONTAL = "Horizontal Door";
+const std::string DOOR_VERTICAL_OPEN = "Vertical Door Open";
+const std::string DOOR_HORIZONTAL_OPEN = "Horizontal Door Open";
+const std::string DOOR_VERTICAL_LOCKED = "Vertical Door Locked";
+const std::string DOOR_HORIZONTAL_LOCKED = "Horizontal Door Locked";
+const std::string FOUNTAIN = "Fountain";
+
+const char SPACE = ' ';
+const char DOOR_V = 'V';
+const char DOOR_H = 'H';
+const char STAIRS = 'S';
 
 // For Shrines
 const std::string CHEST_CHOICE = "Chests";
@@ -154,6 +176,7 @@ const std::string ACROBAT = "The Acrobat";
 // NPCS
 const std::string CREATURE_LOVER = "Lionel";
 const std::string MEMORIZER = "Stewart";
+const std::string INJURED_EXPLORER = "Paul";
 const std::string SHOPKEEPER = "Shopkeeper";
 const std::string BLACKSMITH = "Blacksmith";
 const std::string ENCHANTER = "Enchanter";
@@ -165,8 +188,10 @@ const std::string OUTSIDE_WOMAN1 = "Alert Woman";
 
 
 // MONSTERS
-const std::string FORGOTTEN_SPIRIT = "Forgotten Spirit";
 const std::string RANDOM_MONSTER = "Random Monster";
+const std::string FORGOTTEN_SPIRIT = "Forgotten Spirit";
+const std::string GHOST = "Ghastly Spectre";
+const std::string FLARE = "Mini Flare";
 const std::string GOBLIN = "Goblin";
 const std::string ARCHER = "Archer";
 const std::string WANDERER = "Wanderer";
@@ -191,7 +216,8 @@ const std::string RAT = "Filthy Rat";
 const std::string TOAD = "Filthy Toad";
 const std::string WATER_SPIRIT = "Water Spirit";
 const std::string FIREFLY = "Firefly";
-const std::string GHOST = "Ghastly Spectre";
+const std::string TRI_HORN = "Tri-Horned Gissel";
+const std::string TUMBLE_SHROOM = "Tumble Shroom";
 const std::string PUFF = "Puff";
 const std::string GUSTY_PUFF = "Gusty Puff";
 const std::string STRONG_GUSTY_PUFF = "Strong Gusty Puff";
@@ -207,16 +233,24 @@ const std::string SERPENT_TAIL = "Serpent's Tail";
 const std::string POISON_BUBBLE = "Poison Bubble";
 const std::string PIRANHA = "Piranha";
 const std::string ANGLED_BOUNCER = "Angled Bouncer";
+const std::string WRIGGLER = "Wriggler";
+const std::string BARBED_CATERPILLAR = "Barbed Caterpillar";
 const std::string CRYSTAL_TURTLE = "Crystal Turtle";
 const std::string CRYSTAL_HEDGEHOG = "Crystal Hedgehog";
 const std::string CRYSTAL_SHOOTER = "Crystal Shooter";
 const std::string CRYSTAL_BEETLE = "Crystal Beetle";
+const std::string CRYSTAL_WARRIOR = "Crystal Warrior";
 const std::string RABBIT = "Rabbit";
+const std::string BENEVOLENT_BARK = "Benevolent Bark";
+const std::string TICK = "Tick";
+const std::string EXOTIC_FELINE = "Exotic Feline";
 const std::string OLD_SMOKEY = "Old Smokey";
 const std::string JEWELED_SCARAB = "Jeweled Scarab";
 const std::string ARMORED_BEETLE = "Armored Beetle";
 const std::string SPECTRAL_SWORD = "Spectral Sword";
 const std::string SAND_CENTIPEDE = "Sand Centipede";
+const std::string SAND_BEAVER = "Sand Beaver";
+const std::string SAND_ALBATROSS = "Sand Albatross";
 const std::string SHRINEKEEPER = "Shrinekeeper";
 const std::string WATCHER = "Watcher";
 const std::string HOWLER = "Howler";
@@ -229,41 +263,38 @@ const std::string CRAWLING_SPINE = "Crawling Spine";
 const std::string MAGICAL_BERSERKER = "Magical Berserker";
 const std::string COMBUSTION_GOLEM = "Combustion Golem";
 const std::string CONSTRUCTOR_DEMON = "Dirt Demon";
+const std::string FACELESS_HORROR = "Faceless Horror";
+const std::string TOWERING_BRUTE = "Towering Brute";
+const std::string SWAPPER = "Swapper";
+const std::string SKY_CRASHER = "Meteor Man";
+const std::string STEAM_BOT = "Steam Bot";
+const std::string SHIELD_MASTER = "Shield Master";
+const std::string PSEUDO_DOPPEL = "Pseudoppel";
+const std::string BLADE_PSYCHIC = "Blade Psychic";
+const std::string ELECTROMAGNETIZER = "Electromagnetizer";
+const std::string DISABLER = "Disabler";
+const std::string INCENDIARY_INFUSER = "Incendiary Infuser";
+const std::string DASH_MASTER = "Dash Master";
+const std::string ACIDIC_BEAST = "Acidic Beast";
+const std::string DARK_CANINE = "Dark Canine";
+const std::string LIGHTNING_STRIKER = "Lightning Archaic";
+const std::string MASTER_CONJURER = "Master Conjurer";
+const std::string FLAME_ARCHAIC = "Flame Archaic";
+const std::string ADVANCED_ROCK_SUMMONER = "Advanced Rock Summoner";
+const std::string ASCENDED_SHOT = "Ascended Shot";
+const std::string ROYAL_SWORDSMAN = "Royal Swordsman";
+const std::string LIGHT_ENTITY = "Being of Light";
+const std::string DARK_ENTITY = "Being of Dark";
 
 // BREAKABLE OBJECTS
-const std::string WEAK_CRATE = "Frail Crate";
+const std::string WEAK_CRATE = "Weak Crate";
 const std::string WEAK_BARREL = "Weak Barrel";
 const std::string WEAK_SIGN = "Weak Sign";
 const std::string WEAK_ARROW_SIGN = "Weak Arrow Sign";
 const std::string WEAK_POT = "Weak Pot";
 const std::string WEAK_LARGE_POT = "Large Weak Pot";
+const std::string EXPLOSIVE_BARREL = "Explosive Barrel";
 const std::string CHARRED_WOOD = "Charred Wood";
-
-
-const std::string PURCHASE = "purchase";
-const std::string EMPTY = "";
-const std::string STAIRCASE = "Stairs";
-const std::string LOCKED_STAIRCASE = "Locked Stairs";
-const std::string DOOR = "Door";
-const std::string BUTTON_UNPRESSED = "Button Unpressed";
-const std::string BUTTON_PRESSED = "Button Pressed";
-const std::string REG_WALL = "Breakable Wall";
-const std::string UNB_WALL = "Unbreakable Wall";
-const std::string BOUNDARY = "Boundary";
-const std::string RANDOM_WALL = "Random Breakable Wall"; // when a level generates, this spot has a random chance to be a wall or an empty space
-const std::string DOOR_VERTICAL = "Vertical Door";
-const std::string DOOR_HORIZONTAL = "Horizontal Door";
-const std::string DOOR_VERTICAL_OPEN = "Vertical Door Open";
-const std::string DOOR_HORIZONTAL_OPEN = "Horizontal Door Open";
-const std::string DOOR_VERTICAL_LOCKED = "Vertical Door Locked";
-const std::string DOOR_HORIZONTAL_LOCKED = "Horizontal Door Locked";
-const std::string FOUNTAIN = "Fountain";
-
-const char SPACE = ' ';
-const char IDOL = 'I';
-const char DOOR_V = 'V';
-const char DOOR_H = 'H';
-const char STAIRS = 'S';
 
 // WEAPONS
 const std::string HANDS = "Empty-Handed";
@@ -354,6 +385,8 @@ const std::string TELEPORT = "Scroll of Unpredictable Travel";
 const std::string WILD_MUSHROOM = "Wild Mushroom";
 const std::string MAGMA_HEART = "Magma Heart";
 const std::string CACTUS_WATER = "Cactus Water";
+const std::string SUPER_ROOT = "Super Root";
+const std::string RPG_IN_A_BOTTLE = "RPG In A Bottle";
 
 const std::string TELEPORTER = "Functional Teleporter";
 const std::string ROCKS = "Rock";
@@ -486,6 +519,7 @@ const std::string MOVING_BLOCK_H = "Moving Block Horizontal";
 const std::string MOVING_BLOCK_V = "Moving Block Vertical";
 const std::string ACTIVE_BOMB = "Active Bomb";
 const std::string ACTIVE_MEGA_BOMB = "Active Mega Bomb";
+const std::string ACTIVE_FIRE_BOMB = "Active Fire Bomb";
 const std::string ACTIVE_POISON_BOMB = "Poison Mine";
 const std::string POISON_CLOUD = "Poison Cloud";
 const std::string BEAR_TRAP = "Bear Trap";
@@ -494,19 +528,33 @@ const std::string CRUMBLE_LAVA = "Crumble Lava";
 const std::string EMBER = "Ember";
 const std::string WEB = "Spider Web";
 const std::string WIND_TUNNEL = "Wind Tunnel";
+const std::string SAND = "Sand";
 const std::string QUICKSAND = "Quicksand";
 const std::string CACTUS = "Cactus";
 const std::string LIGHT_ABSORBER = "Light Absorber";
 const std::string MOVING_TILE = "Moving Tile";
 const std::string WATCHER_STATUE = "Watcher Statue";
 const std::string LAVA_GRATING = "Lava Grating";
+const std::string FLARE_CANDLE = "Flare Candle";
+const std::string ACID = "Acid";
+const std::string DNA_SPLITTER = "DNA Splitter";
+const std::string LIGHTNING_ROD = "Lightning Rod";
 
+const std::string SPORES = "Poison Spores";
+const std::string DUST_DEVIL = "Dust Devil";
 const std::string ENERGY_HELIX = "Wispcharge";
 const std::string ABYSSAL_MAW = "Abyssal Maw";
 const std::string GOOP = "Sticky Goop";
 const std::string MINI_ERUPTION = "Mini Eruption";
 const std::string COMBUSTION = "Combustion";
 const std::string DIRT_MOUND = "Dirt Mound";
+const std::string FACELESS_MASK = "Faceless Mask";
+const std::string PSYCHIC_SLASH = "Psychic Slash";
+const std::string DISABLING_FIELD = "Disabling Field";
+const std::string FLAME_ARCHAIC_FIRE_PILLARS = "Flame Archaic Fire Pillars";
+const std::string MEGA_ROCK = "A Giant Rock";
+const std::string REFLECTIVE_SHOT = "Reflective Projectile";
+const std::string LIGHT_BEAM = "Light Beam";
 
 const std::string ROTTING_DECOY = "Rotten Meat Decoy";
 const std::string FIRE_PILLARS = "Fire Pillars";
@@ -533,6 +581,17 @@ const std::string STUCK = "Stuck";
 const std::string POSSESSED = "Possessed";
 const std::string CRIPPLE = "Cripple";
 const std::string FRAGILE = "Fragile";
+const std::string INCENDIARY = "Incendiary";
+const std::string BLINDNESS = "Blindness";
+const std::string DISABLED = "Disabled";
+const std::string WET = "Wet";
+const std::string SLIPPED = "Slipped";
+const std::string TICKED = "Ticked";
+
+const std::string TIMED_BUFF = "Timed Buff";
+const std::string TIMED_HEAL = "Timed Heal";
+const std::string XP_GAIN = "XP Gain";
+const std::string AFFLICTION_IMMUNITY = "Affliction Immunity";
 
 
 // ================================================

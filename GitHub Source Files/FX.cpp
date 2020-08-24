@@ -5,6 +5,7 @@
 #include "Dungeon.h"
 #include "Actors.h"
 #include "GameObjects.h"
+#include "GameUtils.h"
 #include <string>
 
 float GLOBAL_MUSIC_VOLUME = 0.5f;
@@ -133,7 +134,7 @@ void showShieldBlock(Dungeon& dungeon, const Player& p) {
 	case 'd': n = 0; m = 0.5; break;
 	}
 
-	cocos2d::Sprite* shield = dungeon.createSprite(x + n, y + m, 2, p.getActiveItem()->getImageName());
+	cocos2d::Sprite* shield = dungeon.createSprite(x + n, y + m, y + Z_ACTOR + (m < 0 ? -1 : 0), p.getActiveItem()->getImageName());
 	shield->setScale(0.7f * GLOBAL_SPRITE_SCALE);
 	auto delay = cocos2d::DelayTime::create(0.3f);
 	auto fadeOut = cocos2d::FadeOut::create(0.0f);

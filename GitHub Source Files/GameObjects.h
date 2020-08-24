@@ -6,6 +6,7 @@ class Dungeon;
 class Actors;
 class Player;
 enum class DamageType;
+struct Coords;
 
 class Objects {
 public:
@@ -175,7 +176,7 @@ public:
 	virtual void useItem(Dungeon &dungeon) { return; };
 	virtual void pickupEffect(Dungeon &dungeon) { return; }; // Effects that occur when the item is picked up
 
-	bool forPlayer() const { return m_forPlayer; };
+	virtual bool isHealingItem() const { return false; };
 
 	// For items that can stack.
 	// The FatStacks passive lets all items stack, which is why this is here.
@@ -185,13 +186,11 @@ public:
 	void decreaseCount() { m_count--; };
 
 protected:
-	void setForPlayer(bool forPlayer) { m_forPlayer = forPlayer; };
 	void setCanStack(bool stack) { m_canStack = stack; };
 
 	int m_count = 1; // Number of each stackable remaining
 
 private:
-	bool m_forPlayer = true; // flag to check if item is used on the player or the dungeon
 	bool m_canStack = false; // Flag indicating that this item can stack
 };
 
@@ -204,12 +203,16 @@ public:
 class LifePotion : public Drops {
 public:
 	LifePotion(int x, int y);
+
+	bool isHealingItem() const { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
 class BigLifePotion : public Drops {
 public:
 	BigLifePotion(int x, int y);
+
+	bool isHealingItem() const { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
@@ -217,6 +220,8 @@ class SteadyLifePotion : public Drops {
 public:
 	// Gives player a heal over time
 	SteadyLifePotion(int x, int y);
+
+	bool isHealingItem() const { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
@@ -224,6 +229,8 @@ class HalfLifePotion : public Drops {
 public:
 	// Heals player up to half their maximum HP. Otherwise it does nothing.
 	HalfLifePotion(int x, int y);
+
+	bool isHealingItem() const { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
@@ -231,6 +238,8 @@ class SoulPotion : public Drops {
 public:
 	// Converts the player's money into hp
 	SoulPotion(int x, int y);
+
+	bool isHealingItem() const { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
@@ -238,6 +247,8 @@ class BinaryLifePotion : public Drops {
 public:
 	// Heals 50% of the player's missing hp
 	BinaryLifePotion(int x, int y);
+
+	bool isHealingItem() const { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
@@ -251,6 +262,8 @@ class RottenApple : public Drops {
 public:
 	// Heals to full, but applies a deadly poison
 	RottenApple(int x, int y);
+
+	bool isHealingItem() const { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
@@ -321,6 +334,8 @@ public:
 	// 50% chance to poison the player.
 	// 50% chance to give strength or heal. Very small chance to grant the strength bonus.
 	WildMushroom(int x, int y);
+
+	bool isHealingItem() const { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
@@ -328,6 +343,8 @@ class MagmaHeart : public Drops {
 public:
 	// After consumption, this restores 20% of the player's health when they reach the next floor
 	MagmaHeart(int x, int y);
+
+	bool isHealingItem() const { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
@@ -336,7 +353,21 @@ public:
 	// Dropped by Cacti
 	CactusWater(int x, int y);
 
+	bool isHealingItem() const { return true; };
 	void pickupEffect(Dungeon &dungeon);
+	void useItem(Dungeon &dungeon);
+};
+
+class SuperRoot : public Drops {
+public:
+	// Preventions all negative afflictions for a duration
+	SuperRoot(int x, int y);
+	void useItem(Dungeon &dungeon);
+};
+
+class RPGInABottle : public Drops {
+public:
+	RPGInABottle(int x, int y);
 	void useItem(Dungeon &dungeon);
 };
 
@@ -1060,7 +1091,7 @@ public:
 	virtual void unapplyDualWieldBonus() { return; };
 
 	int getDexBonus() const { return m_dexbonus; };
-	int getDmg() const { return m_dmg; };
+	int getDamage() const { return m_dmg; };
 
 	DamageType getDamageType() const { return m_damageType; };
 
@@ -1742,80 +1773,66 @@ public:
 
 	virtual void moveTo(int x, int y, float time = 0.1f);
 
-	// trap actions for when actives is being checked
-	virtual void activeTrapAction(Actors &a) { return; };
-
-	// trap actions for when a player/monster steps on or interacts with a trap
+	virtual void activeTrapAction() { return; };
 	virtual void trapAction(Actors &a) { return; };
 
-	// Occurs when the trap is destroyed
+	bool isDestroyed() const { return m_destroyed; };
 	virtual void destroyTrap();
 	virtual void drops() { return; };
 	virtual void spriteCleanup();
 
-	int getDmg() const { return m_trapdmg; };
-	void setDmg(int damage) { m_trapdmg = damage; };
-
-	// tells if the trap's status constantly needs to be checked
-	bool isActive() const { return m_active; };
-	void setActive(bool active) { m_active = active; };
-
-	// tells if the trap also acts as a wall
-	bool actsAsWall() const { return m_wall; };
-	void setWallFlag(bool wall) { m_wall = wall; };
-
-	// tells if trap immediately damages
-	bool isLethal() const { return m_lethal; };
-	void setLethal(bool lethal) { m_lethal = lethal; };
-
-	// Indicates if this can be set off by explosions
-	bool isExplosive() const { return m_explosive; };
-	void setExplosive(bool explosive) { m_explosive = explosive; };
-	virtual void explode() { return; };
-	void checkExplosion(int x, int y);
-
-	// Indicates if this can be ignited/lit on fire
-	bool canBeIgnited() const { return m_canBeIgnited; };
-	void setCanBeIgnited(bool ignite) { m_canBeIgnited = ignite; };
-	virtual void ignite() { return; }; // Used to do whatever happens if this trap is ignited
-	void checkBurn(int x, int y);
 	virtual bool isLightSource() const { return false; }; // For removing the light source if it is destroyed
 
-	// Some traps are affected if poison is present
+	int getDamage() const { return m_damage; };
+
+	bool actsAsWall() const { return m_wall; };
+	bool isLethal() const { return m_lethal; };
+
+	bool isExplosive() const { return m_explosive; };
+	virtual void explode() { return; };
+
+	bool canBeIgnited() const { return m_canBeIgnited; };
+	virtual void ignite() { return; };
+
 	bool canBePoisoned() const { return m_canBePoisoned; };
-	void setCanBePoisoned(bool flag) { m_canBePoisoned = flag; };
 	virtual void poison() { return; };
-	void checkPoison(int x, int y);
 
-	// Some traps can be doused by water
 	bool canBeDoused() const { return m_canBeDoused; };
-	void setCanBeDoused(bool flag) { m_canBeDoused = flag; };
 	virtual void douse() { return; };
-	void checkDouse(int x, int y);
 
-	// Some can be frozen
 	bool canBeFrozen() const { return m_canBeFrozen; };
-	void setCanBeFrozen(bool flag) { m_canBeFrozen = flag; };
 	virtual void freeze() { return; };
-	void checkFreeze(int x, int y);
 
 	// Checks if the trap could be destroyed manually
 	//virtual void checkDestroy(int x, int y);
 
-	// tells if the trap was destroyed or exhausted in some way
-	bool isDestroyed() const { return m_destroyed; };
-	void setDestroyed(bool destroyed) { m_destroyed = destroyed; };
-
-	// Indicates if this was a decoy trap
 	virtual bool isDecoy() const { return false; }
 
 	// Used for Player's Trap Illumination passive
 	virtual bool canBeIlluminated() const { return false; };
 
+protected:
+	void setDestroyed(bool destroyed) { m_destroyed = destroyed; };
+
+	void setWallFlag(bool wall) { m_wall = wall; };
+	void setLethal(bool lethal) { m_lethal = lethal; };
+
+
+	void setExplosive(bool explosive) { m_explosive = explosive; };
+	void setCanBeIgnited(bool ignite) { m_canBeIgnited = ignite; };
+	void setCanBePoisoned(bool flag) { m_canBePoisoned = flag; };
+	void setCanBeDoused(bool flag) { m_canBeDoused = flag; };
+	void setCanBeFrozen(bool flag) { m_canBeFrozen = flag; };
+
+	void checkExplosion(int x, int y);
+	void checkBurn(int x, int y);
+	void checkPoison(int x, int y);
+	void checkDouse(int x, int y);
+	void checkFreeze(int x, int y);
+
 private:
-	int m_trapdmg;
+	int m_damage = 0;
 	bool m_destroyed = false;
-	bool m_active;
 	bool m_wall = false;
 	bool m_lethal = false;
 
@@ -1850,7 +1867,7 @@ class DevilsWater : public Traps {
 public:
 	DevilsWater(Dungeon *dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 
 private:
@@ -1882,7 +1899,7 @@ public:
 	// Pits kill all non-flying enemies instantly
 	Pit(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 };
 
@@ -1891,11 +1908,8 @@ public:
 	FallingSpike(Dungeon &dungeon, int x, int y, int speed);
 	~FallingSpike();
 
-	void activeTrapAction(Actors &a);
-	void trapAction(Actors &a); // used if a player steps in the way
-
-	int getSpeed() const { return m_speed; };
-	void setSpeed(int speed) { m_speed = speed; };
+	void activeTrapAction();
+	void trapAction(Actors &a);
 
 private:
 	int m_speed;
@@ -1905,7 +1919,6 @@ class Spikes : public Traps {
 public:
 	Spikes(Dungeon &dungeon, int x, int y);
 
-	//void activeTrapAction(Actors &a);
 	void trapAction(Actors &a);
 };
 
@@ -1914,17 +1927,12 @@ public:
 	SpikeTrap(Dungeon &dungeon, int x, int y, int speed);
 	~SpikeTrap();
 
-	void activeTrapAction(Actors &a); // called if player was standing on top of one that becomes active
-	void trapAction(Actors &a); // used if player steps on one already active
-	
-	void setSpriteVisibility(bool deactive, bool primed, bool active);
-
-	int getSpeed() const { return m_cyclespeed; };
-	void setSpeed(int speed) { m_cyclespeed = speed; };
-	int getCountdown() const { return m_countdown; };
-	void setCountdown(int count) { m_countdown = count; };
+	void activeTrapAction();
+	void trapAction(Actors &a);
 
 private:
+	void setSpriteVisibility(bool deactive, bool primed, bool active);
+
 	int m_cyclespeed;
 	int m_countdown;
 
@@ -1938,15 +1946,13 @@ public:
 	TriggerSpike(Dungeon &dungeon, int x, int y);
 	~TriggerSpike();
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
-	
-	void setSpriteVisibility(bool deactive, bool primed, bool active);
-
-	bool isTriggered() const { return m_triggered; };
-	void toggleTrigger() { m_triggered = !m_triggered; };
 
 private:
+	void setSpriteVisibility(bool deactive, bool primed, bool active);
+	void toggleTrigger() { m_triggered = !m_triggered; };
+
 	bool m_triggered;
 
 	cocos2d::Sprite* m_deactive;
@@ -1959,12 +1965,14 @@ public:
 	Puddle(Dungeon &dungeon, int x, int y, int turns = -1);
 	Puddle(Dungeon &dungeon, int x, int y, int turns, std::string name, std::string image);
 	
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
-	virtual void specialAction(Actors &a) { return; };
 	void freeze();
 
 	void spriteCleanup();
+
+protected:
+	virtual void specialAction(Actors &a) { return; };
 
 private:
 	int m_turns; // if this value is -1, then the puddle does not dissipate over time
@@ -1974,6 +1982,7 @@ class PoisonPuddle : public Puddle {
 public:
 	PoisonPuddle(Dungeon &dungeon, int x, int y, int turns = -1);
 
+protected:
 	void specialAction(Actors &a);
 };
 
@@ -1981,7 +1990,7 @@ class FrozenPuddle : public Traps {
 public:
 	FrozenPuddle(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 	void ignite();
 
@@ -1994,7 +2003,7 @@ public:
 	Water(Dungeon &dungeon, int x, int y);
 	Water(Dungeon &dungeon, int x, int y, std::string name, std::string image);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 	void poison();
 	void freeze();
@@ -2034,7 +2043,7 @@ public:
 	// 
 	PoisonMister(Dungeon &dungeon, int x, int y, int wait = 15);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	int m_wait;
@@ -2046,7 +2055,7 @@ public:
 	// 
 	Stalactite(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	int m_stalactiteY;
@@ -2080,7 +2089,7 @@ public:
 	//
 	Tree(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 	void ignite();
 
@@ -2100,7 +2109,7 @@ public:
 	// 
 	TreeRoot(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 	void ignite();
 
@@ -2116,7 +2125,7 @@ class MalevolentPlant : public Traps {
 public:
 	MalevolentPlant(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 	void ignite();
 
@@ -2127,61 +2136,66 @@ private:
 class Firebar : public Traps {
 public:
 	Firebar(Dungeon &dungeon, int x, int y);
-	Firebar(Dungeon &dungeon, int x, int y, std::string firebar); // for double firebar
+	Firebar(Dungeon &dungeon, int x, int y, std::string firebar);
 
 	bool canBeIlluminated() const { return true; };
 
-	void activeTrapAction(Actors &a);
-
-	virtual void setInitialFirePosition(int x, int y);
-	int getAngle() const { return m_angle; };
-	void setAngle(int angle) { m_angle = angle; };
-	bool isClockwise() const { return m_clockwise; };
-
-	virtual bool playerWasHit(const Actors &a) const;
-	virtual void setFirePosition(char move);
+	void activeTrapAction();
+	void spriteCleanup();
 
 	void setSpriteColor(cocos2d::Color3B color);
 	virtual void setSpriteVisibility(bool visible);
 
-	void spriteCleanup();
+protected:
+	virtual bool playerWasHit(const Player &p);
+	virtual void setInitialFirePosition(int x, int y);
+	virtual void setFirePosition(char move);
 
-private:
 	int m_angle;
 	bool m_clockwise;
 
-	// these are helper objects to keep track of where the firebar's fireball is
+private:
+	// These are helper objects to keep track of where the firebar's fireballs are
 	std::shared_ptr<Objects> m_innerFire;
+	int m_innerActive = 0;
+
 	std::shared_ptr<Objects> m_outerFire;
+	int m_outerActive = 0;
 };
 
 class DoubleFirebar : public Firebar {
 public:
 	DoubleFirebar(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
-
-	void setInitialFirePosition(int x, int y);
-	bool playerWasHit(const Actors &a) const;
-	void setFirePosition(char move);
+	void activeTrapAction();
 
 	void setSpriteColor(cocos2d::Color3B color);
 	void setSpriteVisibility(bool visible);
 
 	void spriteCleanup();
 
+protected:
+	bool playerWasHit(const Player &p);
+	void setInitialFirePosition(int x, int y);
+	void setFirePosition(char move);
+
 private:
 	std::shared_ptr<Objects> m_innerFire;
 	std::shared_ptr<Objects> m_innerFireMirror;
 	std::shared_ptr<Objects> m_outerFire;
 	std::shared_ptr<Objects> m_outerFireMirror;
+
+	int m_innerActive = 0;
+	int m_innerMirrorActive = 0;
+	int m_outerActive = 0;
+	int m_outerMirrorActive = 0;
 };
 
 class Lava : public Traps {
 public:
 	Lava(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 };
 
@@ -2191,7 +2205,7 @@ public:
 	// Pattern: Single -> Ring -> Single -> Ring -> Double Ring -> Ring -> Repeat
 	MagmaTide(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 
 private:
@@ -2210,7 +2224,7 @@ public:
 
 	bool isLightSource() const { return true; };
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 	void drops();
 
@@ -2228,8 +2242,7 @@ private:
 class Spring : public Traps {
 public:
 	/* Spring traps take one turn to trigger before launching the player in a direction
-	*  They will typically point in one direction, but there is a type that will launch in an unknown direction.
-	*/
+	*  They will typically point in one direction, but there is a type that will launch in an unknown direction. */
 
 	// This is the standard spring trap; it points in a single random direction if @move is not specified
 	// @trigger specifies if it needs to be triggered or if it springs immediately
@@ -2248,31 +2261,27 @@ public:
 	*/
 	Spring(Dungeon &dungeon, int x, int y, bool trigger, bool known, bool cardinal);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 
-	char getDirection() const { return m_dir; };
-	void setDirection(char dir) { m_dir = dir; };
-	bool isTrigger() const { return m_isTrigger; };
-	bool triggered() const { return m_triggered; };
+private:
 	void setImage();
 
-	// tells if the trap bounces in multiple directions
+	// Indicates if the trap bounces in multiple directions
 	bool isMultiDirectional() const { return m_multidirectional; };
 
-	// tells if the trap bounces in all directions
+	// Indicates if the trap bounces in all directions
 	bool isAny() const { return m_any; };
 
 	// if multidirectional, tells if bounces only in cardinal directions
 	bool isCardinal() const { return m_cardinal; };
 
-	// tells if two spring traps are pointing toward each other
+	// Indicates if two spring traps are pointing toward each other
 	// for preventing infinite bouncing loops
 	bool isOpposite(const Spring &other) const;
 
 	void oppositeSprings();
 
-private:
 	char m_dir; // used if spring is a single direction
 
 	bool m_isTrigger;
@@ -2288,68 +2297,51 @@ public:
 	*  Turrets, like archers, must be set off before shooting. Turrets are stationary, have a limited detection range, but infinite shooting range.
 	*  They also only face in one direction at a time, whereas archers are able to shoot in any of the 4 cardinal directions.
 	*/
-	Turret(Dungeon &dungeon, int x, int y, char move, int range = 8);
+	Turret(Dungeon &dungeon, int x, int y, char dir = '-');
 
 	bool canBeIlluminated() const { return true; };
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void checkLineOfFire();
-
-	char getDirection() const { return m_dir; };
-	void setDirection(char dir) { m_dir = dir; };
-	int getRange() const { return m_range; };
-	void setRange(int range) { m_range = range; };
-	bool isTriggered() const { return m_triggered; };
-	void setTrigger(bool trigger) { m_triggered = trigger; };
-	bool onCooldown() const { return m_cooldown; };
-	void setCooldown(bool cooldown) { m_cooldown = cooldown; };
 
 private:
 	char m_dir;
-	int m_range;
+	int m_range = 8;
 	bool m_triggered;
 	bool m_cooldown = false;
 };
 
 class MovingBlock : public Traps {
 public:
-	MovingBlock(Dungeon &dungeon, int x, int y, char pattern, int spaces = 3);
+	MovingBlock(Dungeon &dungeon, int x, int y, int spaces);
 
-	void activeTrapAction(Actors &a);
+	void moveTo(int x, int y, float time = 0.1f);
+	void activeTrapAction();
 
-	char getPattern() const { return m_pattern; };
-	void setPattern(char pattern) { m_pattern = pattern; };
-	int getSpaces() const { return m_spaces; };
-	int getCounter() const { return m_counter; };
-	void setCounter(int count) { m_counter = count; };
-	void resetCounter() { m_counter = m_spaces; };
-	void flip() { m_dir = -m_dir; };
-	bool turn() const { return m_turn; };
-	void toggleTurn() { m_turn = !m_turn; };
+protected:
+	virtual void setDirection() = 0;
+
+	char m_dir;
+	int m_maxSpaces;
+	int m_spaces;
+};
+
+class LinearMovingBlock : public MovingBlock {
+public:
+	LinearMovingBlock(Dungeon &dungeon, int x, int y, char dir, int spaces);
+
+protected:
+	void setDirection();
+};
+
+class SquareMovingBlock : public MovingBlock {
+public:
+	SquareMovingBlock(Dungeon &dungeon, int x, int y, char dir, int spaces, bool clockwise);
+
+	void setDirection();
 
 private:
-	/* m_pattern tells the way in which the block moves
-	*  Key:
-	*  h : side to side
-	*  v : up and down
-	*  s : in a 2x2 square
-	*  S : in a 3x3 square
-	*/
-	char m_pattern;
-
-	/* m_spaces specifies how many tiles the block moves if it moves in a linear path (min: 2) 
-	*
-	*/
-	int m_spaces;
-
-	// value that counts how many spaces are left to travel
-	int m_counter;
-
-	// can be only 1 or -1, tells the direction to count in
-	int m_dir;
-
-	// m_turn tells it to move in the opposite direction if spaces reaches zero
-	bool m_turn = false;
+	bool m_clockwise;
 };
 
 class ActiveBomb : public Traps {
@@ -2357,14 +2349,15 @@ public:
 	ActiveBomb(Dungeon &dungeon, int x, int y, int timer = 3);
 	ActiveBomb(Dungeon &dungeon, int x, int y, std::string type, std::string image, int damage, int timer = 3);
 
-	void activeTrapAction(Actors &a);
-	virtual void explosion();
-
-	int getTimer() const { return m_timer; };
-	void setTimer(int timer) { m_timer = timer; };
+	void activeTrapAction();
+	void explosion();
 
 protected:
+	virtual void extraExplosionEffects(int x, int y) { return; };
+
 	void setRange(int range) { m_range = range; };
+	int getTimer() const { return m_timer; };
+	void decreaseTimerBy(int amount) { m_timer -= amount; };
 
 	int m_fuseID; // for getting and stopping fuse sound when bomb explodes
 
@@ -2377,7 +2370,15 @@ class ActiveMegaBomb : public ActiveBomb {
 public:
 	ActiveMegaBomb(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
+};
+
+class ActiveFireBomb : public ActiveBomb {
+public:
+	ActiveFireBomb(Dungeon &dungeon, int x, int y, int turns);
+
+protected:
+	void extraExplosionEffects(int x, int y);
 };
 
 class ActivePoisonBomb : public Traps {
@@ -2400,7 +2401,7 @@ class PoisonCloud : public Traps {
 public:
 	PoisonCloud(Dungeon &dungeon, int x, int y, int turns);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	int m_turns;
@@ -2422,7 +2423,7 @@ public:
 	CrumbleFloor(Dungeon &dungeon, int x, int y, int strength = 4);
 	CrumbleFloor(Dungeon &dungeon, int x, int y, int strength, std::string name, std::string image);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 
 	virtual void crumble();
@@ -2447,7 +2448,7 @@ public:
 	// Temporary embers that subside after a certain amount of time
 	Ember(Dungeon &dungeon, int x, int y, int turns = 5);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 
 	void douse();
@@ -2477,10 +2478,17 @@ public:
 	// Acts like a giant fan that pushes all actors backwards one tile at a time.
 	// Has a large range.
 	WindTunnel(Dungeon &dungeon, int x, int y, char dir);
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	char m_dir;
+};
+
+class Sand : public Traps {
+public:
+	Sand(Dungeon &dungeon, int x, int y);
+
+	void activeTrapAction();
 };
 
 class Quicksand : public Traps {
@@ -2490,7 +2498,7 @@ public:
 	// To escape, you must continuously press the direction opposite to the direction you're currently facing.
 	Quicksand(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	std::shared_ptr<Actors> m_capturedActor = nullptr;
@@ -2513,10 +2521,11 @@ public:
 	MovingTile(Dungeon &dungeon, int x, int y, int spaces);
 
 	void moveTo(int x, int y, float time = 0.1f);
-	virtual void setDirection() = 0;
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 protected:
+	virtual void setDirection() = 0;
+
 	// Specifies the maximum of how many tiles it moves in a straight line
 	int m_maxSpaces;
 
@@ -2530,6 +2539,7 @@ class LinearMovingTile : public MovingTile {
 public:
 	LinearMovingTile(Dungeon &dungeon, int x, int y, char dir, int spaces);
 
+protected:
 	void setDirection();
 };
 
@@ -2537,8 +2547,8 @@ class SquareMovingTile : public MovingTile {
 public:
 	SquareMovingTile(Dungeon &dungeon, int x, int y, char dir, int spaces, bool clockwise);
 
+protected:
 	void setDirection();
-	//void activeTrapAction(Actors &a);
 
 private:
 	bool m_clockwise;
@@ -2551,7 +2561,7 @@ public:
 	// Currently a fixed 5x5 area
 	LavaGrating(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	cocos2d::Sprite* m_lava = nullptr;
@@ -2561,7 +2571,7 @@ class LightAbsorber : public Traps {
 public:
 	// Reduces the player's vision radius when they are near
 	LightAbsorber(Dungeon &dungeon, int x, int y);
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	bool m_activated = false;
@@ -2572,10 +2582,11 @@ class WatcherStatue : public Traps {
 public:
 	WatcherStatue(Dungeon &dungeon, int x, int y, std::string image, char dir);
 
-	void activeTrapAction(Actors &a);
-	virtual void react() = 0;
+	void activeTrapAction();
 
 protected:
+	virtual void react() = 0;
+
 	bool m_primed = false;
 	char m_dir;
 
@@ -2587,6 +2598,7 @@ class FireballWatcher : public WatcherStatue {
 public:
 	FireballWatcher(Dungeon &dungeon, int x, int y, char dir);
 
+protected:
 	void react();
 };
 
@@ -2594,6 +2606,7 @@ class FreezeWatcher : public WatcherStatue {
 public:
 	FreezeWatcher(Dungeon &dungeon, int x, int y, char dir);
 
+protected:
 	void react();
 };
 
@@ -2601,6 +2614,7 @@ class DartWatcher : public WatcherStatue {
 public:
 	DartWatcher(Dungeon &dungeon, int x, int y, char dir);
 
+protected:
 	void react();
 };
 
@@ -2608,6 +2622,7 @@ class CrumbleWatcher : public WatcherStatue {
 public:
 	CrumbleWatcher(Dungeon &dungeon, int x, int y, char dir);
 
+protected:
 	void react();
 };
 
@@ -2615,6 +2630,7 @@ class SpawnWatcher : public WatcherStatue {
 public:
 	SpawnWatcher(Dungeon &dungeon, int x, int y, char dir);
 
+protected:
 	void react();
 };
 
@@ -2622,7 +2638,32 @@ class GuardianWatcher : public WatcherStatue {
 public:
 	GuardianWatcher(Dungeon &dungeon, int x, int y, char dir);
 
+protected:
 	void react();
+};
+
+class FlareCandle : public Traps {
+public:
+	FlareCandle(Dungeon &dungeon, int x, int y);
+
+	void activeTrapAction();
+	void trapAction(Actors &a);
+
+	void douse();
+	void spriteCleanup();
+
+	bool isLightSource() const { return true; };
+};
+
+class Acid : public Traps {
+public:
+	Acid(Dungeon &dungeon, int x, int y);
+
+	void activeTrapAction();
+	void trapAction(Actors &a);
+
+private:
+	int m_turns = 8;
 };
 
 class Decoy : public Traps {
@@ -2647,11 +2688,34 @@ public:
 	// Attracts monsters and poisons them if they eat (touch) it.
 	RottingDecoy(Dungeon &dungeon, int x, int y, int bites = 20);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 };
 
 // From enemies
+class Spores : public Traps {
+public:
+	// Released from TumbleShroom
+	Spores(Dungeon &dungeon, int x, int y, int turns = 6);
+
+	void activeTrapAction();
+	void spriteCleanup();
+
+private:
+	int m_turns;
+};
+
+class DustDevil : public Traps {
+public:
+	// Released from SandAlbatross
+	DustDevil(Dungeon &dungeon, int x, int y, char dir);
+
+	void activeTrapAction();
+
+private:
+	char m_dir;
+};
+
 class EnergyHelix : public Traps {
 public:
 	// Launched by Wisp.
@@ -2663,7 +2727,7 @@ public:
 	bool isLightSource() const { return true; };
 
 	void moveTo(int x, int y, float time = 0.1f);
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 	void spriteCleanup();
 
@@ -2680,7 +2744,7 @@ public:
 	// Released by AbyssSummoner.
 	AbyssalMaw(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	int m_wait = 2;
@@ -2691,7 +2755,7 @@ public:
 	// Created by CrawlingSpine.
 	Goop(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 	void trapAction(Actors &a);
 };
 
@@ -2700,7 +2764,7 @@ public:
 	// Released by CombustionGolem
 	MiniEruption(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	void addCoords();
@@ -2716,7 +2780,7 @@ public:
 	// Released by CombustionGolem on death.
 	Combustion(Dungeon &dungeon, int x, int y);
 
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	int m_countdown = 2;
@@ -2730,12 +2794,117 @@ public:
 	void trapAction(Actors &a);
 };
 
+class FacelessMask : public Traps {
+public:
+	// Created by FacelessHorror
+	FacelessMask(Dungeon &dungeon, int x, int y, char dir);
+
+	void activeTrapAction();
+
+private:
+	char m_dir;
+	int m_acceleration = 1; // Tiles moved per turn
+};
+
+class PsychicSlash : public Traps {
+public:
+	// Created by BladePsychic
+	PsychicSlash(Dungeon &dungeon, int x, int y, char dir);
+
+	void moveTo(int x, int y, float time = 0.1f);
+	void activeTrapAction();
+	void spriteCleanup();
+
+private:
+	void setCoords();
+
+	std::vector<Coords> m_coords;
+	std::vector<cocos2d::Sprite*> m_sprites; // This is temporary--the sprite should eventually be a single image
+
+	char m_dir;
+	int m_acceleration = 1; // Tiles moved per turn
+	int m_turnsLeft = 5;
+};
+
+class DisablingField : public Traps {
+public:
+	// Created by Disabler
+	DisablingField(Dungeon &dungeon, int x, int y);
+
+	void activeTrapAction();
+
+private:
+	int m_turns = 8;
+};
+
+class FlameArchaicFirePillars : public Traps {
+public:
+	// Released by FlameArchaic
+	FlameArchaicFirePillars(Dungeon &dungeon, int x, int y);
+
+	void activeTrapAction();
+
+private:
+	int m_limit = 2;
+	int m_ring = 0; // The next ring
+};
+
+class MegaRock : public Traps {
+public:
+	// Released by AdvancedRockSummoner
+	MegaRock(Dungeon &dungeon, int x, int y);
+
+	void activeTrapAction();
+	void spriteCleanup();
+
+private:
+	int m_height = 2;
+};
+
+class ReflectiveShot : public Traps {
+public:
+	// Released by AscendedShot
+	ReflectiveShot(Dungeon &dungeon, int x, int y, char dir, Actors *parent);
+
+	void activeTrapAction();
+	void trapAction(Actors &a);
+	void spriteCleanup();
+
+private:
+	bool m_deflected = false;
+	char m_dir;
+
+	Actors *m_parent = nullptr;
+};
+
+class LightBeam : public Traps {
+public:
+	// Released by LightEntity
+	LightBeam(Dungeon &dungeon, int x, int y, char dir);
+
+	void activeTrapAction();
+	void spriteCleanup();
+
+private:
+	void moveBeam(float time = 0.1f);
+	char changeTrajectory(char dir);
+
+	bool m_initialMove = true;
+	std::vector<Coords> m_coords;
+	std::vector<char> m_dirs;
+	std::vector<cocos2d::Sprite*> m_sprites;
+
+	char m_dir;
+	int bouncesLeft = 3;
+	int m_acceleration = 3;
+};
+
 // Traps from spells
 class FirePillars : public Traps {
 public:
 	// Released from the FireCascade spell
 	FirePillars(Dungeon &dungeon, int x, int y, int limit = 1);
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	int m_limit;
@@ -2746,7 +2915,7 @@ class IceShards : public Traps {
 public:
 	// Released from IceShard Spell
 	IceShards(Dungeon &dungeon, int x, int y, int limit = 3);
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	int m_shards = 0; // Shards left
@@ -2757,7 +2926,7 @@ class HailStorm : public Traps {
 public:
 	// Released from HailStorm spell
 	HailStorm(Dungeon &dungeon, int x, int y, char dir, int limit = 3);
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	char m_dir; // Where to strike
@@ -2769,7 +2938,7 @@ class Shockwaves : public Traps {
 public:
 	// Released from the Shockwave spell
 	Shockwaves(Dungeon &dungeon, int x, int y, char dir, int limit = 5);
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	char m_dir; // Direction the wave ripples in
@@ -2788,7 +2957,7 @@ class WindVortex : public Traps {
 public:
 	// Released from WindVortex spell
 	WindVortex(Dungeon &dungeon, int x, int y, int limit = 20);
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 private:
 	int m_turns = 0; // Turns left
@@ -2799,7 +2968,7 @@ class ThunderCloud : public Traps {
 public:
 	// Released from ThunderCloud spell
 	ThunderCloud(Dungeon &dungeon, int x, int y, char dir, int limit = 20);
-	void activeTrapAction(Actors &a);
+	void activeTrapAction();
 
 	bool isLightSource() const { return true; };
 

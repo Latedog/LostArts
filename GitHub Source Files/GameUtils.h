@@ -15,7 +15,11 @@ class Weapon;
 class Shield;
 
 enum class DamageType {
-	NORMAL, PIERCING, EXPLOSIVE, MAGICAL
+	NORMAL, PIERCING, CRUSHING, EXPLOSIVE, FIRE, MELTING, ACIDIC, POISONOUS, LIGHTNING, MAGICAL
+};
+
+enum class StatType {
+	MAXHP, HP, STRENGTH, ARMOR, DEXTERITY, INTELLECT, LUCK, CHARISMA
 };
 
 enum class Rarity {
@@ -35,7 +39,7 @@ std::shared_ptr<Shield> rollShield(Dungeon *dungeon, int x, int y, Rarity rarity
 // If Rarity is ALL, then roll to determine the rarity to use
 Rarity rollRarity();
 
-// Bump up the rarity level by one if all passives of 
+// Bump up the rarity level by one if all passives of level @rarity have been seen
 Rarity increaseRarityLevel(Rarity rarity);
 
 class GameTable {
@@ -81,20 +85,91 @@ private:
 
 std::shared_ptr<NPC> rollNPC(Dungeon *dungeon, int x, int y);
 
+std::shared_ptr<Monster> createMonsterByName(std::string name, Dungeon *dungeon, int x, int y);
 std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y);
 
 // Common utilities
+struct Coords {
+	int x;
+	int y;
+
+	Coords() {
+		x = 0;
+		y = 0;
+	};
+
+	Coords(int _x, int _y) {
+		x = _x;
+		y = _y;
+	};
+
+	Coords& operator=(const Coords &other) {
+		x = other.x;
+		y = other.y;
+
+		return *this;
+	};
+
+	bool operator==(const Coords &other) const {
+		return x == other.x && y == other.y;
+	};
+	bool operator!=(const Coords &other) const {
+		return !(*this == other);
+	};
+	bool operator<(const Coords &other) const {
+		return x < other.x && y < other.y;
+	};
+};
+
+namespace std
+{
+	template <>
+	struct hash<Coords>
+	{
+		size_t operator()(const Coords& c) const
+		{
+			// Compute individual hash values for two data members and combine them using XOR and bit shifting
+			return ((hash<int>()(c.x) ^ (hash<int>()(c.y) << 1)) >> 1);
+		}
+	};
+}
+
+int calculateDistanceBetween(const Coords &start, const Coords &end);
+int calculateDistanceBetween(int sx, int sy, int ex, int ey);
+void insertCoordsAdjacentTo(const Dungeon &dungeon, std::vector<Coords> &coords, int x, int y, bool diagonals = false);
+void getCoordsAdjacentTo(const Dungeon &dungeon, std::vector<Coords> &coords, int x, int y, bool all = false);
+void getDiagonalCoordsAdjacentTo(const Dungeon &dungeon, std::vector<Coords> &coords, int x, int y);
+
+// Return a uniformly distributed random integer from 0 to limit-1 inclusive
+inline int randInt(int limit) {
+	return std::rand() % limit;
+}
+
+// Return a uniformly distributed double between [min, max]
+inline double randReal(int min, int max)
+{
+	if (max < min)
+		std::swap(max, min);
+
+	static std::random_device rd;
+	static std::default_random_engine generator(rd());
+	std::uniform_real_distribution<> distro(min, max);
+	return distro(generator);
+}
+
 cocos2d::Vector<cocos2d::SpriteFrame*> getAnimationFrameVector(const char* format, int count);
 cocos2d::Vector<cocos2d::SpriteFrame*> getAnimationFrameVector(std::string format, int count);
-void setDirectionalOffsets(char move, int &n, int &m);
+void setDirectionalOffsets(char move, int &n, int &m, int offset = 1, bool reversed = false);
 void incrementDirectionalOffsets(char move, int &n, int &m);
 void decrementDirectionalOffsets(char move, int &n, int &m);
 bool directionIsOppositeTo(const char target, const char other);
 char getDirectionOppositeTo(const char other);
 char getFacingDirectionRelativeTo(int sx, int sy, int ex, int ey);
+char getCardinalFacingDirectionRelativeTo(int sx, int sy, int ex, int ey);
 bool isMovementAction(char move);
 
 bool hasLineOfSight(const Dungeon &dungeon, char dir, int sx, int sy, int ex, int ey);
+bool hasLineOfSight(const Dungeon &dungeon, char dir, const Player &p, int sx, int sy);
 
 // Used when we don't know/don't require an explicit direction
 bool hasLineOfSight(const Dungeon &dungeon, int sx, int sy, int ex, int ey);
@@ -106,5 +181,7 @@ bool playerInLinearRange(int range, int sx, int sy, int ex, int ey);
 bool playerInBufferedLinearRange(int range, int buffer, int sx, int sy, int ex, int ey);
 
 bool playerIsAdjacent(const Player &p, int x, int y, bool diagonals = false);
+
+bool playerInRectangularRange(const Player &p, int length, int width, int x, int y);
 
 #endif

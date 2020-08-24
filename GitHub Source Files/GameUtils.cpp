@@ -114,7 +114,7 @@ std::shared_ptr<Drops> rollItem(Dungeon *dungeon, int x, int y, Rarity rarity, b
 		int cols = dungeon->getCols();
 
 		(*dungeon)[y*cols + x].object = item;
-		(*dungeon)[y*cols + x].object->setSprite(dungeon->createSprite(x, y, -1, (*dungeon)[y*cols + x].object->getImageName()));
+		(*dungeon)[y*cols + x].object->setSprite(dungeon->createSprite(x, y, y + Z_ITEM, (*dungeon)[y*cols + x].object->getImageName()));
 		(*dungeon)[y*cols + x].item = true;
 		dungeon->addItem((*dungeon)[y*cols + x].object);
 	}
@@ -742,6 +742,144 @@ void NPCTable::encounteredNPC(std::string name) {
 		it->second = true;
 }
 
+std::shared_ptr<Monster> createMonsterByName(std::string name, Dungeon *dungeon, int x, int y) {
+	std::shared_ptr<Monster> monster(nullptr);
+
+	// BREAKABLES
+	if (name == WEAK_CRATE) monster = std::make_shared<WeakCrate>(dungeon, x, y);
+	else if (name == WEAK_BARREL) monster = std::make_shared<WeakBarrel>(dungeon, x, y);
+	else if (name == EXPLOSIVE_BARREL) monster = std::make_shared<ExplosiveBarrel>(dungeon, x, y);
+	else if (name == WEAK_LARGE_POT) monster = std::make_shared<LargePot>(dungeon, x, y);
+
+
+	// SPECIAL
+	else if (name == GHOST) monster = std::make_shared<Ghost>(dungeon, x, y);
+	else if (name == FLARE) monster = std::make_shared<Flare>(dungeon, x, y);
+	else if (name == WATCHER) monster = std::make_shared<Watcher>(dungeon, x, y);
+	else if (name == FORGOTTEN_SPIRIT) monster = std::make_shared<ForgottenSpirit>(dungeon, x, y);
+
+
+	// FIRST_FLOOR
+	else if (name == SEEKER) monster = std::make_shared<Seeker>(dungeon, x, y);
+	else if (name == GOO_SACK) monster = std::make_shared<GooSack>(dungeon, x, y);
+	else if (name == ROUNDABOUT) monster = std::make_shared<Roundabout>(dungeon, x, y);
+	else if (name == BROUNDABOUT) monster = std::make_shared<Broundabout>(dungeon, x, y);
+	else if (name == RAT) monster = std::make_shared<Rat>(dungeon, x, y);
+	else if (name == SPIDER) monster = std::make_shared<Spider>(dungeon, x, y);
+	else if (name == SHOOTING_SPIDER) monster = std::make_shared<ShootingSpider>(dungeon, x, y);
+	else if (name == POUNCING_SPIDER) monster = std::make_shared<PouncingSpider>(dungeon, x, y);
+	else if (name == GOBLIN) monster = std::make_shared<Goblin>(dungeon, x, y);
+	else if (name == WANDERER) monster = std::make_shared<Wanderer>(dungeon, x, y);
+	else if (name == SLEEPING_WANDERER) monster = std::make_shared<SleepingWanderer>(dungeon, x, y);
+	else if (name == PROVOCABLE_WANDERER) monster = std::make_shared<ProvocableWanderer>(dungeon, x, y);
+	
+	
+	// SECOND_FLOOR:
+	else if (name == RABID_WANDERER) monster = std::make_shared<RabidWanderer>(dungeon, x, y);
+	else if (name == TOAD) monster = std::make_shared<Toad>(dungeon, x, y);
+	else if (name == POISON_BUBBLE) monster = std::make_shared<PoisonBubble>(dungeon, x, y);
+	else if (name == PIRANHA) monster = std::make_shared<Piranha>(dungeon, x, y);
+	else if (name == WATER_SPIRIT) monster = std::make_shared<WaterSpirit>(dungeon, x, y);
+	else if (name == ANGLED_BOUNCER) monster = std::make_shared<AngledBouncer>(dungeon, x, y);
+	else if (name == FIREFLY) monster = std::make_shared<Firefly>(dungeon, x, y);
+	else if (name == DEAD_SEEKER) monster = std::make_shared<DeadSeeker>(dungeon, x, y);
+	else if (name == TRI_HORN) monster = std::make_shared<TriHorn>(dungeon, x, y);
+	else if (name == TUMBLE_SHROOM) monster = std::make_shared<TumbleShroom>(dungeon, x, y);
+	else if (name == WRIGGLER) monster = std::make_shared<Wriggler>(dungeon, x, y);
+	else if (name == BARBED_CATERPILLAR) monster = std::make_shared<BarbedCaterpillar>(dungeon, x, y);
+	
+
+	// THIRD_FLOOR:
+	else if (name == CRYSTAL_WARRIOR) monster = std::make_shared<CrystalWarrior>(dungeon, x, y);
+	else if (name == CRYSTAL_TURTLE) monster = std::make_shared<CrystalTurtle>(dungeon, x, y);
+	else if (name == CRYSTAL_HEDGEHOG) monster = std::make_shared<CrystalHedgehog>(dungeon, x, y);
+	else if (name == CRYSTAL_SHOOTER) monster = std::make_shared<CrystalShooter>(dungeon, x, y);
+	else if (name == CRYSTAL_BEETLE) monster = std::make_shared<CrystalBeetle>(dungeon, x, y);
+	else if (name == RABBIT) monster = std::make_shared<Rabbit>(dungeon, x, y);
+	else if (name == BOMBEE) monster = std::make_shared<Bombee>(dungeon, x, y);
+	else if (name == TICK) monster = std::make_shared<Tick>(dungeon, x, y);
+	else if (name == BENEVOLENT_BARK) monster = std::make_shared<BenevolentBark>(dungeon, x, y);
+	else if (name == EXOTIC_FELINE) monster = std::make_shared<ExoticFeline>(dungeon, x, y);
+	//else if (name == ) monster = std::make_shared<>(dungeon, x, y);
+	//else if (name == ) monster = std::make_shared<>(dungeon, x, y);
+	
+
+	// FOURTH_FLOOR:
+	else if (name == FLAME_WANDERER) monster = std::make_shared<FlameWanderer>(dungeon, x, y);
+	else if (name == ZAPPER) monster = std::make_shared<Zapper>(dungeon, x, y);
+	else if (name == SPINNER) monster = std::make_shared<Spinner>(dungeon, x, y);
+	else if (name == CHARRED_BOMBEE) monster = std::make_shared<CharredBombee>(dungeon, x, y);
+	else if (name == FIRE_ROUNDABOUT) monster = std::make_shared<FireRoundabout>(dungeon, x, y);
+	else if (name == ITEM_THIEF) monster = std::make_shared<ItemThief>(dungeon, x, y);
+	else if (name == CHARGER) monster = std::make_shared<Charger>(dungeon, x, y);
+	else if (name == SERPENT) monster = std::make_shared<Serpent>(dungeon, x, y);
+	else if (name == ARMORED_SERPENT) monster = std::make_shared<ArmoredSerpent>(dungeon, x, y);
+	else if (name == COMBUSTION_GOLEM) monster = std::make_shared<CombustionGolem>(dungeon, x, y);
+	else if (name == OLD_SMOKEY) monster = std::make_shared<OldSmokey>(dungeon, x, y);
+	//else if (name == ) monster = std::make_shared<>(dungeon, x, y);
+	
+	
+	// FIFTH_FLOOR:
+	else if (name == PUFF) monster = std::make_shared<Puff>(dungeon, x, y);
+	else if (name == GUSTY_PUFF) monster = std::make_shared<GustyPuff>(dungeon, x, y);
+	else if (name == STRONG_GUSTY_PUFF) monster = std::make_shared<StrongGustyPuff>(dungeon, x, y);
+	else if (name == INVERTED_PUFF) monster = std::make_shared<InvertedPuff>(dungeon, x, y);
+	else if (name == SPIKED_INVERTED_PUFF) monster = std::make_shared<SpikedInvertedPuff>(dungeon, x, y);
+	else if (name == GUSTY_SPIKED_INVERTED_PUFF) monster = std::make_shared<GustySpikedInvertedPuff>(dungeon, x, y);
+	else if (name == ARMORED_BEETLE) monster = std::make_shared<ArmoredBeetle>(dungeon, x, y);
+	else if (name == SPECTRAL_SWORD) monster = std::make_shared<SpectralSword>(dungeon, x, y);
+	else if (name == SAND_CENTIPEDE) monster = std::make_shared<SandCentipede>(dungeon, x, y);
+	else if (name == ARCHER) monster = std::make_shared<Archer>(dungeon, x, y);
+	else if (name == SAND_BEAVER) monster = std::make_shared<SandBeaver>(dungeon, x, y);
+	else if (name == SAND_ALBATROSS) monster = std::make_shared<SandAlbatross>(dungeon, x, y);
+
+	
+	// SIXTH_FLOOR:	
+	else if (name == WISP) monster = std::make_shared<Wisp>(dungeon, x, y);
+	else if (name == LIGHTNING_WISP) monster = std::make_shared<LightningWisp>(dungeon, x, y);
+	else if (name == GRABBER) monster = std::make_shared<Grabber>(dungeon, x, y);
+	else if (name == EVIL_SHADOW) monster = std::make_shared<EvilShadow>(dungeon, x, y);
+	else if (name == CRAWLING_SPINE) monster = std::make_shared<CrawlingSpine>(dungeon, x, y);
+	else if (name == CONSTRUCTOR_DEMON) monster = std::make_shared<ConstructorDemon>(dungeon, x, y);
+	else if (name == HOWLER) monster = std::make_shared<Howler>(dungeon, x, y);
+	else if (name == FACELESS_HORROR) monster = std::make_shared<FacelessHorror>(dungeon, x, y);
+	else if (name == TOWERING_BRUTE) monster = std::make_shared<ToweringBrute>(dungeon, x, y);
+	else if (name == SKY_CRASHER) monster = std::make_shared<SkyCrasher>(dungeon, x, y);
+	else if (name == STEAM_BOT) monster = std::make_shared<SteamBot>(dungeon, x, y);
+	//else if (name == ) monster = std::make_shared<>(dungeon, x, y);
+	
+	
+	// SEVENTH_FLOOR:
+	else if (name == PIKEMAN) monster = std::make_shared<Pikeman>(dungeon, x, y);
+	else if (name == SHRINEKEEPER) monster = std::make_shared<Shrinekeeper>(dungeon, x, y);
+	else if (name == SWAPPER) monster = std::make_shared<Swapper>(dungeon, x, y);
+	else if (name == SHIELD_MASTER) monster = std::make_shared<ShieldMaster>(dungeon, x, y);
+	else if (name == PSEUDO_DOPPEL) monster = std::make_shared<PseudoDoppel>(dungeon, x, y);
+	else if (name == ELECTROMAGNETIZER) monster = std::make_shared<Electromagnetizer>(dungeon, x, y);
+	else if (name == BLADE_PSYCHIC) monster = std::make_shared<BladePsychic>(dungeon, x, y);
+	else if (name == DASH_MASTER) monster = std::make_shared<DashMaster>(dungeon, x, y);
+	else if (name == ACIDIC_BEAST) monster = std::make_shared<AcidicBeast>(dungeon, x, y);
+	else if (name == DARK_CANINE) monster = std::make_shared<DarkCanine>(dungeon, x, y);
+	//else if (name == ) monster = std::make_shared<>(dungeon, x, y);
+	//else if (name == ) monster = std::make_shared<>(dungeon, x, y);
+
+	
+	// EIGHTH_FLOOR:	
+	else if (name == ABYSS_SUMMONER) monster = std::make_shared<AbyssSummoner>(dungeon, x, y);
+	else if (name == MAGICAL_BERSERKER) monster = std::make_shared<MagicalBerserker>(dungeon, x, y);
+	else if (name == DISABLER) monster = std::make_shared<Disabler>(dungeon, x, y);
+	else if (name == INCENDIARY_INFUSER) monster = std::make_shared<IncendiaryInfuser>(dungeon, x, y);
+	else if (name == LIGHTNING_STRIKER) monster = std::make_shared<LightningStriker>(dungeon, x, y);
+	else if (name == FLAME_ARCHAIC) monster = std::make_shared<FlameArchaic>(dungeon, x, y);
+	else if (name == ADVANCED_ROCK_SUMMONER) monster = std::make_shared<AdvancedRockSummoner>(dungeon, x, y);
+	else if (name == MASTER_CONJURER) monster = std::make_shared<MasterConjurer>(dungeon, x, y);
+	else if (name == ASCENDED_SHOT) monster = std::make_shared<AscendedShot>(dungeon, x, y);
+	else if (name == ROYAL_SWORDSMAN) monster = std::make_shared<RoyalSwordsman>(dungeon, x, y);
+	else if (name == LIGHT_ENTITY) monster = std::make_shared<LightEntity>(dungeon, x, y);
+	//else if (name == DARK_ENTITY) monster = std::make_shared<DarkEntity>(dungeon, x, y);
+
+	return monster;
+}
 std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) {
 	std::shared_ptr<Monster> monster(nullptr);
 
@@ -765,7 +903,7 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		break;
 	}
 	case SECOND_FLOOR: {
-		switch (1 + randInt(7)) {
+		switch (1 + randInt(12)) {
 		case 1:	monster = std::make_shared<RabidWanderer>(dungeon, x, y); break;
 		case 2:	monster = std::make_shared<Toad>(dungeon, x, y); break;
 		case 3:	monster = std::make_shared<PoisonBubble>(dungeon, x, y); break;
@@ -773,27 +911,27 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		case 5:	monster = std::make_shared<WaterSpirit>(dungeon, x, y);	break;
 		case 6:	monster = std::make_shared<AngledBouncer>(dungeon, x, y); break;
 		case 7:	monster = std::make_shared<Firefly>(dungeon, x, y); break;
-		//case 8:	monster = std::make_shared<PouncingSpider>(dungeon, x, y); break;
-		//case 9:	monster = std::make_shared<Goblin>(dungeon, x, y); break;
-		//case 10: monster = std::make_shared<Wanderer>(dungeon, x, y); break;
-		//case 11: monster = std::make_shared<SleepingWanderer>(dungeon, x, y); break;
-		//case 12: monster = std::make_shared<ProvocableWanderer>(dungeon, x, y);	break;
+		case 8:	monster = std::make_shared<DeadSeeker>(dungeon, x, y); break;
+		case 9:	monster = std::make_shared<TriHorn>(dungeon, x, y); break;
+		case 10: monster = std::make_shared<TumbleShroom>(dungeon, x, y); break;
+		case 11: monster = std::make_shared<Wriggler>(dungeon, x, y); break;
+		case 12: monster = std::make_shared<BarbedCaterpillar>(dungeon, x, y); break;
 		}
 
 		break;
 	}
 	case THIRD_FLOOR: {
-		switch (1 + randInt(7)) {
-		case 1:	monster = std::make_shared<DeadSeeker>(dungeon, x, y); break;
+		switch (1 + randInt(10)) {
+		case 1:	monster = std::make_shared<CrystalWarrior>(dungeon, x, y); break;
 		case 2:	monster = std::make_shared<CrystalTurtle>(dungeon, x, y); break;
 		case 3:	monster = std::make_shared<CrystalHedgehog>(dungeon, x, y); break;
 		case 4:	monster = std::make_shared<CrystalShooter>(dungeon, x, y); break;
 		case 5:	monster = std::make_shared<CrystalBeetle>(dungeon, x, y); break;
 		case 6:	monster = std::make_shared<Rabbit>(dungeon, x, y); break;
 		case 7:	monster = std::make_shared<Bombee>(dungeon, x, y); break;
-		//case 8:	monster = std::make_shared<>(dungeon, x, y); break;
-		//case 9:	monster = std::make_shared<>(dungeon, x, y); break;
-		//case 10: monster = std::make_shared<>(dungeon, x, y); break;
+		case 8:	monster = std::make_shared<Tick>(dungeon, x, y); break;
+		case 9:	monster = std::make_shared<BenevolentBark>(dungeon, x, y); break;
+		case 10: monster = std::make_shared<ExoticFeline>(dungeon, x, y); break;
 		//case 11: monster = std::make_shared<>(dungeon, x, y); break;
 		//case 12: monster = std::make_shared<>(dungeon, x, y);	break;
 		}
@@ -819,7 +957,7 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		break;
 	}
 	case FIFTH_FLOOR: {
-		switch (1 + randInt(10)) {
+		switch (1 + randInt(12)) {
 		case 1:	monster = std::make_shared<Puff>(dungeon, x, y); break;
 		case 2:	monster = std::make_shared<GustyPuff>(dungeon, x, y); break;
 		case 3:	monster = std::make_shared<StrongGustyPuff>(dungeon, x, y); break;
@@ -828,16 +966,16 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		case 6:	monster = std::make_shared<GustySpikedInvertedPuff>(dungeon, x, y); break;
 		case 7:	monster = std::make_shared<ArmoredBeetle>(dungeon, x, y); break;
 		case 8:	monster = std::make_shared<SpectralSword>(dungeon, x, y); break;
-		case 9: monster = std::make_shared<SandCentipede>(dungeon, x, y); break;
+		case 9: monster = std::make_shared<SpectralSword>(dungeon, x, y); break; // Removed SandCentipede temporarily
 		case 10: monster = std::make_shared<Archer>(dungeon, x, y); break;
-			//case 11: monster = std::make_shared<>(dungeon, x, y); break;
-			//case 12: monster = std::make_shared<>(dungeon, x, y);	break;
+		case 11: monster = std::make_shared<SandBeaver>(dungeon, x, y); break;
+		case 12: monster = std::make_shared<SandAlbatross>(dungeon, x, y);	break;
 		}
 
 		break;
 	}
 	case SIXTH_FLOOR: {
-		switch (1 + randInt(7)) {
+		switch (1 + randInt(11)) {
 		case 1:	monster = std::make_shared<Wisp>(dungeon, x, y); break;
 		case 2:	monster = std::make_shared<LightningWisp>(dungeon, x, y); break;
 		case 3:	monster = std::make_shared<Grabber>(dungeon, x, y); break;
@@ -845,27 +983,27 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		case 5:	monster = std::make_shared<CrawlingSpine>(dungeon, x, y); break;
 		case 6:	monster = std::make_shared<ConstructorDemon>(dungeon, x, y); break;
 		case 7:	monster = std::make_shared<Howler>(dungeon, x, y); break;
-		//case 8: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 9: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 10: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 11: monster = std::make_shared<>(dungeon, x, y); break;
+		case 8: monster = std::make_shared<FacelessHorror>(dungeon, x, y); break;
+		case 9: monster = std::make_shared<ToweringBrute>(dungeon, x, y); break;
+		case 10: monster = std::make_shared<SkyCrasher>(dungeon, x, y); break;
+		case 11: monster = std::make_shared<SteamBot>(dungeon, x, y); break;
 		//case 12: monster = std::make_shared<>(dungeon, x, y);	break;
 		}
 
 		break;
 	}
 	case SEVENTH_FLOOR: {
-		switch (1 + randInt(2)) {
+		switch (1 + randInt(10)) {
 		case 1:	monster = std::make_shared<Pikeman>(dungeon, x, y); break;
 		case 2:	monster = std::make_shared<Shrinekeeper>(dungeon, x, y); break;
-		//case 3: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 4: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 5: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 6: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 7: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 8: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 9: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 10: monster = std::make_shared<>(dungeon, x, y); break;
+		case 3: monster = std::make_shared<Swapper>(dungeon, x, y); break;
+		case 4: monster = std::make_shared<ShieldMaster>(dungeon, x, y); break;
+		case 5: monster = std::make_shared<PseudoDoppel>(dungeon, x, y); break;
+		case 6: monster = std::make_shared<Electromagnetizer>(dungeon, x, y); break;
+		case 7: monster = std::make_shared<BladePsychic>(dungeon, x, y); break;
+		case 8: monster = std::make_shared<DashMaster>(dungeon, x, y); break;
+		case 9: monster = std::make_shared<AcidicBeast>(dungeon, x, y); break;
+		case 10: monster = std::make_shared<DarkCanine>(dungeon, x, y); break;
 		//case 11: monster = std::make_shared<>(dungeon, x, y); break;
 		//case 12: monster = std::make_shared<>(dungeon, x, y);	break;
 		}
@@ -873,18 +1011,18 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		break;
 	}
 	case EIGHTH_FLOOR: {
-		switch (1 + randInt(2)) {
+		switch (1 + randInt(11)) {
 		case 1: monster = std::make_shared<AbyssSummoner>(dungeon, x, y); break;
 		case 2: monster = std::make_shared<MagicalBerserker>(dungeon, x, y); break;
-		//case 3: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 4: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 5: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 6: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 7: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 8: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 9: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 10: monster = std::make_shared<>(dungeon, x, y); break;
-		//case 11: monster = std::make_shared<>(dungeon, x, y); break;
+		case 3: monster = std::make_shared<Disabler>(dungeon, x, y); break;
+		case 4: monster = std::make_shared<IncendiaryInfuser>(dungeon, x, y); break;
+		case 5: monster = std::make_shared<LightningStriker>(dungeon, x, y); break;
+		case 6: monster = std::make_shared<FlameArchaic>(dungeon, x, y); break;
+		case 7: monster = std::make_shared<AdvancedRockSummoner>(dungeon, x, y); break;
+		case 8: monster = std::make_shared<MasterConjurer>(dungeon, x, y); break;
+		case 9: monster = std::make_shared<AscendedShot>(dungeon, x, y); break;
+		case 10: monster = std::make_shared<RoyalSwordsman>(dungeon, x, y); break;
+		case 11: monster = std::make_shared<LightEntity>(dungeon, x, y); break;
 		//case 12: monster = std::make_shared<>(dungeon, x, y);	break;
 		}
 
@@ -892,6 +1030,7 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 	}
 	case NINTH_FLOOR: {
 		switch (1 + randInt(10)) {
+		case 1:
 		//case 1: monster = std::make_shared<>(dungeon, x, y); break;
 		//case 2: monster = std::make_shared<>(dungeon, x, y); break;
 		//case 3: monster = std::make_shared<>(dungeon, x, y); break;
@@ -904,6 +1043,7 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		//case 10: monster = std::make_shared<>(dungeon, x, y); break;
 		//case 11: monster = std::make_shared<>(dungeon, x, y); break;
 		//case 12: monster = std::make_shared<>(dungeon, x, y);	break;
+		default: break;
 		}
 
 		break;
@@ -911,6 +1051,109 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 	}
 
 	return monster;
+}
+
+int calculateDistanceBetween(const Coords &start, const Coords &end) {
+	return calculateDistanceBetween(start.x, start.y, end.x, end.y);
+}
+int calculateDistanceBetween(int sx, int sy, int ex, int ey) {
+	return (abs(sx - ex) + abs(sy - ey));
+}
+void insertCoordsAdjacentTo(const Dungeon &dungeon, std::vector<Coords> &coords, int x, int y, bool diagonals) {
+	coords.clear();
+
+	if (!(dungeon.wall(x - 1, y) || dungeon.marked(x - 1, y) || dungeon.enemy(x - 1, y)))
+		coords.push_back(Coords(x - 1, y));
+
+	if (!(dungeon.wall(x + 1, y) || dungeon.marked(x + 1, y) || dungeon.enemy(x + 1, y)))
+		coords.push_back(Coords(x + 1, y));
+
+	if (!(dungeon.wall(x, y - 1) || dungeon.marked(x, y - 1) || dungeon.enemy(x, y - 1)))
+		coords.push_back(Coords(x, y - 1));
+
+	if (!(dungeon.wall(x, y + 1) || dungeon.marked(x, y + 1) || dungeon.enemy(x, y + 1)))
+		coords.push_back(Coords(x, y + 1));
+
+	if (diagonals) {
+		if (!(dungeon.wall(x - 1, y - 1) || dungeon.marked(x - 1, y - 1) || dungeon.enemy(x - 1, y - 1)))
+			coords.push_back(Coords(x - 1, y - 1));
+
+		if (!(dungeon.wall(x - 1, y + 1) || dungeon.marked(x - 1, y + 1) || dungeon.enemy(x - 1, y + 1)))
+			coords.push_back(Coords(x - 1, y + 1));
+
+		if (!(dungeon.wall(x + 1, y - 1) || dungeon.marked(x + 1, y - 1) || dungeon.enemy(x + 1, y - 1)))
+			coords.push_back(Coords(x + 1, y - 1));
+
+		if (!(dungeon.wall(x + 1, y + 1) || dungeon.marked(x + 1, y + 1) || dungeon.enemy(x + 1, y + 1)))
+			coords.push_back(Coords(x + 1, y + 1));
+	}
+}
+void getCoordsAdjacentTo(const Dungeon &dungeon, std::vector<Coords> &coords, int x, int y, bool all) {
+	coords.clear();
+
+	/*std::vector<Coords> pairs;
+	pairs.push_back(Coords(x - 1, y));
+	pairs.push_back(Coords(x + 1, y));
+	pairs.push_back(Coords(x, y - 1));
+	pairs.push_back(Coords(x, y + 1));
+
+	if (diagonals) {
+		pairs.push_back(Coords(x - 1, y - 1));
+		pairs.push_back(Coords(x + 1, y - 1));
+		pairs.push_back(Coords(x - 1, y + 1));
+		pairs.push_back(Coords(x + 1, y + 1));
+	}
+
+	while (!pairs.empty()) {
+		int index = randInt((int)pairs.size());
+		Coords current = pairs[index];
+
+		if (!dungeon.wall(current.x, current.y))
+			coords.push_back(current);
+
+		pairs.erase(pairs.begin() + index);
+	}*/
+
+	if (!(dungeon.wall(x - 1, y)))
+		coords.push_back(Coords(x - 1, y));
+
+	if (!(dungeon.wall(x + 1, y)))
+		coords.push_back(Coords(x + 1, y));
+
+	if (!(dungeon.wall(x, y - 1)))
+		coords.push_back(Coords(x, y - 1));
+
+	if (!(dungeon.wall(x, y + 1)))
+		coords.push_back(Coords(x, y + 1));
+
+	if (all) {
+		if (!(dungeon.wall(x - 1, y - 1)))
+			coords.push_back(Coords(x - 1, y - 1));
+
+		if (!(dungeon.wall(x - 1, y + 1)))
+			coords.push_back(Coords(x - 1, y + 1));
+
+		if (!(dungeon.wall(x + 1, y - 1)))
+			coords.push_back(Coords(x + 1, y - 1));
+
+		if (!(dungeon.wall(x + 1, y + 1)))
+			coords.push_back(Coords(x + 1, y + 1));
+	}
+}
+void getDiagonalCoordsAdjacentTo(const Dungeon &dungeon, std::vector<Coords> &coords, int x, int y) {
+	coords.clear();
+
+	if (!(dungeon.wall(x - 1, y - 1)))
+		coords.push_back(Coords(x - 1, y - 1));
+
+	if (!(dungeon.wall(x - 1, y + 1)))
+		coords.push_back(Coords(x - 1, y + 1));
+
+	if (!(dungeon.wall(x + 1, y - 1)))
+		coords.push_back(Coords(x + 1, y - 1));
+
+	if (!(dungeon.wall(x + 1, y + 1)))
+		coords.push_back(Coords(x + 1, y + 1));
 }
 
 cocos2d::Vector<cocos2d::SpriteFrame*> getAnimationFrameVector(const char* format, int count) {
@@ -926,22 +1169,36 @@ cocos2d::Vector<cocos2d::SpriteFrame*> getAnimationFrameVector(const char* forma
 cocos2d::Vector<cocos2d::SpriteFrame*> getAnimationFrameVector(std::string format, int count) {
 	return getAnimationFrameVector(format.c_str(), count);
 }
-void setDirectionalOffsets(char move, int &n, int &m) {
+void setDirectionalOffsets(char move, int &n, int &m, int offset, bool reversed) {
 	// Key:
 	// 1 u 2
 	// l _ r
 	// 3 d 4
 
 	switch (move) {
-	case 'l': n = -1; m = 0; break;
-	case 'r': n = 1; m = 0; break;
-	case 'u': n = 0; m = -1; break;
-	case 'd': n = 0; m = 1; break;
-	case '1': n = -1; m = -1; break;
-	case '2': n = 1; m = -1; break;
-	case '3': n = -1; m = 1; break;
-	case '4': n = 1; m = 1; break;
+	case 'l': n = -offset; m = 0; break;
+	case 'r': n = offset; m = 0; break;
+	case 'u': n = 0; m = -offset; break;
+	case 'd': n = 0; m = offset; break;
+	case '1': n = -offset; m = -offset; break;
+	case '2': n = offset; m = -offset; break;
+	case '3': n = -offset; m = offset; break;
+	case '4': n = offset; m = offset; break;
 	default: n = 0; m = 0; break;
+	}
+
+	if (reversed) {
+		switch (move) {
+		case 'l': n = offset; m = 0; break;
+		case 'r': n = -offset; m = 0; break;
+		case 'u': n = 0; m = offset; break;
+		case 'd': n = 0; m = -offset; break;
+		case '1': n = offset; m = offset; break;
+		case '2': n = -offset; m = offset; break;
+		case '3': n = offset; m = -offset; break;
+		case '4': n = -offset; m = -offset; break;
+		default: n = 0; m = 0; break;
+		}
 	}
 }
 void incrementDirectionalOffsets(char move, int &n, int &m) {
@@ -1036,6 +1293,31 @@ char getFacingDirectionRelativeTo(int sx, int sy, int ex, int ey) {
 		}
 	}
 }
+char getCardinalFacingDirectionRelativeTo(int sx, int sy, int ex, int ey) {
+	if (abs(sx - ex) < abs(sy - ey)) {
+		if (sy < ey)
+			return 'd';
+		else
+			return 'u';
+	}
+	else if (abs(sx - ex) > abs(sy - ey)) {
+		if (sx < ex)
+			return 'r';
+		else
+			return 'l';
+	}
+	else {
+		
+		if (sx < ex && sy < ey)
+			return randInt(2) == 0 ? 'r' : 'd';
+		else if (sx > ex && sy < ey)
+			return randInt(2) == 0 ? 'l' : 'd';
+		else if (sx < ex && sy > ey)
+			return randInt(2) == 0 ? 'r' : 'u';
+		else
+			return randInt(2) == 0 ? 'l' : 'u';	
+	}
+}
 bool isMovementAction(char move) {
 	switch (move) {
 	case 'l':
@@ -1058,6 +1340,9 @@ bool hasLineOfSight(const Dungeon &dungeon, char dir, int sx, int sy, int ex, in
 		return true;
 
 	return false;
+}
+bool hasLineOfSight(const Dungeon &dungeon, char dir, const Player &p, int sx, int sy) {
+	return hasLineOfSight(dungeon, dir, sx, sy, p.getPosX(), p.getPosY());
 }
 bool hasLineOfSight(const Dungeon &dungeon, int sx, int sy, int ex, int ey) {
 	if (sx == ex) {
@@ -1086,4 +1371,13 @@ bool playerIsAdjacent(const Player &p, int x, int y, bool diagonals) {
 		return abs(px - x) <= 1 && abs(py - y) <= 1;
 
 	return abs(px - x) + abs(py - y) == 1;
+}
+bool playerInRectangularRange(const Player &p, int length, int width, int x, int y) {
+	int px = p.getPosX();
+	int py = p.getPosY();
+
+	if (length == width)
+		return abs(x - px) <= length && abs(y - py) <= length;
+
+	return (abs(x - px) <= length && abs(y - py) <= width) || (abs(x - px) <= width && abs(y - py) <= length);
 }

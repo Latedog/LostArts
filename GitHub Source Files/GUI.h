@@ -14,20 +14,22 @@ class Dungeon;
 class Player;
 class NPC;
 
-extern cocos2d::EventKeyboard::KeyCode UP_KEY;
-extern cocos2d::EventKeyboard::KeyCode DOWN_KEY;
-extern cocos2d::EventKeyboard::KeyCode LEFT_KEY;
-extern cocos2d::EventKeyboard::KeyCode RIGHT_KEY;
-extern cocos2d::EventKeyboard::KeyCode INTERACT_KEY;
-extern cocos2d::EventKeyboard::KeyCode QUICK_KEY;
-extern cocos2d::EventKeyboard::KeyCode ACTIVE_KEY;
-extern cocos2d::EventKeyboard::KeyCode WEAPON_KEY;
-extern cocos2d::EventKeyboard::KeyCode CAST_KEY;
-extern cocos2d::EventKeyboard::KeyCode ITEM_KEY;
-extern cocos2d::EventKeyboard::KeyCode INVENTORY_KEY;
+using KeyType = cocos2d::EventKeyboard::KeyCode;
 
+extern KeyType UP_KEY;
+extern KeyType DOWN_KEY;
+extern KeyType LEFT_KEY;
+extern KeyType RIGHT_KEY;
+extern KeyType INTERACT_KEY;
+extern KeyType QUICK_KEY;
+extern KeyType ACTIVE_KEY;
+extern KeyType WEAPON_KEY;
+extern KeyType CAST_KEY;
+extern KeyType ITEM_KEY;
+extern KeyType INVENTORY_KEY;
 
-std::string convertKeycodeToStr(cocos2d::EventKeyboard::KeyCode keyCode);
+std::string convertKeycodeToStr(KeyType keyCode);
+static void restartGame(const Player &p);
 
 class MenuScene : public cocos2d::Scene {
 public:
@@ -39,15 +41,15 @@ public:
 	virtual bool init();
 
 	void options();
-	void optionKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
+	void optionKeyPressed(KeyType keyCode, cocos2d::Event* event);
 
 	void soundOptions();
-	void soundOptionsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
+	void soundOptionsKeyPressed(KeyType keyCode, cocos2d::Event* event);
 
 	void keyBindings();
-	void keyBindingsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
-	void setKey(cocos2d::EventKeyboard::KeyCode keyCode, int index);
-	bool keyIsValid(cocos2d::EventKeyboard::KeyCode keyCode, int index); // Checks if there's any conflict with other keys set
+	void keyBindingsKeyPressed(KeyType keyCode, cocos2d::Event* event);
+	void setKey(KeyType keyCode, int index);
+	bool keyIsValid(KeyType keyCode, int index); // Checks if there's any conflict with other keys set
 	void resetBindings(); // Reset key binds to the defaults
 
 	void adjustResolution();
@@ -69,14 +71,14 @@ protected:
 	int index = 0; // menu selection
 
 private:
-	static std::map<cocos2d::EventKeyboard::KeyCode, std::chrono::high_resolution_clock::time_point> keys;
+	static std::map<KeyType, std::chrono::high_resolution_clock::time_point> keys;
 
 	std::vector<std::pair<int, int>> resolutions;
 	int resolutionIndex = 0; // 
 	bool fullScreen = false;
 
 	// For key bindings
-	std::vector<cocos2d::EventKeyboard::KeyCode> controls;
+	std::vector<KeyType> controls;
 	bool settingKey = false; // False indicates the user is not trying to change the key; True indicates the next keystroke will change the key.
 };
 
@@ -87,10 +89,10 @@ public:
 
 	virtual bool init();
 
-	void keyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
+	void keyPressed(KeyType keyCode, cocos2d::Event* event);
 
 	void characterSelect();
-	void characterKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
+	void characterKeyPressed(KeyType keyCode, cocos2d::Event* event);
 
 	void startGameCallback(cocos2d::Ref* pSender);
 	void exitGameCallback(cocos2d::Ref* pSender);
@@ -124,8 +126,7 @@ public:
 	virtual bool init();
 
 	void updateHUD(Dungeon &dungeon);
-	void showShopHUD(Dungeon &dungeon, int x, int y);
-	void updateShopHUD();
+	
 	void showBossHP();
 	void updateBossHUD(Dungeon &dungeon);
 
@@ -133,62 +134,73 @@ public:
 	void hideHUD();
 
 	void NPCInteraction(cocos2d::EventListenerKeyboard* listener, NPC &npc, std::vector<std::string> dialogue);
-	void NPCKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, NPC *npc);
-
 	void NPCPrompt(NPC &npc, std::vector<std::string> choices);
-	void NPCPromptKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, NPC *npc);
 
-	// For second dungeon
 	void devilsWaters(cocos2d::EventListenerKeyboard* listener, Dungeon &dungeon);
-	void devilKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, Dungeon *dungeon);
 
-	// Shrine choices
+	// Shrine prompts
 	void shrineChoice(cocos2d::EventListenerKeyboard* listener, std::string shrine, Dungeon &dungeon);
-	void shrineKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, Dungeon *dungeon, int choices);
 
 	void inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dungeon);
-	void inventoryMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, Dungeon *dungeon);
 
 	void itemMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dungeon);
-	void itemMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, Dungeon *dungeon);
 
 	void gameOver();
 	void gameOver(cocos2d::Scene &scene);
-	void gameOverKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
+	
+	void winner();	
 
-	void winner();
-	void winnerKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
+private:
+	void NPCKeyPressed(KeyType keyCode, cocos2d::Event* event, NPC *npc);
+	void NPCPromptKeyPressed(KeyType keyCode, cocos2d::Event* event, NPC *npc);
+	void devilKeyPressed(KeyType keyCode, cocos2d::Event* event, Dungeon *dungeon);
+	void shrineKeyPressed(KeyType keyCode, cocos2d::Event* event, Dungeon *dungeon, int choices);
+	void inventoryMenuKeyPressed(KeyType keyCode, cocos2d::Event* event, Dungeon *dungeon);
+	void itemMenuKeyPressed(KeyType keyCode, cocos2d::Event* event, Dungeon *dungeon);
+	void gameOverKeyPressed(KeyType keyCode, cocos2d::Event* event);
+	void winnerKeyPressed(KeyType keyCode, cocos2d::Event* event);
 
 	// The menu used for winning, dying, making a choice, etc.
 	void constructSelectionMenu();
 
 	void deconstructMenu(std::multimap<std::string, cocos2d::Sprite*> &sprites);
 
+	void checkPlayerStats();
+
 	void constructActiveItemHUD();
+	void checkActiveItemHUD();
 	void updateActiveItemHUD();
 	void updateActiveItemBar();
 	void deconstructActiveItemHUD();
 
 	void constructItemHUD();
-	void updateItemHUD(); // Switch the sprite displayed
+	void checkItemHUD();
+	void updateItemHUD();
 	void deconstructItemHUD();
 
 	void constructRelicHUD();
+	void checkRelicHUD();
+	void updateRelicHUD();
 	void deconstructRelicHUD();
+
+	void constructWeaponHUD();
+	void checkWeaponHUD();
+	void updateWeaponHUD();
+	void addWeaponCastLabel();
+	void removeWeaponCastLabel();
 
 	void deconstructShopHUD();
 	void deconstructBossHUD();
 
-	void addLabel(float x, float y, std::string name, std::string id, float fontSize);
+	cocos2d::Label* getStatLabel(float x, float y, std::string text, float fontSize);
+	void addLabel(float x, float y, std::string text, std::string id, float fontSize);
+	//void addKeyLabel(float x, float y, std::string text, std::string id, float fontSize);
 	void updateLabel(std::string id, std::string newText);
 
-	// used to properly enable the gameplay event listener
+	// Used to properly enable the gameplay event listener
 	void enableListener();
-	void menuKeyReleased(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
+	void menuKeyReleased(KeyType keyCode, cocos2d::Event* event);
 
-	cocos2d::Label* itemprice = nullptr;
-
-private:
 	std::map<std::string, cocos2d::Sprite*> HUD;
 	std::map<std::string, cocos2d::Label*> labels;
 	std::map<std::string, cocos2d::Label*> keyLabels;
@@ -221,6 +233,8 @@ private:
 	std::vector<std::string> m_dialogue; // for npc dialogue
 	cocos2d::Label* line;
 	int lineIndex = 0;
+
+	cocos2d::Label* itemprice = nullptr; // For shop prices
 };
 
 class BackgroundLayer : public cocos2d::Layer {
@@ -243,8 +257,6 @@ public:
 	static LevelScene* create(HUDLayer* hud, std::shared_ptr<Player> p, int level);
 	virtual bool init();
 
-	void LevelKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
-
 	void enableListener(bool enable) { kbListener->setEnabled(enable); };
 	void callNPCInteraction(NPC &npc, std::vector<std::string> dialogue) { m_hud->NPCInteraction(kbListener, npc, dialogue); };
 	void callDevilsWaters() { m_hud->devilsWaters(kbListener, *m_currentDungeon); };
@@ -252,33 +264,27 @@ public:
 
 	void returnToMainMenu();
 
+	void scheduleTimer();
+	void unscheduleTimer();
+
+	cocos2d::Label* getPriceLabel() const { return m_itemPrice; };
+	void showShopHUD(int x, int y);
+	void deconstructShopHUD();
+
 	//void graySprite(cocos2d::Sprite* sprite);
 	EffectSprite* createEffectSprite(std::string image, int x, int y, int z);
 
 	//cocos2d::Camera* gameCamera;
 
-	// :::: new lighting stuff ::::
-	EffectSprite* m_playerLight;
-	LightEffect* m_lighting;
-
 	/// unused
-	//bool isKeyPressed(cocos2d::EventKeyboard::KeyCode);
-	//double keyPressedDuration(cocos2d::EventKeyboard::KeyCode);
+	//bool isKeyPressed(KeyType);
+	//double keyPressedDuration(KeyType);
 	//void moveCallback(cocos2d::Ref* pSender);
 	//virtual void update(float delta) override;
 
-protected:
-	void setCurrentDungeon(int level, std::shared_ptr<Player> player);
-	float getTimerSpeed();
-
-	HUDLayer* m_hud;
-	cocos2d::RenderTexture* renderTexture;
-	cocos2d::Sprite* gameboard;
-
-	std::shared_ptr<Player> p;
-	cocos2d::Sprite* m_player;
-
 private:
+	void LevelKeyPressed(KeyType keyCode, cocos2d::Event* event);
+	void setCurrentDungeon(int level, std::shared_ptr<Player> player);
 	void createPlayerSpriteAndCamera();
 	void setMusic(int level);
 
@@ -292,22 +298,21 @@ private:
 
 	void updateLevelLighting();
 
-	void scheduleTimer();
-	void unscheduleTimer();
+	float getTimerSpeed();
 	void pauseMenu();
 	void advanceLevel();
 
 	bool playerAdvanced(int level);
 
-	static std::map<cocos2d::EventKeyboard::KeyCode,
-		std::chrono::high_resolution_clock::time_point> keys;
-	cocos2d::Label* label;
-
+	HUDLayer* m_hud;
 	cocos2d::EventListenerKeyboard* kbListener;
 
 	Dungeon *m_currentDungeon = nullptr;
+	std::shared_ptr<Player> p;
+	cocos2d::Sprite* m_player;
 	int m_level;
 	int bg_music_id;
+	cocos2d::Label *m_itemPrice = nullptr;
 
 	// for menu selection
 	int index = 0;
@@ -315,38 +320,32 @@ private:
 	// For changing direction of the player sprite
 	// Only takes on values of 'l' and 'r'
 	char m_facing = 'r';
-};
 
-class ShopScene : public LevelScene {
-public:
-	ShopScene(HUDLayer* hud, std::shared_ptr<Player> p, int level);
-	static cocos2d::Scene* createScene(std::shared_ptr<Player> p, int level);
-	static ShopScene* create(HUDLayer* hud, std::shared_ptr<Player> p, int level);
-	
-	void showShopHUD(Dungeon &dungeon, int x, int y);
-	void deconstructShopHUD();
+	/// Unused
+	static std::map<KeyType, std::chrono::high_resolution_clock::time_point> keys;
+	cocos2d::Label* label;
 
-	cocos2d::Label* getPriceLabel() const { return itemprice; };
-
-private:	
-	cocos2d::Label* itemprice = nullptr;
+	// :::: new lighting stuff ::::
+	EffectSprite* m_playerLight;
+	LightEffect* m_lighting;
 };
 
 class PauseMenuScene : public MenuScene {
 public:
-	PauseMenuScene(std::shared_ptr<Player> p, int id);
+	PauseMenuScene(LevelScene *levelScene, std::shared_ptr<Player> p, int id);
 	~PauseMenuScene();
 
-	static PauseMenuScene* create(std::shared_ptr<Player> p, int id);
-	static cocos2d::Scene* createScene(std::shared_ptr<Player> p, int id);
+	static PauseMenuScene* create(LevelScene *levelScene, std::shared_ptr<Player> p, int id);
+	static cocos2d::Scene* createScene(LevelScene *levelScene, std::shared_ptr<Player> p, int id);
 	virtual bool init();
 
 	void helpScreen();
 
-	void pauseMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
-	void helpMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event);
+	void pauseMenuKeyPressed(KeyType keyCode, cocos2d::Event* event);
+	void helpMenuKeyPressed(KeyType keyCode, cocos2d::Event* event);
 
 private:
+	LevelScene *m_levelScene = nullptr;
 
 	cocos2d::EventListenerKeyboard* kbListener = nullptr;
 	cocos2d::EventListenerKeyboard* pauseSelectListener;

@@ -1,17 +1,76 @@
 #include "cocos2d.h"
+#include "GUI.h"
 #include "global.h"
 #include "AudioEngine.h"
 #include "FX.h"
 #include "Afflictions.h"
 #include "Actors.h"
+#include "GameUtils.h"
 #include <string>
 #include <memory>
 
 
 // :::: AFFLICTIONS ::::
 Afflictions::Afflictions(int turns, int wait, std::string name)
-	: m_maxTurns(turns), m_turnsLeft(turns), m_maxWait(wait), m_waitTime(wait), m_name(name) {
-	m_exhausted = false;
+	: m_turnsLeft(turns), m_maxWait(wait), m_waitTime(wait), m_name(name) {
+	
+}
+Afflictions::Afflictions(std::string name) : m_name(name) {
+
+}
+
+
+//		HEAL
+HealOverTime::HealOverTime(int turns) : Afflictions(turns, 0, HEAL_OVER_TIME) {
+
+}
+
+void HealOverTime::afflict(Actors &a) {
+	if (m_turnsLeft > 0) {
+		// play heal sound effect
+		//
+
+		if (a.getHP() < a.getMaxHP())
+			a.setHP(a.getHP() + 1);
+
+		decreaseTurnsBy(1);
+	}
+	else {
+		setExhaustion(true);
+	}
+}
+
+
+//		BUFF STATS
+Buff::Buff(int turns, int str, int dex, int intellect) : Afflictions(turns, 0, BUFF), m_str(str), m_dex(dex), m_int(intellect) {
+
+}
+
+void Buff::afflict(Actors &a) {
+	// if buff flag hasn't been set yet, set it
+	if (!a.isBuffed()) {
+		a.setBuffed(true);
+
+		// buff the actor's stats accordingly
+		a.setStr(a.getStr() + m_str);
+		a.setDex(a.getDex() + m_dex);
+		a.setInt(a.getInt() + m_int);
+	}
+
+	if (m_turnsLeft > 0) {
+		// decrease the stun count by 1
+		decreaseTurnsBy(1);
+	}
+	// flag to remove affliction
+	else {
+		a.setBuffed(false);
+		setExhaustion(true);
+
+		// remove the buffs
+		a.setStr(a.getStr() - m_str);
+		a.setDex(a.getDex() - m_dex);
+		a.setInt(a.getInt() - m_int);
+	}
 }
 
 
@@ -22,41 +81,19 @@ Burn::Burn(Player &player, int turns) : Afflictions(turns, 0, BURN) {
 
 void Burn::afflict(Actors &a) {
 	// if burn flag hasn't been set yet, set it
-	if (!a.isBurned() && getTurnsLeft() != 0)
+	if (!a.isBurned() && m_turnsLeft != 0)
 		a.setBurned(true);
 
-	if (getTurnsLeft() > 0) {
-		// play burn sound effect
+	if (m_turnsLeft > 0) {
 		playSound("On_Fire1.mp3", m_player->getPosX(), m_player->getPosY(), a.getPosX(), a.getPosY());
 
 		a.setHP(a.getHP() - 1);
-		setTurnsLeft(getTurnsLeft() - 1);
+		decreaseTurnsBy(1);
 
 		// burning status set to false so that they may be burned again immediately on the next turn
-		if (getTurnsLeft() == 0) {
+		if (m_turnsLeft == 0)
 			a.setBurned(false);
-		}
-	}
-	else {
-		setExhaustion(true);
-	}
-}
-
-
-//		HEAL
-HealOverTime::HealOverTime(int turns) : Afflictions(turns, 0, HEAL_OVER_TIME) {
-
-}
-
-void HealOverTime::afflict(Actors &a) {
-	if (getTurnsLeft() > 0) {
-		// play heal sound effect
-		//
-
-		if (a.getHP() < a.getMaxHP())
-			a.setHP(a.getHP() + 1);
-
-		setTurnsLeft(getTurnsLeft() - 1);
+		
 	}
 	else {
 		setExhaustion(true);
@@ -71,27 +108,27 @@ Bleed::Bleed(int turns) : Afflictions(turns, 3, BLEED) {
 
 void Bleed::afflict(Actors &a) {
 	// if bleed flag hasn't been set yet, set it
-	if (!a.isBled() && getTurnsLeft() != 0)
+	if (!a.isBled() && m_turnsLeft != 0)
 		a.setBleed(true);
 
 	// if wait time is over and there's still bleeding left
-	if (getWaitTime() == 0 && getTurnsLeft() > 0) {
+	if (getWaitTime() == 0 && m_turnsLeft > 0) {
 		// play bleed sound effect
 		playBleed();
 
 		reduceHealth(a);
 
-		setTurnsLeft(getTurnsLeft() - 1);
+		decreaseTurnsBy(1);
 
 		/// check to move this into the LAST else statement later
-		if (getTurnsLeft() == 0)
+		if (m_turnsLeft == 0)
 			a.setBleed(false);		
 
 		// resets wait time
 		setWaitTime(getMaxWait());
 	}
 	// else if wait time is not over and there's still bleeding left
-	else if (getWaitTime() > 0 && getTurnsLeft() > 0) {
+	else if (getWaitTime() > 0 && m_turnsLeft > 0) {
 		setWaitTime(getWaitTime() - 1);
 	}
 	// else if there's no bleeding left
@@ -101,7 +138,7 @@ void Bleed::afflict(Actors &a) {
 }
 void Bleed::adjust(Actors &a, Afflictions &affliction) {
 	setWaitTime(std::max(0, getWaitTime() - 1));
-	setTurnsLeft(getTurnsLeft() + affliction.getTurnsLeft());
+	m_turnsLeft += affliction.getTurnsLeft();
 
 	m_healthReduction++;
 }
@@ -120,12 +157,11 @@ void Stun::afflict(Actors &a) {
 	if (!a.isStunned())
 		a.setStunned(true);
 
-	if (getTurnsLeft() > 0) {
+	if (m_turnsLeft > 0) {
 		// tint gray to indicate stunned
 		//tintStunned(a.getSprite());
 
-		// decrease the stun count by 1
-		setTurnsLeft(getTurnsLeft() - 1);
+		decreaseTurnsBy(1);
 	}
 	// flag to remove affliction
 	else {
@@ -145,12 +181,12 @@ void Freeze::afflict(Actors &a) {
 	if (!a.isFrozen())
 		a.setFrozen(true);
 
-	if (getTurnsLeft() > 0) {
+	if (m_turnsLeft > 0) {
 		// frozen effect
 		tintFrozen(a.getSprite());
 
 		// decrease the stun count by 1
-		setTurnsLeft(getTurnsLeft() - 1);
+		decreaseTurnsBy(1);
 	}
 	// flag to remove affliction
 	else {
@@ -168,8 +204,7 @@ Poison::Poison(Player &player, int turns, int wait, int str, int dex) : Afflicti
 }
 
 void Poison::afflict(Actors &a) {
-	// if poison flag hasn't been set yet, set it
-	if (!a.isPoisoned() && getTurnsLeft() != 0) {
+	if (!a.isPoisoned() && m_turnsLeft != 0) {
 		a.setPoisoned(true);
 
 		m_strTaken = a.getStr() - m_str >= 0 ? m_str : a.getStr();
@@ -178,26 +213,19 @@ void Poison::afflict(Actors &a) {
 		a.setDex(std::max(0, a.getDex() - m_dex));
 	}
 
-	if (getWaitTime() == 0 && getTurnsLeft() > 0) {
+	if (getWaitTime() == 0 && m_turnsLeft > 0) {
 		// poison effect
 		playPoison(*m_player, a.getPosX(), a.getPosY());
 		tintPoisoned(a.getSprite());
 
-		a.setHP(a.getHP() - 1);
+		a.decreaseStatBy(StatType::HP, 1);
 
-		// decrease the poison count by 1
-		setTurnsLeft(getTurnsLeft() - 1);
+		decreaseTurnsBy(1);
 
-		/*/// check to move this into the LAST else statement later
-		if (getTurnsLeft() == 0) {
-			a.setPoisoned(false);
-		}*/
-
-		// resets wait time
-		setWaitTime(getMaxWait());
+		resetWaitTime();
 	}
 	// else if wait time is not over and there's still poison left
-	else if (getWaitTime() > 0 && getTurnsLeft() > 0) {
+	else if (getWaitTime() > 0 && m_turnsLeft > 0) {
 		setWaitTime(getWaitTime() - 1);
 	}
 	// flag to remove affliction
@@ -211,7 +239,7 @@ void Poison::afflict(Actors &a) {
 	}
 }
 void Poison::adjust(Actors &a, Afflictions &affliction) {
-	setTurnsLeft(getTurnsLeft() + affliction.getTurnsLeft());
+	m_turnsLeft += affliction.getTurnsLeft();
 
 	if (m_strTaken == -1 || m_dexTaken == -1)
 		return;
@@ -240,12 +268,12 @@ void Invisibility::afflict(Actors &a) {
 	if (!a.isInvisible())
 		a.setInvisible(true);
 
-	if (getTurnsLeft() > 0) {
+	if (m_turnsLeft > 0) {
 		// invisible effect
 		fadeTransparent(a.getSprite());
 
 		// decrease the turns by 1
-		setTurnsLeft(getTurnsLeft() - 1);
+		decreaseTurnsBy(1);
 	}
 	// flag to remove affliction
 	else {
@@ -271,12 +299,12 @@ void Ethereality::afflict(Actors &a) {
 	if (!a.isEthereal())
 		a.setEthereal(true);
 
-	if (getTurnsLeft() > 0) {
+	if (m_turnsLeft > 0) {
 		// ethereal effect
 		fadeTransparent(a.getSprite());
 
 		// decrease the turns by 1
-		setTurnsLeft(getTurnsLeft() - 1);
+		decreaseTurnsBy(1);
 	}
 	// flag to remove affliction
 	else {
@@ -306,11 +334,11 @@ void Confusion::afflict(Actors &a) {
 		a.setConfused(true);
 	}
 
-	if (getTurnsLeft() > 0) {
+	if (m_turnsLeft > 0) {
 
 		if (a.isPlayer()) {
 			// if there are at least 3 turns remaining play bird sound
-			if (getTurnsLeft() > 3)
+			if (m_turnsLeft > 3)
 				playBirdSound(0.15f);			
 			// else play crow sound to indicate that the effect is about to wear off
 			else
@@ -318,45 +346,12 @@ void Confusion::afflict(Actors &a) {
 		}
 
 		// decrease the stun count by 1
-		setTurnsLeft(getTurnsLeft() - 1);
+		decreaseTurnsBy(1);
 	}
 	// flag to remove affliction
 	else {
 		a.setConfused(false);
 		setExhaustion(true);
-	}
-}
-
-
-//		BUFF STATS
-Buff::Buff(int turns, int str, int dex, int intellect) : Afflictions(turns, 0, BUFF), m_str(str), m_dex(dex), m_int(intellect) {
-
-}
-
-void Buff::afflict(Actors &a) {
-	// if buff flag hasn't been set yet, set it
-	if (!a.isBuffed()) {
-		a.setBuffed(true);
-
-		// buff the actor's stats accordingly
-		a.setStr(a.getStr() + m_str);
-		a.setDex(a.getDex() + m_dex);
-		a.setInt(a.getInt() + m_int);
-	}
-
-	if (getTurnsLeft() > 0) {
-		// decrease the stun count by 1
-		setTurnsLeft(getTurnsLeft() - 1);
-	}
-	// flag to remove affliction
-	else {
-		a.setBuffed(false);
-		setExhaustion(true);
-
-		// remove the buffs
-		a.setStr(a.getStr() - m_str);
-		a.setDex(a.getDex() - m_dex);
-		a.setInt(a.getInt() - m_int);
 	}
 }
 
@@ -371,12 +366,12 @@ void Invulnerability::afflict(Actors &a) {
 	if (!a.isInvulnerable())
 		a.setInvulnerable(true);
 
-	if (getTurnsLeft() > 0) {
+	if (m_turnsLeft > 0) {
 		// poison effect
 		//tintPoisoned(a.getSprite());
 
 		// decrease the count by 1
-		setTurnsLeft(getTurnsLeft() - 1);
+		decreaseTurnsBy(1);
 	}
 	// flag to remove affliction
 	else {
@@ -396,12 +391,12 @@ void Stuck::afflict(Actors &a) {
 	if (!a.isStuck())
 		a.setStuck(true);
 
-	if (getTurnsLeft() > 0) {
+	if (m_turnsLeft > 0) {
 		// stuck effect
 		// 
 
 		// decrease the count by 1
-		setTurnsLeft(getTurnsLeft() - 1);
+		decreaseTurnsBy(1);
 	}
 	// flag to remove affliction
 	else {
@@ -421,12 +416,12 @@ void Possessed::afflict(Actors &a) {
 	if (!a.isPossessed())
 		a.setPossessed(true);
 
-	if (getTurnsLeft() > 0) {
+	if (m_turnsLeft > 0) {
 		// possessed effect
 		//tintPoisoned(a.getSprite());
 
 		// decrease the count by 1
-		setTurnsLeft(getTurnsLeft() - 1);
+		decreaseTurnsBy(1);
 	}
 	// flag to remove affliction
 	else {
@@ -443,20 +438,20 @@ Cripple::Cripple(int turns) : Afflictions(turns, 1, CRIPPLE) {
 
 void Cripple::afflict(Actors &a) {
 	// if flag hasn't been set yet, set it
-	if (!a.isCrippled() && getTurnsLeft() != 0)
+	if (!a.isCrippled() && m_turnsLeft != 0)
 		a.setCrippled(true);
 
 	// if wait time is over and there's still turns left
-	if (getWaitTime() == 0 && getTurnsLeft() > 0) {
+	if (getWaitTime() == 0 && m_turnsLeft > 0) {
 		// Sound effect
 		// 
 
 		a.addAffliction(std::make_shared<Stun>(1));
 
-		setTurnsLeft(getTurnsLeft() - 1);
+		decreaseTurnsBy(1);
 
 		/// check to move this into the LAST else statement later
-		if (getTurnsLeft() == 0) {
+		if (m_turnsLeft == 0) {
 			a.setCrippled(false);
 		}
 
@@ -464,7 +459,7 @@ void Cripple::afflict(Actors &a) {
 		setWaitTime(getMaxWait());
 	}
 	// else if wait time is not over and there are still turns left
-	else if (getWaitTime() > 0 && getTurnsLeft() > 0) {
+	else if (getWaitTime() > 0 && m_turnsLeft > 0) {
 		setWaitTime(getWaitTime() - 1);
 	}
 	// else there are no turns left
@@ -480,20 +475,269 @@ Fragile::Fragile(int turns) : Afflictions(turns, 0, FRAGILE) {
 }
 
 void Fragile::afflict(Actors &a) {
-	// ifflag hasn't been set yet, set it
+	// if flag hasn't been set yet, set it
 	if (!a.isFragile())
 		a.setFragile(true);
 
-	if (getTurnsLeft() > 0) {
+	if (m_turnsLeft > 0) {
 		// 
 		tintStunned(a.getSprite());
 
-		// Decrease the count by 1
-		setTurnsLeft(getTurnsLeft() - 1);
+		decreaseTurnsBy(1);
 	}
 	// flag to remove affliction
 	else {
 		a.setFragile(false);
 		setExhaustion(true);
+	}
+}
+
+
+Incendiary::Incendiary(int turns) : Afflictions(turns, 0, INCENDIARY) {
+
+}
+
+void Incendiary::afflict(Actors &a) {
+	//if (!a.isFragile())
+	//	a.setFragile(true);
+
+	if (m_turnsLeft > 0) {
+		// 
+		//tintStunned(a.getSprite());
+
+		decreaseTurnsBy(1);
+	}
+	// flag to remove affliction
+	else {
+	//	a.setFragile(false);
+		setExhaustion(true);
+	}
+}
+
+
+//		BLINDNESS
+Blindness::Blindness(int turns) : Afflictions(turns, 0, BLINDNESS) {
+
+}
+
+void Blindness::afflict(Actors &a){
+	if (!a.isBlinded())
+		a.setBlinded(true);
+
+	if (m_turnsLeft > 0) {
+		// 
+		//tintStunned(a.getSprite());
+
+		decreaseTurnsBy(1);
+	}
+	else {
+		a.setBlinded(false);
+		setExhaustion(true);
+	}
+}
+
+
+Disabled::Disabled(int turns) : Afflictions(turns, 0, DISABLED) {
+
+}
+
+void Disabled::afflict(Actors &a) {
+	if (!a.isDisabled())
+		a.setDisabled(true);
+
+	if (m_turnsLeft > 0) {
+		// 
+		//tintStunned(a.getSprite());
+
+		decreaseTurnsBy(1);
+	}
+	else {
+		untint(a.getSprite());
+		a.setDisabled(false);
+		setExhaustion(true);
+	}
+}
+
+
+Wet::Wet(int turns) : Afflictions(turns, 0, WET) {
+
+}
+
+void Wet::adjust(Actors &a, Afflictions &affliction) {
+	m_turnsLeft += affliction.getTurnsLeft();
+
+	if (m_turnsLeft > m_maxTurns)
+		m_turnsLeft = m_maxTurns;
+}
+void Wet::afflict(Actors &a) {
+	if (!a.isWet()) {
+		a.setWet(true);
+
+		m_dexTaken = a.getDex() - m_dexPenalty >= 0 ? m_dexPenalty : a.getDex();
+		a.decreaseStatBy(StatType::DEXTERITY, m_dexTaken);
+		//a.setDex(std::max(0, a.getDex() - m_dexPenalty));
+	}
+
+	if (m_turnsLeft > 0) {
+		//playPoison(*m_player, a.getPosX(), a.getPosY());
+		//tintPoisoned(a.getSprite());
+
+		decreaseTurnsBy(1);
+	}
+	else {
+		a.setWet(false);
+
+		a.increaseStatBy(StatType::DEXTERITY, m_dexTaken);
+
+		setExhaustion(true);
+	}
+}
+
+
+//		SLIPPED
+Slipped::Slipped(int turns) : Afflictions(turns, 0, SLIPPED) {
+
+}
+
+void Slipped::afflict(Actors &a) {
+	if (m_turnsLeft > 0) {
+		decreaseTurnsBy(1);
+	}
+	else {
+		a.getSprite()->setRotation(0);
+		setExhaustion(true);
+	}
+}
+
+
+//		TICKED
+Ticked::Ticked() : Afflictions(-1, 10, TICKED) {
+
+}
+
+void Ticked::afflict(Actors &a) {
+	if (m_turnsLeft == 0) {
+		setExhaustion(true);
+		return;
+	}
+
+	if (getWaitTime() > 0) {
+		decreaseWaitBy(1);
+	}
+	else {
+		playBleed();
+		a.decreaseStatBy(StatType::HP, m_amount);
+
+		resetWaitTime();
+	}
+}
+void Ticked::adjust(Actors &a, Afflictions &affliction) {
+	// If multiple ticks bite, then the player loses more hp per "tick"
+	m_amount++;
+}
+
+
+TimedAffliction::TimedAffliction(float duration, float interval, std::string name)
+	: Afflictions(name), m_duration(duration), m_interval(interval) {
+
+}
+
+void TimedAffliction::adjust(Actors &a, Afflictions &affliction) {
+	TimedAffliction &timed = dynamic_cast<TimedAffliction&>(affliction);
+	m_duration += timed.m_duration;
+}
+
+TimedBuff::TimedBuff(float duration, int str, int dex, int intellect)
+	: TimedAffliction(duration, 1.0f, TIMED_BUFF), m_str(str), m_dex(dex), m_int(intellect) {
+	
+}
+void TimedBuff::afflict(Actors &a) {
+	if (!m_timerIsSet) {
+		a.setStr(a.getStr() + m_str);
+		a.setDex(a.getDex() + m_dex);
+		a.setInt(a.getInt() + m_int);
+
+		cocos2d::Director::getInstance()->getScheduler()->schedule([this, &a](float) {
+			playSound("Bomb_Pickup2.mp3");
+
+			reduceDurationBy(m_interval);
+
+			if (m_duration <= 0) {
+				cocos2d::Director::getInstance()->getScheduler()->unschedule("Timed Buff Timer", this);
+
+				a.setStr(a.getStr() - m_str);
+				a.setDex(a.getDex() - m_dex);
+				a.setInt(a.getInt() - m_int);
+				setExhaustion(true);
+			}
+
+		}, this, m_interval, false, "Timed Buff Timer");
+
+		m_timerIsSet = true;
+	}
+}
+
+TimedHeal::TimedHeal(float duration, float interval, int amount) : TimedAffliction(duration, interval, TIMED_HEAL), m_amount(amount) {
+
+}
+void TimedHeal::afflict(Actors &a) {
+	if (!m_timerIsSet) {
+		cocos2d::Director::getInstance()->getScheduler()->schedule([this, &a](float) {
+			playSound("Bomb_Pickup2.mp3");
+
+			reduceDurationBy(m_interval);
+
+			a.increaseStatBy(StatType::HP, m_amount);
+
+			if (m_duration <= 0) {
+				cocos2d::Director::getInstance()->getScheduler()->unschedule("Timed Heal Timer", this);
+				setExhaustion(true);
+			}
+
+		}, this, m_interval, false, "Timed Heal Timer");
+
+		m_timerIsSet = true;
+	}
+}
+
+ExperienceGain::ExperienceGain(float duration, float interval) : TimedAffliction(duration, interval, XP_GAIN) {
+
+}
+void ExperienceGain::afflict(Actors &a) {
+	if (!m_timerIsSet) {
+		cocos2d::Director::getInstance()->getScheduler()->schedule([this](float) {
+			playSound("Bomb_Pickup2.mp3");
+
+			reduceDurationBy(m_interval);
+
+			if (m_duration <= 0) {
+				cocos2d::Director::getInstance()->getScheduler()->unschedule("RPG In A Bottle Timer", this);
+				setExhaustion(true);
+			}
+
+		}, this, m_interval, false, "RPG In A Bottle Timer");
+
+		m_timerIsSet = true;
+	}
+}
+
+AfflictionImmunity::AfflictionImmunity(float duration, float interval) : TimedAffliction(duration, interval, AFFLICTION_IMMUNITY) {
+
+}
+void AfflictionImmunity::afflict(Actors & a) {
+	if (!m_timerIsSet) {
+		cocos2d::Director::getInstance()->getScheduler()->schedule([this](float) {
+			playSound("Bomb_Pickup2.mp3");
+
+			reduceDurationBy(m_interval);
+
+			if (m_duration <= 0) {
+				cocos2d::Director::getInstance()->getScheduler()->unschedule("Affliction Immunity Timer", this);
+				setExhaustion(true);
+			}
+
+		}, this, m_interval, false, "Affliction Immunity Timer");
+
+		m_timerIsSet = true;
 	}
 }
