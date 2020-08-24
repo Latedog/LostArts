@@ -256,3 +256,4 @@
 8/24:
 
 - Removed the ShopScene class and combined the limited functionality it had into LevelScene
+- Added a cocos2d::EventKeyboard::KeyCode typedef (using) named KeyType
