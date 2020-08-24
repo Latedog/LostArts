@@ -7,6 +7,7 @@ class Afflictions;
 class Weapon;
 enum class ImbuementType;
 enum class DamageType;
+enum class StatType;
 class Monster;
 class Objects;
 class Shield;
@@ -36,6 +37,7 @@ public:
 	int getDex() const { return m_dex; };
 	int getInt() const { return m_int; };
 	int getLuck() const { return m_luck; };
+	int getCha() const { return m_cha; };
 	virtual std::shared_ptr<Weapon>& getWeapon() { return m_wep; };
 	std::string getName() const { return m_name; };
 	cocos2d::Sprite* getSprite() { return m_sprite; };
@@ -72,6 +74,9 @@ public:
 	void setSprite(cocos2d::Sprite* sprite) { m_sprite = sprite; };
 	void setDungeon(Dungeon *dungeon) { m_dungeon = dungeon; };
 
+	void increaseStatBy(StatType stat, int amount);
+	void decreaseStatBy(StatType stat, int amount);
+
 	bool isPlayer() const { return m_isPlayer; };
 	bool isMonster() const { return m_isMonster; };
 	virtual bool isSpirit() const { return false; } // Indicates if this is the insta-kill enemy
@@ -91,7 +96,7 @@ public:
 
 	//	AFFLICTIONS
 	void checkAfflictions();
-	int findAffliction(std::string name);
+	int findAffliction(std::string name) const;
 	void addAffliction(std::shared_ptr<Afflictions> affliction);
 	void removeAffliction(std::string name);
 
@@ -139,6 +144,9 @@ public:
 	bool isPossessed() const { return m_possessed; };
 	bool isCrippled() const { return m_crippled; };
 	bool isFragile() const { return m_fragile; };
+	bool isBlinded() const { return m_blinded; };
+	bool isDisabled() const { return m_disabled; };
+	bool isWet() const { return m_wet; };
 
 	void setBurned(bool burned) { m_burned = burned; };
 	void setBleed(bool bled) { m_bled = bled; };
@@ -154,6 +162,9 @@ public:
 	void setPossessed(bool possessed) { m_possessed = possessed; };
 	void setCrippled(bool crippled) { m_crippled = crippled; };
 	void setFragile(bool fragile) { m_fragile = fragile; };
+	void setBlinded(bool blind) { m_blinded = blind; };
+	void setDisabled(bool flag) { m_disabled = flag; };
+	void setWet(bool flag) { m_wet = flag; };
 
 protected:
 	void setImageName(std::string image) { m_image = image; };
@@ -177,6 +188,7 @@ private:
 	int m_dex;
 	int m_int = 0;
 	int m_luck = 0;
+	int m_cha = 0;
 	std::shared_ptr<Weapon> m_wep;
 	std::string m_name;
 	std::string m_image;
@@ -218,6 +230,9 @@ private:
 	bool m_stuck = false;
 	bool m_crippled = false;
 	bool m_fragile = false;
+	bool m_blinded = false;
+	bool m_disabled = false;
+	bool m_wet = false;
 
 	bool m_invisible = false;
 	bool m_ethereal = false;
@@ -245,6 +260,7 @@ public:
 	virtual void successfulAttack(Actors &a) = 0;
 	void botchedAttack(Actors &a);
 	void chainLightning(Actors &a);
+	void reactToDamage(Monster &m);
 
 	int getMoney() const { return m_money; };
 	void setMoney(int money) { m_money = money; };
@@ -271,8 +287,10 @@ public:
 	};
 	int getMaxMoneyBonus() const { return m_maxMoneyBonus; };
 	
-	std::vector<std::shared_ptr<Drops>>& getItems() { return m_items; };
-	int getMaxItemInvSize() const { return m_maxiteminv; };
+	size_t itemCount() const { return m_items.size(); };
+	bool hasItems() const { return !m_items.empty(); };
+	std::shared_ptr<Drops> itemAt(int index) { return m_items[index]; };
+	int maxItemCount() const { return m_maxiteminv; };
 
 	// Active item (Spacebar)
 	bool hasActiveItem() const { return m_hasActiveItem; };
@@ -311,15 +329,17 @@ public:
 	void addItem(std::shared_ptr<Drops> drop, bool &itemAdded); // New for item collection
 	void use(int index);
 	void removeItems(); // Shrine effect
-	void removeItem(int index); // Trader
+	void removeItem(int index); // Trader & Item Thief
 
+	size_t passiveCount() const { return m_passives.size(); };
+	bool hasPassives() const { return !m_passives.empty(); };
+	std::shared_ptr<Passive> passiveAt(int index) const { return m_passives[index]; };
 	void equipPassive(std::shared_ptr<Passive> passive);
-	std::vector<std::shared_ptr<Passive>> getPassives() const { return m_passives; };
 	void removePassive(int index); // Trader
 
 	bool hasRelic() const { return m_hasRelic; };
 	void setRelicFlag(bool flag) { m_hasRelic = flag; };
-	std::shared_ptr<Relic>& getRelic() { return m_relic; };
+	std::shared_ptr<Relic> getRelic() const { return m_relic; };
 	void equipRelic(std::shared_ptr<Relic> relic); // Shrine use
 	void removeRelic(); // Shrine use
 
@@ -341,6 +361,13 @@ public:
 	// Dual wielding bonus
 	bool isDualWielding() const { return m_dualWield; };
 	void setDualWielding(bool dual) { m_dualWield = dual; };
+
+	// From use items
+	bool hasAfflictionAversion() const;
+
+	bool hasExperienceGain() const;
+	int getXP() const { return m_xp; };
+	void increaseXPBy(int amount);
 
 	// Special abilities gained from passives
 	bool canLifesteal() const { return m_lifesteal; };
@@ -445,6 +472,8 @@ public:
 	bool spiritActive() const { return m_spiritActive; };
 	void setSpiritActive(bool flag) { m_spiritActive = flag; };
 
+	bool didAttack() const { return m_attackedEnemy; };
+
 	bool hasSkeletonKey() const;
 	void checkKeyConditions();
 	int keyHP() const { return m_keyhp; };
@@ -500,6 +529,11 @@ private:
 	bool m_dualWield = false;
 
 	// Special abilities
+
+	// From RPG in a bottle
+	int m_xp = 0;
+	int m_xpMax = 10;
+
 	bool m_lifesteal = false;
 	bool m_steelPunch = false; // All enemies become unsturdy
 	bool m_spikeImmunity = false;
@@ -539,6 +573,9 @@ private:
 
 	char m_facing = 'r'; // Choose 'right' arbitrarily as the default looking direction
 	char m_action = '-'; // used for non-movement actions
+
+	// Used for BenevolentBark enemy
+	bool m_attackedEnemy = false;
 
 	// keyhp is the limit before the skeleton key breaks.
 	// it is set below the key's set minimum if player is already below this minimum threshold when they pick it up
@@ -694,6 +731,12 @@ public:
 	NPC(Dungeon *dungeon, int x, int y, std::string name, std::string image);
 
 	void talk();
+
+	std::vector<std::string> getDialogue() const { return m_dialogue; };
+	std::vector<std::string> getChoices() const { return m_promptChoices; };
+	virtual void useResponse(int index) { return; }; // Index of the choice that the player made in the choices vector
+
+protected:
 	virtual void checkSatisfaction() = 0;
 	virtual void reward() = 0;
 
@@ -701,18 +744,13 @@ public:
 	virtual void addInteractedDialogue() = 0;
 	virtual void addSatisfiedDialogue() = 0;
 	virtual void addFinalDialogue() = 0;
-	void setSatisfaction(bool satisfied) { m_satisfied = satisfied; };
 
-	std::vector<std::string> getDialogue() const { return m_dialogue; };
-	std::vector<std::string> getChoices() const { return m_promptChoices; };
-	virtual void useResponse(int index) { return; }; // Index of the choice that the player made in the choices vector
-
-protected:
-	void addDialogue(std::string line) { m_dialogue.push_back(line); }; // Adds line to to back of the dialogue vector
+	void addDialogue(std::string line) { m_dialogue.push_back(line); };
 	void addChoice(std::string line) { m_promptChoices.push_back(line); };
 
 	void playDialogue();
 
+	void setSatisfaction(bool satisfied) { m_satisfied = satisfied; };
 	void rewardWasGiven() { m_rewardGiven = true; };
 
 	int getInteractionStage() const { return m_interactedDialogueStage; };
@@ -742,6 +780,7 @@ class CreatureLover : public NPC {
 public:
 	CreatureLover(Dungeon *dungeon, int x, int y);
 
+protected:
 	void checkSatisfaction();
 	void reward();
 
@@ -751,13 +790,13 @@ public:
 
 private:
 	std::string m_wantedCreature;
-	std::shared_ptr<Monster> m_creature = nullptr;
 };
 
 class Memorizer : public NPC {
 public:
 	Memorizer(Dungeon *dungeon, int x, int y);
 
+protected:
 	void useResponse(int index);
 	void checkSatisfaction();
 	void reward();
@@ -767,7 +806,6 @@ public:
 	void addFinalDialogue();
 
 private:
-	//Dungeon *m_dungeon = nullptr;
 	std::string m_topic;
 	std::string m_correctChoice;
 
@@ -776,10 +814,30 @@ private:
 	//int m_promptStage = 1;
 };
 
+class InjuredExplorer : public NPC {
+public:
+	InjuredExplorer(Dungeon *dungeon, int x, int y);
+
+protected:
+	void useResponse(int index);
+	void checkSatisfaction();
+	void reward();
+
+	void addInteractedDialogue();
+	void addSatisfiedDialogue();
+	void addFinalDialogue();
+
+private:
+	bool playerHasHealingItem() const;
+
+	int m_healingItemCount = 0;
+};
+
 class Shopkeeper : public NPC {
 public:
 	Shopkeeper(Dungeon *dungeon, int x, int y);
 
+protected:
 	void checkSatisfaction();
 	void reward();
 
@@ -798,6 +856,7 @@ public:
 	// On occasion, the Blacksmith will offer weapons for sale.
 	Blacksmith(Dungeon *dungeon, int x, int y);
 
+protected:
 	void useResponse(int index);
 	void improveWeapon();
 	void buyItem();
@@ -822,6 +881,7 @@ public:
 	// Rarely, offers Magic Essence for sale (+intellect).
 	Enchanter(Dungeon *dungeon, int x, int y);
 
+protected:
 	void useResponse(int index);
 	void imbueWeapon();
 	void buyItem();
@@ -848,6 +908,7 @@ public:
 	// Can trade one weapon for another at random.
 	Trader(Dungeon *dungeon, int x, int y);
 
+protected:
 	void useResponse(int index);
 	void startTrade();
 	void makeTrade(int index);
@@ -875,6 +936,7 @@ public:
 	// A man that hangs outside the entrance to the world hub
 	OutsideMan1(Dungeon *dungeon, int x, int y);
 
+protected:
 	void checkSatisfaction() { return; };
 	void reward() { return; };
 
@@ -888,6 +950,7 @@ public:
 	// A man that hangs outside the entrance to the world hub
 	OutsideMan2(Dungeon *dungeon, int x, int y);
 
+protected:
 	void useResponse(int index);
 	void checkSatisfaction() { return; };
 	void reward() { return; };
@@ -902,6 +965,7 @@ public:
 	// A woman that hangs outside the entrance to the world hub
 	OutsideWoman1(Dungeon *dungeon, int x, int y);
 
+protected:
 	void checkSatisfaction() { return; };
 	void reward() { return; };
 
@@ -925,76 +989,74 @@ public:
 	// Moves the monster to the coordinates @x and @y
 	virtual void moveTo(int x, int y, float time = 0.10f);
 
-	void moveCheck() {
-		if (isDead())
-			return;
-
-		move();
-	};
-	virtual void move() = 0;
-	virtual void attack(Player &p);
-	virtual void attack(Monster &m) { return; }; // for monsters attacking other monsters
-	virtual void extraAttackEffects() { return; };
+	void moveCheck();
 	void death();
-	virtual void deathDrops() { return; };
-	virtual void spriteCleanup();
+	virtual void reactToDamage() { return; };
 
 	bool wasDestroyed() const { return m_destroyed; };
 	void setDestroyed(bool destroyed) { m_destroyed = destroyed; };
 
-	bool attemptChase(int x, int y, int range, char &best) {
-		char first;
-		first = best = '0';
-		int shortest = 0;
-
-		return attemptChase(*m_dungeon, shortest, range, range, x, y, first, best);
-	};
-	bool attemptAllChase(int x, int y, int range, char &best) {
-		char first;
-		first = best = '0';
-		int shortest = 0;
-
-		return attemptAllChase(*m_dungeon, shortest, range, range, x, y, first, best);
-	};
-	void attemptGreedyChase(bool diagonals = false, int x = -1, int y = -1); // @x and @y are used specifically for decoys
-
-	char attemptDryRunGreedyChase(bool diagonals = false); // Attempt greedy chase without actually moving
-	bool attemptDryRunMove(char move);
-
-	bool playerInRange(int range) const;
-	bool playerInDiagonalRange(int range) const;
-	bool playerIsAdjacent(bool diagonals = false) const;
-	bool attemptMove(char move);
-	bool moveWithSuccessfulChase(char move);
-	char moveMonsterRandomly(bool diagonals = false);
+	DamageType getDamageType() const { return m_damageType; };
 
 	virtual bool canBeDamaged(DamageType type) { return true; }; // Indicates if the enemy can be damaged (not armored, etc.)
 	virtual bool canBeHit() { return true; }; // Indicates if enemy can by physically struck (i.e. sand centipedes when underground)
 	virtual bool isUnderground() { return false; }; // For Sand Centipede
 
-	bool chasesPlayer() const { return m_chases; };
-	bool isSmart() const { return m_smart; }; // tells if monster (that chases), will or will not walk on lethal traps
-	bool hasWeapon() const { return m_hasWeapon; }
-	bool isMultiSegmented() const { return m_multiSegmented; }; // Tells if monster spans multiple tiles
 	virtual bool isMonsterSegment() const { return false; } // Indicates if this is a monster segment. Used for ignoring traps.
-
 	virtual bool isBreakable() const { return false; } // Indicates if this is a breakable object
+	virtual bool isBoss() const { return false; };
 
-	virtual void removeSegments() { return; }; // Removes all segments of a monster if it is multi-segmented
 	virtual int getParentX() const { return getPosX(); }; // X coordinate of the segmented monster's main part
 	virtual int getParentY() const { return getPosY(); }; // Y coordinate of the segmented monster's main part
 
 	bool hasExtraSprites() { return m_hasExtraSprites; };
 	virtual void setSpriteColor(cocos2d::Color3B color) { return; };
 	bool emitsLight() const { return m_emitsLight; }; // tells if the sprite should emit extra light
-	virtual void addLightEmitters(const Dungeon &dungeon, std::vector<std::pair<int, int>> &lightEmitters) { return; };
+	virtual void addLightEmitters(std::vector<std::pair<int, int>> &lightEmitters) { return; };
 
 protected:
+	virtual void move() = 0;
+	virtual void attack(Player &p);
+	virtual void extraAttackEffects() { return; };
+	void damagePlayer(int damage, DamageType type);
+
+	virtual void extraDeathEffects(); // For non drop related effects that should occur after death
+	virtual void deathDrops() { return; };
+	virtual void spriteCleanup();
+
+	bool chase(char &best, bool all = false, bool diagonalsOnly = false);
+	bool attemptChase(int range, char &best) {
+		char first;
+		first = best = '0';
+		int shortest = 0;
+
+		return attemptChase(*m_dungeon, shortest, range, range, getPosX(), getPosY(), first, best);
+	};
+	bool attemptAllChase(int range, char &best) {
+		char first;
+		first = best = '0';
+		int shortest = 0;
+
+		return attemptAllChase(*m_dungeon, shortest, range, range, getPosX(), getPosY(), first, best);
+	};
+	void attemptGreedyChase(bool diagonals = false, int x = -1, int y = -1); // @x and @y are used specifically for decoys
+	void attemptDiagonalGreedyChase(); // Diagonal movement only
+
+	char attemptDryRunGreedyChase(bool diagonals = false); // Attempt greedy chase without actually moving
+	bool attemptDryRunMove(char move);
+
+	bool attemptMove(char move);
+	char moveMonsterRandomly(bool diagonals = false);
+
+	bool playerInRange(int range) const;
+	bool playerInDiagonalRange(int range) const;
+	bool playerIsAdjacent(bool diagonals = false) const;
+
+	void setDamageType(DamageType type) { m_damageType = type; };
 	void setGold(int gold) { m_gold = gold; };
 	void setChasesPlayer(bool chases) { m_chases = chases; };
 	void setSmart(bool smart) { m_smart = smart; };
 	void setHasWeapon(bool hasWeapon) { m_hasWeapon = hasWeapon; };
-	void setMultiSegmented(bool segmented) { m_multiSegmented = segmented; };
 	void setExtraSpritesFlag(bool extras) { m_hasExtraSprites = extras; };
 	void setEmitsLight(bool emits) { m_emitsLight = emits; };
 
@@ -1004,11 +1066,12 @@ private:
 
 	bool m_destroyed = false; // Indicates that monster should not drop any rewards
 
+	DamageType m_damageType;
+
 	int m_gold = 0;
 	bool m_chases = false;
-	bool m_smart = false;
+	bool m_smart = false; // Indicates if monster (that chases), will or will not walk on lethal traps
 	bool m_hasWeapon = false;
-	bool m_multiSegmented = false;
 
 	bool m_hasExtraSprites = false;
 	bool m_emitsLight = false;
@@ -1020,10 +1083,11 @@ public:
 	// Breakables can be destroyed and may contain items inside
 	Breakables(Dungeon *dungeon, int x, int y, int hp, int armor, std::string name, std::string image);
 
-	void move() { return; };
-
 	bool isBreakable() { return true; };
+
+protected:
 	virtual bool canBeDamaged(DamageType type) = 0;
+	void move() { return; };
 };
 
 class SturdyBreakables : public Breakables {
@@ -1038,6 +1102,8 @@ public:
 	WeakCrate(Dungeon *dungeon, int x, int y);
 
 	bool canBeDamaged(DamageType type) { return true; };
+
+private:
 	void deathDrops();
 };
 
@@ -1046,6 +1112,8 @@ public:
 	WeakBarrel(Dungeon *dungeon, int x, int y);
 
 	bool canBeDamaged(DamageType type) { return true; };
+
+private:
 	void deathDrops();
 };
 
@@ -1054,6 +1122,8 @@ public:
 	SmallPot(Dungeon *dungeon, int x, int y);
 
 	bool canBeDamaged(DamageType type) { return true; };
+
+private:
 	void deathDrops();
 };
 
@@ -1062,6 +1132,8 @@ public:
 	LargePot(Dungeon *dungeon, int x, int y);
 
 	bool canBeDamaged(DamageType type) { return true; };
+
+private:
 	void deathDrops();
 };
 
@@ -1070,6 +1142,8 @@ public:
 	Sign(Dungeon *dungeon, int x, int y);
 
 	bool canBeDamaged(DamageType type) { return true; };
+
+private:
 	void deathDrops();
 };
 
@@ -1078,6 +1152,8 @@ public:
 	ArrowSign(Dungeon *dungeon, int x, int y);
 
 	bool canBeDamaged(DamageType type) { return true; };
+
+private:
 	void deathDrops();
 };
 
@@ -1086,6 +1162,8 @@ public:
 	ExplosiveBarrel(Dungeon *dungeon, int x, int y);
 
 	bool canBeDamaged(DamageType type) { return true; };
+
+private:
 	void deathDrops();
 };
 
@@ -1094,6 +1172,8 @@ public:
 	CharredWood(Dungeon *dungeon, int x, int y);
 
 	bool canBeDamaged(DamageType type) { return true; };
+
+private:
 	void deathDrops();
 };
 
@@ -1107,11 +1187,11 @@ public:
 
 	bool isSpirit() const { return true; }
 
+private:
 	void moveTo(int x, int y, float time = 0.10f);
 	void move();
 	void attack(Player &p);
 
-private:
 	int m_turns = 4;
 };
 
@@ -1122,11 +1202,24 @@ public:
 	// for a few turns.
 	Ghost(Dungeon *dungeon, int x, int y, int range = 15);
 
+private:
 	void move();
 	void attack(Player &p);
 
-private:
 	int m_range;
+};
+
+class Flare : public Monster {
+public:
+	// Flares are released by FlareCandles. They chase the player and inflict burns on contact.
+	Flare(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+	void attack(Player &p);
+	void reactToDamage();
+
+	int m_range = 15;
 };
 
 class MonsterSegment : public Monster {
@@ -1134,8 +1227,6 @@ public:
 	// Monster Segments are simply parts of a monster that can be attacked or interacted with.
 	// They typically don't do anything other than moving around with the main monster's body section.
 	MonsterSegment(Dungeon *dungeon, int x, int y, int sx, int sy, std::string name, std::string image);
-
-	void move() { return; };
 
 	bool isMonsterSegment() const { return true; }
 
@@ -1145,9 +1236,14 @@ public:
 	virtual int getParentY() const { return m_parentY; }; // Y coordinate of the segmented monster's parent
 
 private:
+	bool canBeDamaged(DamageType type);
+	void move() { return; };
+
 	// Coordinates of the main monster to which it is attached
 	int m_parentX;
 	int m_parentY;
+
+	bool m_damaged = false;
 };
 
 //		FLOOR I
@@ -1156,9 +1252,9 @@ public:
 	Seeker(Dungeon *dungeon, int x, int y, int range = 10);
 	Seeker(Dungeon *dungeon, int x, int y, int range, std::string name, std::string image);
 
+private:
 	void move();
 
-private:
 	int m_range;
 	bool m_step;
 };
@@ -1168,10 +1264,10 @@ public:
 	// This enemy is stationary, but if the player is close, it will attempt to jump on them
 	GooSack(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 	void attack(Player &p);
 
-private:
 	bool m_primed = false;
 
 	// coordinates for where the player was when this was primed
@@ -1185,10 +1281,10 @@ public:
 	// After jumping it will continue moving in the direction it was originally moving in, unless the player is still nearby.
 	Broundabout(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 	void attack(Player &p);
 
-private:
 	bool m_primed = false;
 	char m_dir;
 
@@ -1203,9 +1299,8 @@ public:
 	// if they do not move on their turn.
 	Rat(Dungeon *dungeon, int x, int y, int range = 10);
 
-	void move();
-
 private:
+	void move();
 	void run();
 
 	int m_range;
@@ -1220,14 +1315,13 @@ public:
 	Spider(Dungeon *dungeon, int x, int y, int webCount = 4);
 	Spider(Dungeon *ungeon, int x, int y, int webCount, std::string name, std::string image, int hp, int armor, int str, int dex);
 
-	void move();
-	void attack(Player &p);
-	virtual bool specialMove() { return false; };
-
 protected:
 	void setCapture(bool captured) { m_captured = captured; };
 
 private:
+	void move();
+	void attack(Player &p);
+	virtual bool specialMove() { return false; };
 	void createWebs(int x, int y);
 
 	std::vector<std::pair<int, int>> m_webs; // coordinates of the webs
@@ -1242,9 +1336,9 @@ class ShootingSpider : public Spider {
 public:
 	ShootingSpider(Dungeon *dungeon, int x, int y, int webCount = 4, int range = 5);
 
+private:
 	bool specialMove();
 
-private:
 	int m_range;
 	int m_turns;
 	int m_maxTurns;
@@ -1254,12 +1348,11 @@ private:
 class PouncingSpider : public Monster {
 public:
 	// Pouncing Spiders are territorial and will guard a region from outsiders.
-	// 
 	PouncingSpider(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 
-private:
 	bool m_primed = false;
 	int m_turns = 2;
 	int m_maxTurns = 2;
@@ -1278,25 +1371,23 @@ public:
 	Roundabout(Dungeon *dungeon, int x, int y);
 	Roundabout(Dungeon *dungeon, int x, int y, std::string name, std::string image, int hp, int armor, int str, int dex);
 
+private:
 	void move();
 	void attack(Player &p);
 	virtual void specialMove() { return; };
+	void setDirection(char dir) { m_dir = dir; };
 
-	char getDirection() const { return m_direction; };
-	void setDirection(char dir) { m_direction = dir; };
-
-private:
-	char m_direction;
+	char m_dir;
 };
 
 class Goblin : public Monster {
 public:
 	Goblin(Dungeon *dungeon, int x, int y, int range = 10);
 
+private:
 	void move();
 	void deathDrops();
 
-private:
 	int m_range;
 };
 
@@ -1305,6 +1396,7 @@ public:
 	Wanderer(Dungeon *dungeon, int x, int y);
 	Wanderer(Dungeon *dungeon, int x, int y, std::string name, std::string image, int hp, int armor, int str, int dex);
 
+private:
 	void move();
 	void deathDrops();
 };
@@ -1313,10 +1405,10 @@ class SleepingWanderer : public Wanderer {
 public:
 	SleepingWanderer(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 	void deathDrops();
 
-private:
 	bool m_provoked = false;
 	int m_range = 8;
 	int m_provocationRange = 4;
@@ -1326,27 +1418,36 @@ class ProvocableWanderer : public Wanderer {
 public:
 	ProvocableWanderer(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 	void attack(Player &p);
 	void deathDrops();
 
-private:
 	bool m_provoked = false;
 	int m_turns = 2;
 	int m_prevHP;
 };
 
 //		FLOOR II
+class DeadSeeker : public Seeker {
+public:
+	DeadSeeker(Dungeon *dungeon, int x, int y, int range = 13);
+
+private:
+	int m_range;
+	bool m_step;
+};
+
 class RabidWanderer : public Wanderer {
 public:
 	// Chance to poison the player
 	RabidWanderer(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
-	void attack(Player &p);
+	void extraAttackEffects();
 	void deathDrops();
 
-private:
 	bool m_turn = false;
 };
 
@@ -1355,9 +1456,9 @@ public:
 	// Toads spit out poisonous puddles
 	Toad(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 
-private:
 	// The `-` character indicates that the toad did not move on its previous turn
 	char m_facing = '-';
 
@@ -1372,18 +1473,18 @@ public:
 	// Does not move or attack, but creates poison when killed.
 	PoisonBubble(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 	void deathDrops();
 };
 
 class Piranha : public Monster {
 public:
-	// 
 	Piranha(Dungeon *dungeon, int x, int y);
 
-	void move();
-
 private:
+	void moveTo(int x, int y, float time = 0.10f);
+	void move();
 	void attemptMoveInWater();
 };
 
@@ -1391,10 +1492,9 @@ class WaterSpirit : public Monster {
 public:
 	WaterSpirit(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 	void deathDrops();
-
-private:
 	void douseTiles();
 
 	int m_range = 15;
@@ -1406,9 +1506,8 @@ class AngledBouncer : public Monster {
 public:
 	AngledBouncer(Dungeon *dungeon, int x, int y);
 
-	void move();
-
 private:
+	void move();
 	void changeDirection();
 
 	char m_dir;
@@ -1419,33 +1518,103 @@ public:
 	// Harmless, but provides light.
 	Firefly(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 
-private:
 	int m_wait = 3;
 	int m_maxWait;
 };
 
-
-
-//		FLOOR III
-class DeadSeeker : public Seeker {
+class TriHorn : public Monster {
 public:
-	DeadSeeker(Dungeon *dungeon, int x, int y, int range = 13);
+	// Primes for a triple-tile attack.
+	TriHorn(Dungeon *dungeon, int x, int y);
 
 private:
-	int m_range;
-	bool m_step;
+	void move();
+
+	char m_dir;
+	int m_range = 2;
+	bool m_primed = false;
+	int m_wait = 2;
+	int m_maxWait;
 };
 
+class TumbleShroom : public Monster {
+public:
+	TumbleShroom(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+	void moveToWithFlip(int x, int y, float rotation);
+	void reactToDamage();
+	void releaseSpores();
+
+	bool m_flipped = false;
+	int m_flippedTurns = 0;
+
+	bool m_primed = false;
+	int m_primedWait = 0;
+
+	int m_range = 12;
+	int m_wait = 1;
+	int m_maxWait;
+};
+
+class Wriggler : public Monster {
+public:
+	Wriggler(Dungeon *dungeon, int x, int y);
+	Wriggler(Dungeon *dungeon, int x, int y, std::string image, bool isHead, Wriggler *prev);
+
+private:
+	void move();
+	void extraDeathEffects();
+
+	void addSegments();
+	void convertToHead();
+
+	int m_length = 8;
+
+	char m_dir = '-';
+	bool m_isHead = false;
+	Wriggler* m_prev = nullptr;
+	Wriggler* m_next = nullptr;
+
+	bool m_primed = false;
+};
+
+class BarbedCaterpillar : public Monster {
+public:
+	BarbedCaterpillar(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+	void extraAttackEffects();
+	void reactToDamage();
+
+	bool m_willBeGood; // Determines if it will turn into a good or bad butterfly
+
+	int m_caterpillarTurns;
+	int m_wait = 1;
+	int m_maxWait;
+
+	bool m_cocoon = false;
+	int m_cocoonTurns;
+
+	bool m_transformed = false;
+
+	int m_range = 5;
+};
+
+//		FLOOR III
 class CrystalTurtle : public Monster {
 public:
 	// 
 	CrystalTurtle(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 
-private:
 	int m_wait = 4;
 	int m_maxWait;
 
@@ -1458,9 +1627,9 @@ public:
 	// 
 	CrystalHedgehog(Dungeon *dungeon, int x, int y, char dir = '-');
 
+private:
 	void move();
 
-private:
 	int m_wait = 7;
 	int m_maxWait;
 	char m_dir;
@@ -1471,9 +1640,9 @@ public:
 	// 
 	CrystalShooter(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 
-private:
 	int m_wait = 5;
 	int m_maxWait;
 };
@@ -1483,10 +1652,10 @@ public:
 	// 
 	CrystalBeetle(Dungeon *dungeon, int x, int y);
 
+private:
 	bool canBeDamaged(DamageType type);
 	void move();
 
-private:
 	char m_dir;
 	int m_range = 10;
 	int m_wait = 2;
@@ -1494,15 +1663,31 @@ private:
 	int m_backShield = 2; // Hits before the back shield is broken
 };
 
+class CrystalWarrior : public Monster {
+public:
+	CrystalWarrior(Dungeon *dungeon, int x, int y);
+
+private:
+	bool canBeDamaged(DamageType type);
+	void move();
+
+	bool m_primed = false;
+	char m_dir;
+	int m_shieldStrength = 3;
+
+	int m_wait = 2;
+	int m_maxWait;
+};
+
 class Rabbit : public Monster {
 public:
 	// 
 	Rabbit(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 	void run();
 
-private:
 	bool m_beingChased = false;
 	int m_range = 6;
 	int m_runSteps = 3;
@@ -1514,14 +1699,65 @@ public:
 	Bombee(Dungeon *dungeon, int x, int y, int range = 11);
 	Bombee(Dungeon *dungeon, int x, int y, int range, std::string name, std::string image, int hp, int armor, int str, int dex);
 
+private:
 	void move();
 	void attack(Player &p);
 	void deathDrops();
 
-private:
 	int m_fuse;
 	bool m_fused;
 	int m_aggroRange;
+};
+
+class BenevolentBark : public Monster {
+public:
+	// Follows player without attacking, but if they or
+	// any other "enemy" is damaged (including breakables), then they
+	// chase the player until they attempt an attack on them.
+	BenevolentBark(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+
+	bool m_attackMode = false;
+
+	int m_range = 15;
+	int m_stopRange = 3;
+};
+
+class Tick : public Monster {
+public:
+	Tick(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+
+	bool m_firstMove = true;
+	bool m_primed = false;
+	int m_px;
+	int m_py;
+
+	int m_wait = 0;
+	int m_maxWait = 1;
+};
+
+class ExoticFeline : public Monster {
+public:
+	ExoticFeline(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+	void reactToDamage();
+
+	void cloak();
+	void uncloak();
+
+	char m_dir;
+	bool m_staggered = false;
+	int m_preyRange = 15;
+	int m_approachRange = 10;
+	int m_attackRange = 6;
+	bool m_primed = false;
 };
 
 //		FLOOR IV
@@ -1531,10 +1767,10 @@ public:
 	// If the player is adjacent, then this is guaranteed to attack.
 	FlameWanderer(Dungeon *dungeon, int x, int y);
 
-	void move();
-	void attack(Player &p);
-
 private:
+	void move();
+	void extraAttackEffects();
+
 	bool m_turn = false;
 };
 
@@ -1542,44 +1778,43 @@ class Zapper : public Monster {
 public:
 	Zapper(Dungeon *dungeon, int x, int y);
 
-	void spriteCleanup();
-
+private:
 	void moveTo(int x, int y, float time = 0.10f);
 	void move();
 	void attack(Player &p);
 
-	std::map<int, cocos2d::Sprite*> getSparks() { return sparks; };
-	void moveSprites(int x, int y);
-	void setSpriteColor(cocos2d::Color3B color);
-	void addLightEmitters(const Dungeon &dungeon, std::vector<std::pair<int, int>> &lightEmitters);
+	void spriteCleanup();
 
-private:
+	void setSpriteColor(cocos2d::Color3B color);
+	void addLightEmitters(std::vector<std::pair<int, int>> &lightEmitters);
+
+	void moveSprites(int x, int y);
+
 	bool m_cooldown;
 	bool m_cardinalAttack;
 
-	std::map<int, cocos2d::Sprite*> sparks;
+	std::map<int, cocos2d::Sprite*> m_sparks;
 };
 
 class Spinner : public Monster {
 public:
 	Spinner(Dungeon *dungeon, int x, int y);
 
-	void spriteCleanup();
-
+private:
 	void moveTo(int x, int y, float time = 0.10f);
 	void move();
 	void attack(Player &p);
 
+	void spriteCleanup();
+
+	void setSpriteColor(cocos2d::Color3B color);
+	void addLightEmitters(std::vector<std::pair<int, int>> &lightEmitters);
+
 	void setInitialFirePosition(int x, int y);
 	void setFirePosition(char move);
-
-	bool playerWasHit(const Actors &a) const;
-
+	bool playerWasHit(const Player &p) const;
 	void setSpriteVisibility(bool visible);
-	void setSpriteColor(cocos2d::Color3B color);
-	void addLightEmitters(const Dungeon &dungeon, std::vector<std::pair<int, int>> &lightEmitters);
 
-private:
 	bool m_clockwise;
 	int m_angle;
 
@@ -1592,6 +1827,7 @@ public:
 	// The main difference is that this bombee is immune to lava
 	CharredBombee(Dungeon *dungeon, int x, int y, int range = 10);
 
+private:
 	void attack(Player &p);
 };
 
@@ -1599,6 +1835,7 @@ class FireRoundabout : public Roundabout {
 public:
 	FireRoundabout(Dungeon *dungeon, int x, int y);
 
+private:
 	void specialMove();
 };
 
@@ -1606,12 +1843,13 @@ class ItemThief : public Monster {
 public:
 	ItemThief(Dungeon *dungeon, int x, int y, int range = 7);
 
+private:
+
 	void move();
 	void run();
 	void attack(Player &p);
 	void deathDrops();
 
-private:
 	bool m_stole = false; // flag for telling that they successfully stole from the player
 	std::shared_ptr<Objects> m_stolenItem = nullptr;
 	int m_stolenGold = 0;
@@ -1625,10 +1863,10 @@ public:
 	// If they hit the player, then they are sent flying backward.
 	Charger(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 	void attack(Player &p);
 
-private:
 	bool m_primed = false;
 	int m_turns = 2; // Number of turns before moving
 	char m_direction;
@@ -1643,18 +1881,18 @@ public:
 	Serpent(Dungeon *dungeon, int &x, int &y, int turns = 1);
 	Serpent(Dungeon *dungeon, int &x, int &y, int turns, std::string name, std::string image, int hp, int armor, int str, int dex);
 
+private:
+	void moveTo(int x, int y, float time = 0.10f);
+	void move();
+	void extraAttackEffects();
+	void extraDeathEffects();
+
 	bool setTailPosition();
 	void rerollMonsterPosition(int &x, int &y);
 
-	void moveTo(int x, int y, float time = 0.10f);
-	void move();
-	void moveSegments(int x, int y);
-	void extraAttackEffects();
-
 	void addSegments();
-	void removeSegments();
+	void moveSegments(int x, int y);
 
-private:
 	int m_turns;
 	int m_maxTurns;
 	int m_range = 7;
@@ -1669,6 +1907,7 @@ public:
 	// Armored Serpents cannot be damaged directly--the player must hit their tail.
 	ArmoredSerpent(Dungeon *dungeon, int x, int y, int turns = 1);
 
+private:
 	bool canBeDamaged(DamageType type);
 };
 
@@ -1676,11 +1915,11 @@ class CombustionGolem : public Monster {
 public:
 	CombustionGolem(Dungeon *dungeon, int x, int y);
 
+private:
 	bool canBeDamaged(DamageType type);
 	void move();
 	void deathDrops();
 
-private:
 	int m_moveRange = 15;
 	int m_attackRange = 7;
 
@@ -1696,10 +1935,10 @@ public:
 	// If killed, the player gains negative favor.
 	OldSmokey(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 	void deathDrops();
 
-private:
 	int m_wait = 10;
 	int m_maxWait;
 };
@@ -1710,13 +1949,14 @@ public:
 	Puff(Dungeon *dungeon, int x, int y, int turns = 4, int pushDist = 2, int range = 2);
 	Puff(Dungeon *dungeon, int x, int y, int turns, int pushDist, int range, std::string name, std::string image, int hp, int armor, int str, int dex);
 
-	void move();
-
+protected:
 	// Indicates if this Puff pushes in all 8 directions.
 	// The regular version only pushes in the 4 cardinal directions.
 	virtual bool pushesAll() { return false; };
 
 private:
+	void move();
+
 	int m_turns;
 	int m_maxTurns;
 	int m_pushDist;
@@ -1728,6 +1968,7 @@ public:
 	// Pushes in all directions a maximum of one tile
 	GustyPuff(Dungeon *dungeon, int x, int y);
 
+protected:
 	bool pushesAll() { return true; };
 };
 
@@ -1736,6 +1977,7 @@ public:
 	// Pushes in all directions a maximum of two tiles
 	StrongGustyPuff(Dungeon *dungeon, int x, int y);
 
+protected:
 	bool pushesAll() { return true; };
 };
 
@@ -1747,8 +1989,7 @@ public:
 	InvertedPuff(Dungeon *dungeon, int x, int y, int turns = 4, int pullDist = 2, int range = 1);
 	InvertedPuff(Dungeon *dungeon, int x, int y, int turns, int pullDist, int range, std::string name, std::string image, int hp, int armor, int str, int dex);
 
-	void move();
-
+protected:
 	// Indicates if this Puff pushes in all 8 directions.
 	// The regular version only pushes in the 4 cardinal directions.
 	virtual bool pullsAll() { return false; };
@@ -1756,6 +1997,8 @@ public:
 	virtual void specialMove() { return; };
 
 private:
+	void move();
+
 	int m_turns;
 	int m_maxTurns;
 	int m_pullDist;
@@ -1768,6 +2011,7 @@ public:
 	SpikedInvertedPuff(Dungeon *dungeon, int x, int y);
 	SpikedInvertedPuff(Dungeon *dungeon, int x, int y, int turns, int pullDist, int range, std::string name, std::string image, int hp, int armor, int str, int dex);
 
+protected:
 	void attack(Player &p);
 	void specialMove();
 };
@@ -1777,6 +2021,7 @@ public:
 	// Pulls in all 8 directions
 	GustySpikedInvertedPuff(Dungeon *dungeon, int x, int y);
 
+private:
 	void specialMove();
 	bool pullsAll() { return true; };
 };
@@ -1786,10 +2031,10 @@ public:
 	// Rare enemy with erratic movement. Drops passive if killed.
 	JeweledScarab(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 	void deathDrops();
 
-private:
 	void coordCheck(std::vector<std::pair<int, int>> &coords, bool &moved);
 };
 
@@ -1798,10 +2043,10 @@ public:
 	// 
 	ArmoredBeetle(Dungeon *dungeon, int x, int y);
 
+private:
 	bool canBeDamaged(DamageType type);
 	void move();
 
-private:
 	int m_wait;
 	int m_maxWait;
 };
@@ -1811,10 +2056,11 @@ public:
 	// 
 	SpectralSword(Dungeon *dungeon, int x, int y);
 
+private:
 	bool canBeDamaged(DamageType type);
 	void move();
+	void reactToDamage();
 
-private:
 	char m_dir;
 	bool m_attacked = false;
 	bool m_primed = false;
@@ -1822,33 +2068,68 @@ private:
 
 class SandCentipede : public Monster {
 public:
-	// Lurks underneath in the sand. Chases player if they are in the sand.
+	// Lurks underneath in sand. Chases player if they are in the sand.
 	// Can't be hit until they lunge upwards.
 	SandCentipede(Dungeon *dungeon, int x, int y);
 
+private:
 	void moveTo(int x, int y, float time = 0.10f);
 	bool canBeDamaged(DamageType type);
 	bool canBeHit();
 	bool isUnderground();
 
 	void move();
-	void deathDrops();
+	void extraDeathEffects();
 
-private:
 	bool m_primed = false;
 	int m_wait;
 	int m_maxWait;
 	int m_range = 12;
 };
 
+class SandBeaver : public Monster {
+public:
+	SandBeaver(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+
+	bool m_primed = false;
+	int m_moveRange = 15;
+	int m_chaseRange = 8;
+	int m_attackRange = 3;
+
+	char m_dir;
+	int m_wait = 2;
+	int m_maxWait;
+};
+
+class SandAlbatross : public Monster {
+public:
+	SandAlbatross(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+	void run();
+	void moveSideways();
+
+	char m_dir;
+	bool m_primed = false;
+	int m_wait = 1;
+	int m_maxWait;
+	int m_range = 15;
+	int m_moveTurns = 2;
+
+};
+
 class Archer : public Monster {
 public:
 	Archer(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 	void deathDrops();
 
-private:
 	bool m_primed = false;
 	int m_range = 10;
 };
@@ -1858,9 +2139,9 @@ class Wisp : public Monster {
 public:
 	Wisp(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 
-private:
 	int m_range = 6;
 	int m_wait = 4;
 	int m_maxWait;
@@ -1870,9 +2151,9 @@ class LightningWisp : public Monster {
 public:
 	LightningWisp(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 
-private:
 	bool m_cardinal;
 	int m_wait = 1;
 	int m_maxWait;
@@ -1882,9 +2163,9 @@ class Grabber : public Monster {
 public:
 	Grabber(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 
-private:
 	char m_dir;
 	int m_grabTurns = 3;
 	bool m_primed = false;
@@ -1900,6 +2181,7 @@ public:
 	// Lurks underneath other enemies and chases the player when revealed.
 	EvilShadow(Dungeon *dungeon, int x, int y);
 
+private:
 	void moveTo(int x, int y, float time = 0.1f);
 	bool canBeDamaged(DamageType type);
 	bool canBeHit();
@@ -1907,7 +2189,6 @@ public:
 
 	void move();
 
-private:
 	int m_range = 12;
 	bool m_revealed = false;
 	bool m_primed = false;
@@ -1918,9 +2199,9 @@ class CrawlingSpine : public Monster {
 public:
 	CrawlingSpine(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 
-private:
 	bool m_primed = false;
 	int m_goopCooldown = 0;
 	int m_px;
@@ -1936,9 +2217,8 @@ public:
 	// Attempts to build destructible wall traps around the player, boxing them in.
 	ConstructorDemon(Dungeon *dungeon, int x, int y);
 
-	void move();
-
 private:
+	void move();
 	void run();
 	void moveSideways();
 
@@ -1953,11 +2233,74 @@ public:
 	// Causes lights in the level to fade in and out.
 	Howler(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 
-private:
 	int m_wait = 3;
 	int m_maxWait;
+};
+
+class FacelessHorror : public Monster {
+public:
+	FacelessHorror(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+
+	char m_dir;
+
+	bool m_primed = false;
+	int m_primedWait = 0;
+
+	int m_wait = 1;
+	int m_maxWait;
+	int m_range = 15;
+};
+
+class ToweringBrute : public Monster {
+public:
+	ToweringBrute(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+
+	int m_wait = 2;
+	int m_maxWait;
+};
+
+class SkyCrasher : public Monster {
+public:
+	SkyCrasher(Dungeon *dungeon, int x, int y);
+
+private:
+	bool canBeHit();
+	void move();
+
+	void getPrimedTowardsPlayer();
+	void setLandingPosition(bool reposition = false);
+
+	int m_moveRange = 15;
+	int m_attackRange = 5;
+	bool m_primed = false;
+	int m_wait = 1;
+	int m_maxWait;
+
+	int m_x;
+	int m_y;
+};
+
+class SteamBot : public Monster {
+public:
+	SteamBot(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+
+	// 1-2: Greedy chase, 3: Random move, 4: Do nothing, 5: Attack
+	int m_stage = 1;
+	int m_stageMax = 5;
+
+	int m_range = 15;
 };
 
 class Watcher : public Monster {
@@ -1966,9 +2309,10 @@ public:
 	// A badass enemy. Moves every 3 turns, but moves twice on their turn.
 	Watcher(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 
-private:
+	int m_range = 20;
 	int m_wait = 3;
 	int m_maxWait;
 };
@@ -1978,11 +2322,11 @@ class Pikeman : public Monster {
 public:
 	Pikeman(Dungeon *dungeon, int x, int y);
 
+private:
 	void move();
 	void step();
 	void deathDrops();
 
-private:
 	bool m_alerted;
 	char m_direction;
 };
@@ -1991,9 +2335,8 @@ class Shrinekeeper : public Monster {
 public:
 	Shrinekeeper(Dungeon *dungeon, int x, int y);
 
-	void move();
-
 private:
+	void move();
 	bool canTeleportAdjacentToPlayer(int &ex, int &ey) const;
 	void teleportAway();
 
@@ -2008,6 +2351,140 @@ private:
 	int m_py;
 };
 
+class Swapper : public Monster {
+public:
+	Swapper(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+	void swap();
+
+	int m_moveRange = 15;
+	int m_swapRange = 7;
+
+	bool m_primed = false;
+	int m_wait = 1;
+	int m_maxWait;
+
+	int m_px;
+	int m_py;
+};
+
+class ShieldMaster : public Monster {
+public:
+	ShieldMaster(Dungeon *dungeon, int x, int y);
+
+private:
+	bool canBeDamaged(DamageType type);
+	void moveTo(int x, int y, float time = 0.1f);
+	void move();
+	void spriteCleanup();
+
+	void moveShieldsTo(int x, int y, float time = 0.1f);
+	void rotateShields(int x, int y, float time = 0.1f);
+
+	bool m_clockwise;
+	std::vector<std::pair<char, cocos2d::Sprite*>> m_shields;
+	
+	int m_range = 15;
+	char m_exposedDir;
+	int m_wait = 1;
+	int m_maxWait;
+};
+
+class PseudoDoppel : public Monster {
+public:
+	PseudoDoppel(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+
+	bool m_mirror = false;
+};
+
+class Electromagnetizer : public Monster {
+public:
+	Electromagnetizer(Dungeon *dungeon, int x, int y);
+
+private:
+	void extraAttackEffects();
+	void move();
+	void extraDeathEffects();
+
+	int m_lightStolen = 0;
+	int m_range = 15;
+	bool m_primed = false;
+	int m_wait = 1;
+	int m_maxWait;
+};
+
+class BladePsychic : public Monster {
+public:
+	BladePsychic(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+
+	int m_range = 5;
+	int m_moveRange = 10;
+	int m_wait = 1;
+	int m_maxWait;
+
+	// Turns until another blade can be launched
+	int m_bladeWait = 0;
+	int m_maxBladeWait = 10;
+};
+
+class DashMaster : public Monster {
+public:
+	DashMaster(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+
+	bool m_primed = false;
+	int m_range = 18;
+	int m_wait = 4;
+	int m_maxWait;
+
+	int m_primedTurns = 0;
+};
+
+class AcidicBeast : public Monster {
+public:
+	// Alternates between two directions as they move.
+	// Leaves pools of acid where they walk.
+	AcidicBeast(Dungeon *dungeon, int x, int y);
+
+private:
+	bool canBeDamaged(DamageType type);
+	void move();
+
+	void changeDirections();
+
+	bool m_switch = false;
+	char m_dir1;
+	char m_dir2;
+
+	int m_leapWait = 0;
+	int m_maxLeapWait = 5;
+};
+
+class DarkCanine : public Monster {
+public:
+	DarkCanine(Dungeon *dungeon, int x, int y);
+
+private:
+	void extraAttackEffects();
+	void move();
+	void reactToDamage();
+
+	int m_latchedTurns = 0;
+	int m_range = 15;
+	int m_wait = 1;
+	int m_maxWait;
+};
+
 //		FLOOR VIII
 class AbyssSummoner : public Monster {
 public:
@@ -2015,9 +2492,9 @@ public:
 	AbyssSummoner(Dungeon *dungeon, int x, int y);
 	~AbyssSummoner();
 
+private:
 	void move();
 
-private:
 	bool m_summoning = false;
 	int m_summonTurns = 3;
 	std::shared_ptr<Traps> m_maw = nullptr;
@@ -2031,10 +2508,10 @@ class MagicalBerserker : public Monster {
 public:
 	MagicalBerserker(Dungeon *dungeon, int x, int y);
 
-	bool canBeDamaged(DamageType type);
-	void move();
-
 private:
+	void move();
+	void reactToDamage();
+
 	void teleportAway();
 
 	int m_teleportRadius = 8;
@@ -2042,12 +2519,213 @@ private:
 	int m_wait = 1;
 };
 
+class Disabler : public Monster {
+public:
+	Disabler(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+
+	void castField();
+
+	int m_range = 15;
+	int m_wait = 1;
+	int m_maxWait;
+
+	int m_castWait = 0;
+	int m_maxCastWait = 12;
+};
+
+class IncendiaryInfuser : public Monster {
+public:
+	IncendiaryInfuser(Dungeon *dungeon, int x, int y);
+
+private:
+	bool canBeDamaged(DamageType type);
+	void move();
+
+	int m_range = 15;
+	int m_wait = 4;
+	int m_maxWait;
+
+	int m_castWait = 0;
+	int m_maxCastWait = 10;
+};
+
+class LightningStriker : public Monster {
+public:
+	LightningStriker(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+
+	void radiusCheck();
+
+	int m_moveRange = 15;
+	int m_castRange = 2;
+
+	int m_castTurns = 0;
+	int m_maxCastTurns = 3;
+
+	int m_castCooldown = 0;
+
+	int m_wait = 1;
+	int m_maxWait;
+};
+
+class FlameArchaic : public Monster {
+public:
+	FlameArchaic(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+
+	void castFireBlast();
+	void castFirePillars();
+
+	int m_moveRange = 15;
+	int m_castRange = 5;
+
+	int m_castTurns = 0;
+	int m_maxCastTurns = 2;
+
+	int m_castCooldown = 0;
+
+	int m_wait = 1;
+	int m_maxWait;
+};
+
+class MasterConjurer : public Monster {
+public:
+	MasterConjurer(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+	void reactToDamage();
+
+	void summonRandomMonster();
+
+	int m_range = 15;
+
+	int m_castTurns = 0;
+	int m_maxCastTurns = 2;
+
+	int m_castCooldown = 0;
+
+	int m_summonRadius = 2;
+	int m_wait = 2;
+	int m_maxWait;
+};
+
+class AdvancedRockSummoner : public Monster {
+public:
+	AdvancedRockSummoner(Dungeon *dungeon, int x, int y);
+
+private:
+	bool canBeDamaged(DamageType type);
+	void move();
+	void reactToDamage();
+
+	void summonRock();
+
+	int m_moveRange = 15;
+	int m_castRange = 6;
+
+	int m_castTurns = 0;
+	int m_maxCastTurns = 2;
+
+	int m_castCooldown = 0;
+
+	int m_wait = 1;
+	int m_maxWait;
+};
+
+class AscendedShot : public Monster {
+public:
+	AscendedShot(Dungeon *dungeon, int x, int y);
+
+private:
+	bool canBeDamaged(DamageType type);
+	void move();
+
+	void fireShot();
+
+	int m_moveRange = 15;
+	int m_castRange = 7;
+
+	int m_castTurns = 0;
+	int m_maxCastTurns = 4;
+
+	int m_castCooldown = 0;
+
+	int m_wait = 1;
+	int m_maxWait;
+};
+
+class RoyalSwordsman : public Monster {
+public:
+	RoyalSwordsman(Dungeon *dungeon, int x, int y);
+
+private:
+	bool canBeDamaged(DamageType type);
+	void move();
+
+	void singleDash(bool diagonals = false);
+	void doubleDash();
+
+	int m_stage = 0;
+	int m_cooldown = 0;
+	int m_maxCooldown = 2;
+
+	bool m_primed = false;
+	int m_range = 18;
+	int m_wait = 0;
+	int m_maxWait = 1;
+};
+
+class LightEntity : public Monster {
+public:
+	LightEntity(Dungeon *dungeon, int x, int y);
+
+private:
+	void move();
+
+	void releaseBeams();
+
+	int m_movesLeft;
+	int m_maxMoves = 6;
+
+	int m_wait = 1;
+	int m_maxWait;
+};
+
+class DarkEntity : public Monster {
+public:
+	DarkEntity(Dungeon *dungeon, int x, int y);
+
+private:
+	bool canBeDamaged(DamageType type) { return false; };
+	void move();
+
+	int m_size = 3;
+	int m_maxSize = 10;
+
+	int m_wait = 1;
+	int m_maxWait;
+};
+
+//		FLOOR IX
+
+
 
 //		BOSSES
 class Smasher : public Monster {
 public:
 	Smasher(Dungeon *dungeon);
 
+	bool isBoss() const { return true; };
+
+private:
 	void moveTo(int x, int y, float time = 0.10f);
 	void move();
 
@@ -2067,19 +2745,8 @@ public:
 	void resetDownward();
 
 	void attack(Player &p);
-	void attack(Monster &m);
 	void deathDrops();
 
-	bool isActive() const { return m_moveActive; };
-	void setActive(bool status) { m_moveActive = status; };
-	bool isEnded() const { return m_moveEnding; };
-	void setEnded(bool status) { m_moveEnding = status; };
-	int getMove() const { return m_moveType; };
-	void setMove(int move) { m_moveType = move; };
-	bool isFrenzied() const { return m_frenzy; };
-	void startFrenzy() { m_frenzy = true; };
-
-private:
 	// used for telling what direction smasher is moving in if executing rock slide
 	char m_move = '0';
 

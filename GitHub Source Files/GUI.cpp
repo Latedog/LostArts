@@ -48,18 +48,49 @@ float SP_ADJUST = 0;
 USING_NS_CC;
 
 // Default Controls
-cocos2d::EventKeyboard::KeyCode UP_KEY = EventKeyboard::KeyCode::KEY_UP_ARROW;
-cocos2d::EventKeyboard::KeyCode DOWN_KEY = EventKeyboard::KeyCode::KEY_DOWN_ARROW;
-cocos2d::EventKeyboard::KeyCode LEFT_KEY = EventKeyboard::KeyCode::KEY_LEFT_ARROW;
-cocos2d::EventKeyboard::KeyCode RIGHT_KEY = EventKeyboard::KeyCode::KEY_RIGHT_ARROW;
-cocos2d::EventKeyboard::KeyCode INTERACT_KEY = EventKeyboard::KeyCode::KEY_E;
-cocos2d::EventKeyboard::KeyCode QUICK_KEY = EventKeyboard::KeyCode::KEY_Q;
-cocos2d::EventKeyboard::KeyCode ACTIVE_KEY = EventKeyboard::KeyCode::KEY_SPACE;
-cocos2d::EventKeyboard::KeyCode WEAPON_KEY = EventKeyboard::KeyCode::KEY_W;
-cocos2d::EventKeyboard::KeyCode CAST_KEY = EventKeyboard::KeyCode::KEY_S;
-cocos2d::EventKeyboard::KeyCode ITEM_KEY = EventKeyboard::KeyCode::KEY_C;
-cocos2d::EventKeyboard::KeyCode INVENTORY_KEY = EventKeyboard::KeyCode::KEY_TAB;
+KeyType UP_KEY = KeyType::KEY_UP_ARROW;
+KeyType DOWN_KEY = KeyType::KEY_DOWN_ARROW;
+KeyType LEFT_KEY = KeyType::KEY_LEFT_ARROW;
+KeyType RIGHT_KEY = KeyType::KEY_RIGHT_ARROW;
+KeyType INTERACT_KEY = KeyType::KEY_E;
+KeyType QUICK_KEY = KeyType::KEY_Q;
+KeyType ACTIVE_KEY = KeyType::KEY_SPACE;
+KeyType WEAPON_KEY = KeyType::KEY_W;
+KeyType CAST_KEY = KeyType::KEY_S;
+KeyType ITEM_KEY = KeyType::KEY_C;
+KeyType INVENTORY_KEY = KeyType::KEY_TAB;
 
+void restartGame(const Player &p) {
+	cocos2d::experimental::AudioEngine::stopAll();
+
+	// Resets passives obtained and NPCs seen
+	GameTable::initializeTables();
+
+	std::shared_ptr<Player> newPlayer(nullptr);
+	if (p.getName() == ADVENTURER)
+		newPlayer = std::make_shared<Adventurer>();
+	else if (p.getName() == SPELLCASTER)
+		newPlayer = std::make_shared<Spellcaster>();
+	else if (p.getName() == MADMAN)
+		newPlayer = std::make_shared<TheMadman>();
+	else if (p.getName() == SPELUNKER)
+		newPlayer = std::make_shared<Spelunker>();
+	else if (p.getName() == ACROBAT)
+		newPlayer = std::make_shared<Acrobat>();
+	else
+		newPlayer = std::make_shared<Adventurer>();
+
+	auto levelScene = LevelScene::createScene(newPlayer, FIRST_FLOOR);
+
+	auto transition = TransitionFade::create(0.50f, levelScene);
+
+	transition->setOnExitCallback([levelScene]() {
+		auto scene = dynamic_cast<LevelScene*>(levelScene->getChildByName("Level Scene"));
+		scene->scheduleTimer();
+	});
+
+	Director::getInstance()->replaceScene(transition);
+}
 
 MenuScene::MenuScene() {
 
@@ -129,7 +160,7 @@ void MenuScene::options() {
 	kbListener->onKeyPressed = CC_CALLBACK_2(MenuScene::optionKeyPressed, this);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(kbListener, arrow);
 }
-void MenuScene::optionKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event) {
+void MenuScene::optionKeyPressed(KeyType keyCode, cocos2d::Event* event) {
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
@@ -140,7 +171,7 @@ void MenuScene::optionKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2
 	// 2 : Key Bindings
 
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_LEFT_ARROW: {
+	case KeyType::KEY_LEFT_ARROW: {
 		if (index == 3) {
 			if (resolutionIndex > 0) {
 				playInterfaceSound("Select 1.mp3");
@@ -151,7 +182,7 @@ void MenuScene::optionKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2
 
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
+	case KeyType::KEY_RIGHT_ARROW: {
 		if (index == 3) {
 			if (resolutionIndex < (int)resolutions.size() - 1) {
 				playInterfaceSound("Select 1.mp3");
@@ -162,7 +193,7 @@ void MenuScene::optionKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2
 
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
+	case KeyType::KEY_UP_ARROW: {
 		if (index > 0 && index <= 2) {
 			playInterfaceSound("Select 1.mp3");
 			index--;
@@ -177,7 +208,7 @@ void MenuScene::optionKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2
 
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
+	case KeyType::KEY_DOWN_ARROW: {
 		if (index < 2) {
 			playInterfaceSound("Select 1.mp3");
 			index++;
@@ -191,8 +222,8 @@ void MenuScene::optionKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_ENTER:
-	case EventKeyboard::KeyCode::KEY_SPACE:
+	case KeyType::KEY_ENTER:
+	case KeyType::KEY_SPACE:
 		playInterfaceSound("Confirm 1.mp3");
 
 		switch (index) {
@@ -225,7 +256,7 @@ void MenuScene::optionKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2
 
 		return;
 
-	case EventKeyboard::KeyCode::KEY_ESCAPE:
+	case KeyType::KEY_ESCAPE:
 		playInterfaceSound("Confirm 1.mp3");
 
 		// Screen Resolution
@@ -283,7 +314,7 @@ void MenuScene::soundOptions() {
 	kbListener->onKeyPressed = CC_CALLBACK_2(MenuScene::soundOptionsKeyPressed, this);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(kbListener, arrow);
 }
-void MenuScene::soundOptionsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event) {
+void MenuScene::soundOptionsKeyPressed(KeyType keyCode, cocos2d::Event* event) {
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
@@ -294,7 +325,7 @@ void MenuScene::soundOptionsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, 
 	// 2, 6 : Resolution
 
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_LEFT_ARROW: {
+	case KeyType::KEY_LEFT_ARROW: {
 		if (index == 0) {
 			if (GLOBAL_SOUND_VOLUME > 0.0f) {
 				playInterfaceSound("Select 1.mp3");
@@ -320,7 +351,7 @@ void MenuScene::soundOptionsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, 
 
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
+	case KeyType::KEY_RIGHT_ARROW: {
 		if (index == 0) {
 			if (GLOBAL_SOUND_VOLUME < 1.0f) {
 				playInterfaceSound("Select 1.mp3");
@@ -349,7 +380,7 @@ void MenuScene::soundOptionsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, 
 
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
+	case KeyType::KEY_UP_ARROW: {
 		if (index > 0 && index <= 2) {
 			playInterfaceSound("Select 1.mp3");
 			index--;
@@ -359,7 +390,7 @@ void MenuScene::soundOptionsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, 
 
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
+	case KeyType::KEY_DOWN_ARROW: {
 		if (index < 2) {
 			playInterfaceSound("Select 1.mp3");
 			index++;
@@ -368,8 +399,8 @@ void MenuScene::soundOptionsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, 
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_ENTER:
-	case EventKeyboard::KeyCode::KEY_SPACE:
+	case KeyType::KEY_ENTER:
+	case KeyType::KEY_SPACE:
 		//playInterfaceSound("Confirm 1.mp3");
 
 		//switch (index) {
@@ -411,7 +442,7 @@ void MenuScene::soundOptionsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, 
 
 		return;
 
-	case EventKeyboard::KeyCode::KEY_ESCAPE:
+	case KeyType::KEY_ESCAPE:
 		playInterfaceSound("Confirm 1.mp3");
 
 		//// Sound
@@ -622,7 +653,7 @@ void MenuScene::keyBindings() {
 	kbListener->onKeyPressed = CC_CALLBACK_2(MenuScene::keyBindingsKeyPressed, this);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(kbListener, sprite);
 }
-void MenuScene::keyBindingsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event) {
+void MenuScene::keyBindingsKeyPressed(KeyType keyCode, cocos2d::Event* event) {
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
@@ -637,7 +668,7 @@ void MenuScene::keyBindingsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, c
 	}
 
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
+	case KeyType::KEY_UP_ARROW: {
 		if (index > 0 && index <= 10) {
 			index--;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y + 0.7f * MENU_SPACING);
@@ -652,7 +683,7 @@ void MenuScene::keyBindingsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, c
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
+	case KeyType::KEY_DOWN_ARROW: {
 		if (index < 10) {
 			index++;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y - 0.7f * MENU_SPACING);
@@ -667,8 +698,8 @@ void MenuScene::keyBindingsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, c
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_ENTER:
-	case EventKeyboard::KeyCode::KEY_SPACE:
+	case KeyType::KEY_ENTER:
+	case KeyType::KEY_SPACE:
 
 		playInterfaceSound("Confirm 1.mp3");
 
@@ -684,7 +715,7 @@ void MenuScene::keyBindingsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, c
 
 		break;
 
-	case EventKeyboard::KeyCode::KEY_ESCAPE:
+	case KeyType::KEY_ESCAPE:
 		playInterfaceSound("Confirm 1.mp3");
 		index = 0;
 		removeAll();
@@ -696,7 +727,7 @@ void MenuScene::keyBindingsKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, c
 		break;
 	}
 }
-void MenuScene::setKey(cocos2d::EventKeyboard::KeyCode keyCode, int index) {
+void MenuScene::setKey(KeyType keyCode, int index) {
 
 	switch (index) {
 		// Up
@@ -793,7 +824,7 @@ void MenuScene::setKey(cocos2d::EventKeyboard::KeyCode keyCode, int index) {
 	playInterfaceSound("Confirm 1.mp3");
 	controls.clear();
 }
-bool MenuScene::keyIsValid(cocos2d::EventKeyboard::KeyCode keyCode, int index) {
+bool MenuScene::keyIsValid(KeyType keyCode, int index) {
 
 	controls.push_back(UP_KEY);
 	controls.push_back(DOWN_KEY);
@@ -817,27 +848,27 @@ bool MenuScene::keyIsValid(cocos2d::EventKeyboard::KeyCode keyCode, int index) {
 	}
 
 	// P, M, I, and Escape key are off limits
-	if (keyCode == cocos2d::EventKeyboard::KeyCode::KEY_ESCAPE ||
-		keyCode == cocos2d::EventKeyboard::KeyCode::KEY_P ||
-		keyCode == cocos2d::EventKeyboard::KeyCode::KEY_M ||
-		keyCode == cocos2d::EventKeyboard::KeyCode::KEY_I)
+	if (keyCode == KeyType::KEY_ESCAPE ||
+		keyCode == KeyType::KEY_P ||
+		keyCode == KeyType::KEY_M ||
+		keyCode == KeyType::KEY_I)
 		return false;
 
 	settingKey = false;
 	return true;
 }
 void MenuScene::resetBindings() {
-	UP_KEY = EventKeyboard::KeyCode::KEY_UP_ARROW;
-	DOWN_KEY = EventKeyboard::KeyCode::KEY_DOWN_ARROW;
-	LEFT_KEY = EventKeyboard::KeyCode::KEY_LEFT_ARROW;
-	RIGHT_KEY = EventKeyboard::KeyCode::KEY_RIGHT_ARROW;
-	INTERACT_KEY = EventKeyboard::KeyCode::KEY_E;
-	QUICK_KEY = EventKeyboard::KeyCode::KEY_Q;
-	ACTIVE_KEY = EventKeyboard::KeyCode::KEY_SPACE;
-	WEAPON_KEY = EventKeyboard::KeyCode::KEY_W;
-	CAST_KEY = EventKeyboard::KeyCode::KEY_S;
-	ITEM_KEY = EventKeyboard::KeyCode::KEY_C;
-	INVENTORY_KEY = EventKeyboard::KeyCode::KEY_TAB;
+	UP_KEY = KeyType::KEY_UP_ARROW;
+	DOWN_KEY = KeyType::KEY_DOWN_ARROW;
+	LEFT_KEY = KeyType::KEY_LEFT_ARROW;
+	RIGHT_KEY = KeyType::KEY_RIGHT_ARROW;
+	INTERACT_KEY = KeyType::KEY_E;
+	QUICK_KEY = KeyType::KEY_Q;
+	ACTIVE_KEY = KeyType::KEY_SPACE;
+	WEAPON_KEY = KeyType::KEY_W;
+	CAST_KEY = KeyType::KEY_S;
+	ITEM_KEY = KeyType::KEY_C;
+	INVENTORY_KEY = KeyType::KEY_TAB;
 
 	labels.find("Up Key")->second->setString(convertKeycodeToStr(UP_KEY));
 	labels.find("Down Key")->second->setString(convertKeycodeToStr(DOWN_KEY));
@@ -1116,12 +1147,12 @@ bool StartScene::init()
 
 	return true;
 }
-void StartScene::keyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event) {
+void StartScene::keyPressed(KeyType keyCode, cocos2d::Event* event) {
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
+	case KeyType::KEY_UP_ARROW: {
 		if (index > 0) {
 			index--;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y + 1.5f * MENU_SPACING);
@@ -1130,7 +1161,7 @@ void StartScene::keyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Ev
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
+	case KeyType::KEY_DOWN_ARROW: {
 		if (index < 2) {
 			index++;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y - 1.5f * MENU_SPACING);
@@ -1139,20 +1170,12 @@ void StartScene::keyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Ev
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_ENTER:
-	case EventKeyboard::KeyCode::KEY_SPACE:
+	case KeyType::KEY_ENTER:
+	case KeyType::KEY_SPACE:
 		switch (index) {
 		case 0: { // Start
 			playInterfaceSound("Confirm 1.mp3");
 			index = 0;
-
-			/*auto start = cocos2d::Sprite::createWithSpriteFrameName("StartButton1.png");
-			float x = visibleSize.width / 2;
-			float y = visibleSize.height / 2 - (1.2 * MENU_SPACING);
-			start->setPosition(Vec2(x, y));
-			start->setScale(0.8f);
-			this->addChild(start, 3);
-			sprites.insert(std::make_pair("start", start));*/
 
 			characterSelect();
 
@@ -1231,12 +1254,12 @@ void StartScene::characterSelect() {
 	kbListener->onKeyPressed = CC_CALLBACK_2(StartScene::characterKeyPressed, this);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(kbListener, character); // check this for player
 }
-void StartScene::characterKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event) {
+void StartScene::characterKeyPressed(KeyType keyCode, cocos2d::Event* event) {
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_LEFT_ARROW: {
+	case KeyType::KEY_LEFT_ARROW: {
 		if (index > 0)
 			index--;
 		else
@@ -1248,7 +1271,7 @@ void StartScene::characterKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, co
 		
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
+	case KeyType::KEY_RIGHT_ARROW: {
 		if (index < 4)
 			index++;
 		else
@@ -1259,26 +1282,16 @@ void StartScene::characterKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, co
 		playInterfaceSound("Select 1.mp3");
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_ENTER:
-	case EventKeyboard::KeyCode::KEY_SPACE:
+	case KeyType::KEY_ENTER:
+	case KeyType::KEY_SPACE:
 		playInterfaceSound("Confirm 1.mp3");
 
 		switch (index) {
-		case 0:
-			characterID = ID_ADVENTURER;
-			break;
-		case 1:
-			characterID = ID_SPELLCASTER;
-			break;
-		case 2:
-			characterID = ID_ACROBAT;
-			break;
-		case 3:
-			characterID = ID_SPELUNKER;
-			break;
-		case 4:
-			characterID = ID_MADMAN;
-			break;
+		case 0:	characterID = ID_ADVENTURER; break;
+		case 1: characterID = ID_SPELLCASTER; break;
+		case 2: characterID = ID_ACROBAT; break;
+		case 3: characterID = ID_SPELUNKER; break;
+		case 4: characterID = ID_MADMAN; break;
 		}
 
 		startGameCallback(this);
@@ -1286,7 +1299,7 @@ void StartScene::characterKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, co
 		index = 0;
 		return;
 		
-	case EventKeyboard::KeyCode::KEY_ESCAPE:
+	case KeyType::KEY_ESCAPE:
 		playInterfaceSound("Confirm 1.mp3");
 		index = 0;
 
@@ -1460,15 +1473,9 @@ void StartScene::addCharacterSprite(float x, float y, std::string image, std::st
 	sprites.insert(std::make_pair(id, s));
 }
 
-void StartScene::startGameCallback(Ref* pSender)
-{
+void StartScene::startGameCallback(Ref* pSender) {
 	playInterfaceSound("Confirm 1.mp3");
 	cocos2d::experimental::AudioEngine::stop(id);
-
-	auto visibleSize = Director::getInstance()->getVisibleSize();
-	float vsw = visibleSize.width / 2;
-	float vsh = visibleSize.height / 2;
-	Vec2 origin = Director::getInstance()->getVisibleOrigin();
 
 	GameTable::initializeTables();
 
@@ -1483,19 +1490,12 @@ void StartScene::startGameCallback(Ref* pSender)
 	}
 	
 	auto levelScene = LevelScene::createScene(p, TUTORIAL);
-	//auto levelScene = ShopScene::createScene(p, FIRST_SHOP);
-	levelScene->setPosition(Vec2(vsw, vsh));
-
-	// Switch to next scene
-	//Director::getInstance()->replaceScene(levelScene);
 
 	auto transition = TransitionFade::create(0.75f, levelScene);
 
-	transition->setOnExitCallback([this, levelScene]() {
-		auto visibleSize = Director::getInstance()->getVisibleSize();
-		float vsw = visibleSize.width / 2;
-		float vsh = visibleSize.height / 2;
-		levelScene->setPosition(Vec2(vsw, vsh));
+	transition->setOnExitCallback([levelScene]() {
+		auto scene = dynamic_cast<LevelScene*>(levelScene->getChildByName("Level Scene"));
+		scene->scheduleTimer();
 	});
 
 	Director::getInstance()->replaceScene(transition);
@@ -1572,58 +1572,35 @@ bool HUDLayer::init() {
 
 	std::string image;
 
-	//		RENDER HUD
 	image = "Health_Bar_Empty_Long.png";
 	Sprite* healthbar = Sprite::createWithSpriteFrameName(image);
-	this->addChild(healthbar, 2, "healthbar");
+	this->addChild(healthbar, Z_HUD_ELEMENT, "healthbar");
 	healthbar->setPosition(-400.f * RES_ADJUST + HP_BAR_ADJUST, 300.f * RES_ADJUST);
 	HUD.insert(std::pair<std::string, Sprite*>("healthbar", healthbar));
 
 	image = "Health_Points_Long.png";
 	Sprite* hp = Sprite::createWithSpriteFrameName(image);
-	this->addChild(hp, 3, "hp");
+	this->addChild(hp, Z_HUD_ELEMENT, "hp");
 	hp->setAnchorPoint(Vec2(0, 0.5)); // set anchor point to left side
 	hp->setPosition(-546.f * RES_ADJUST + HP_ADJUST, 300.f * RES_ADJUST);
 	HUD.insert(std::pair<std::string, Sprite*>("hp", hp));
 
 	numericalHP = Label::createWithTTF(std::to_string(p->getHP()) + "/" + std::to_string(p->getMaxHP()), "fonts/Marker Felt.ttf", 18);
 	numericalHP->setPosition(-400 * RES_ADJUST, 300 * RES_ADJUST); // -160, 300
-	//numericalHP->enableGlow(cocos2d::Color4B(250, 128, 114, 200));
 	numericalHP->setOpacity(230);
 	numericalHP->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
-	this->addChild(numericalHP, 4);
+	this->addChild(numericalHP, Z_HUD_LABEL);
 
-	str = Label::createWithTTF("Str: +" + std::to_string(p->getStr()), "fonts/Marker Felt.ttf", 16);
-	str->setPosition(-570 * RES_ADJUST, 70 * RES_ADJUST);
-	str->setOpacity(230);
-	str->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
-	str->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
-	str->setAdditionalKerning(0.25f);
-	this->addChild(str, 4);
+	str = getStatLabel(-570 * RES_ADJUST, 70 * RES_ADJUST, "Str: +" + std::to_string(p->getStr()), 16);
+	dex = getStatLabel(-570 * RES_ADJUST, 50 * RES_ADJUST, "Dex: +" + std::to_string(p->getDex() + p->getWeapon()->getDexBonus()), 16);
+	intellect = getStatLabel(-570 * RES_ADJUST, 30 * RES_ADJUST, "Int: +" + std::to_string(p->getInt()), 16);
+	armor = getStatLabel(-570 * RES_ADJUST, 10 * RES_ADJUST, "Amr: +" + std::to_string(p->getArmor()), 16);
 
-	dex = Label::createWithTTF("Dex: +" + std::to_string(p->getDex() + p->getWeapon()->getDexBonus()), "fonts/Marker Felt.ttf", 16);
-	dex->setPosition(-570 * RES_ADJUST, 50 * RES_ADJUST);
-	dex->setOpacity(230);
-	dex->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
-	dex->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
-	dex->setAdditionalKerning(0.25f);
-	this->addChild(dex, 4);
 
-	intellect = Label::createWithTTF("Int: +" + std::to_string(p->getInt()), "fonts/Marker Felt.ttf", 16);
-	intellect->setPosition(-570 * RES_ADJUST, 30 * RES_ADJUST);
-	intellect->setOpacity(230);
-	intellect->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
-	intellect->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
-	intellect->setAdditionalKerning(0.25f);
-	this->addChild(intellect, 4);
+	constructWeaponHUD();
 
-	armor = Label::createWithTTF("Amr: +" + std::to_string(p->getArmor()), "fonts/Marker Felt.ttf", 16);
-	armor->setPosition(-570 * RES_ADJUST, 10 * RES_ADJUST);
-	armor->setOpacity(230);
-	armor->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
-	armor->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
-	armor->setAdditionalKerning(0.25f);
-	this->addChild(armor, 4);
+
+	//	:::: RIGHT SIDE OF HUD ::::
 
 	moneyBonus = Label::createWithTTF("Money Bonus : " + std::to_string((int)p->getMoneyBonus()), "fonts/Marker Felt.ttf", 15);
 	moneyBonus->setPosition(570.f * RES_ADJUST, -330 * RES_ADJUST);
@@ -1631,97 +1608,12 @@ bool HUDLayer::init() {
 	moneyBonus->setTextColor(cocos2d::Color4B(153, 153, 255, 200));
 	//moneyBonus->enableOutline(cocos2d::Color4B(204, 255, 255, 200), 1);
 	moneyBonus->setAdditionalKerning(0.25f);
-	this->addChild(moneyBonus, 4);
+	this->addChild(moneyBonus, Z_HUD_LABEL);
 
-	/*
-	//// stats
-	//// strength stat
-	//Sprite* strBar = Sprite::createWithSpriteFrameName("Shield_Durability_Bar_Empty2.png");
-	//this->addChild(strBar, 3, "strength bar");
-	//strBar->setPosition(-550 * RES_ADJUST + SP_ADJUST, 120 * RES_ADJUST);
-	//strBar->setScale(1.0 * RES_ADJUST);
-	//HUD.insert(std::pair<std::string, Sprite*>("strength bar", strBar));
-
-	//Sprite* strbarpoints = Sprite::createWithSpriteFrameName("Shield_Durability_Bar_Points2.png");
-	//this->addChild(strbarpoints, 4, "strbarpoints");
-	//strbarpoints->setAnchorPoint(Vec2(0, 0.5)); // set anchor point to left side
-	//strbarpoints->setPosition(-583 * RES_ADJUST, 120 * RES_ADJUST);
-	//strbarpoints->setColor(cocos2d::Color3B(0, 191, 255));
-	//strbarpoints->setScale(1.0 * RES_ADJUST);
-	//HUD.insert(std::pair<std::string, Sprite*>("strbarpoints", strbarpoints));
-
-	//// dex stat
-	//Sprite* dexbar = Sprite::createWithSpriteFrameName("Shield_Durability_Bar_Empty2.png");
-	//this->addChild(dexbar, 3, "dexbar");
-	//dexbar->setPosition(-550 * RES_ADJUST + SP_ADJUST, 100 * RES_ADJUST);
-	//dexbar->setScale(1.0 * RES_ADJUST);
-	//HUD.insert(std::pair<std::string, Sprite*>("dexbar", dexbar));
-
-	//Sprite* dexpoints = Sprite::createWithSpriteFrameName("Shield_Durability_Bar_Points2.png");
-	//this->addChild(dexpoints, 4, "dexpoints");
-	//dexpoints->setAnchorPoint(Vec2(0, 0.5)); // set anchor point to left side
-	//dexpoints->setPosition(-583 * RES_ADJUST, 100 * RES_ADJUST);
-	//dexpoints->setColor(cocos2d::Color3B(0, 191, 255));
-	//dexpoints->setScale(1.0 * RES_ADJUST);
-	//HUD.insert(std::pair<std::string, Sprite*>("dexpoints", dexpoints));
-
-	//// intellect stat
-	//Sprite* intbar = Sprite::createWithSpriteFrameName("Shield_Durability_Bar_Empty2.png");
-	//this->addChild(intbar, 3, "intbar");
-	//intbar->setPosition(-550 * RES_ADJUST + SP_ADJUST, 80 * RES_ADJUST);
-	//intbar->setScale(1.0 * RES_ADJUST);
-	//HUD.insert(std::pair<std::string, Sprite*>("intbar", intbar));
-
-	//Sprite* intpoints = Sprite::createWithSpriteFrameName("Shield_Durability_Bar_Points2.png");
-	//this->addChild(intpoints, 4, "intpoints");
-	//intpoints->setAnchorPoint(Vec2(0, 0.5)); // set anchor point to left side
-	//intpoints->setPosition(-583 * RES_ADJUST, 80 * RES_ADJUST);
-	//intpoints->setColor(cocos2d::Color3B(0, 191, 255));
-	//intpoints->setScale(1.0 * RES_ADJUST);
-	//HUD.insert(std::pair<std::string, Sprite*>("intpoints", intpoints));
-	*/
-
-
-	// weapon
-	image = "Current_Weapon_Box_1.png";
-	Sprite* wepbox = Sprite::createWithSpriteFrameName(image);
-	wepbox->setPosition(-570 * RES_ADJUST, 240 * RES_ADJUST);
-	wepbox->setScale(.2f * RES_ADJUST);
-	wepbox->setOpacity(160);
-	this->addChild(wepbox, 2, "wepbox");
-	HUD.insert(std::pair<std::string, Sprite*>("wepbox", wepbox));
-
-	// load default weapon sprite
-	std::string weapon;
-	weapon = p->getWeapon()->getName();
-	image = p->getWeapon()->getImageName();
-	Sprite* currentwep = Sprite::createWithSpriteFrameName(image);
-	this->addChild(currentwep, 3, weapon);
-	currentwep->setPosition(-570 * RES_ADJUST, 240 * RES_ADJUST);
-	currentwep->setScale(0.6f * RES_ADJUST);
-	HUD.insert(std::pair<std::string, Sprite*>("currentwep", currentwep));
-
-	// if weapon has casting ability, add label
-	if (p->getWeapon()->canBeCast()) {
-
-		// if new weapon previously did not have the cast label, add it
-		if (keyLabels.find("cast key") == keyLabels.end()) {
-			auto castKey = Label::createWithTTF(convertKeycodeToStr(CAST_KEY), "fonts/Marker Felt.ttf", 14);
-			castKey->setPosition(-570.f * RES_ADJUST, 215.5f * RES_ADJUST);
-			castKey->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
-			castKey->setOpacity(255);
-			this->addChild(castKey, 4);
-			keyLabels.insert(std::pair<std::string, Label*>("cast key", castKey));
-		}
-	}
-
-
-	//		:::: RIGHT SIDE OF HUD ::::
-
-	// gold count
+	// Currency
 	image = "Gold_Pile1_48x48.png";
 	Sprite* goldpile = Sprite::createWithSpriteFrameName(image);
-	this->addChild(goldpile, 3, "goldpile");
+	this->addChild(goldpile, Z_HUD_SPRITE, "goldpile");
 	goldpile->setPosition(570 * RES_ADJUST, 300 * RES_ADJUST); // -190, 300
 	goldpile->setScale(0.8f * RES_ADJUST);
 	goldpile->setOpacity(230);
@@ -1729,244 +1621,44 @@ bool HUDLayer::init() {
 
 	goldcount = Label::createWithTTF("0", "fonts/Marker Felt.ttf", 18);
 	goldcount->setPosition(600 * RES_ADJUST, 300 * RES_ADJUST); // -160, 300
-	this->addChild(goldcount, 3);
+	this->addChild(goldcount, Z_HUD_LABEL);
 
 	return true;
 }
 void HUDLayer::updateHUD(Dungeon &dungeon) {
 	p = dungeon.getPlayer();
-	int x = p->getPosX(); int y = p->getPosY();
 
-	// :::: Gold check ::::
-	goldcount->setString(std::to_string(p->getMoney()));
-
-
-	// :::: Weapon check ::::
-	std::string weapon = p->getWeapon()->getName();
-	std::string image = p->getWeapon()->getImageName();
-
-	// if current weapon equipped is different, switch the weapon sprite
-	if (HUD.find("currentwep")->second->getName() != weapon) {
-		//remove sprite
-		HUD.find("currentwep")->second->removeFromParent();
-		HUD.erase("currentwep");
-
-		Sprite* currentwep = Sprite::createWithSpriteFrameName(image);
-		this->addChild(currentwep, 3, weapon);
-		currentwep->setPosition(-570.f * RES_ADJUST, 240.f * RES_ADJUST);
-		currentwep->setScale(0.6f * RES_ADJUST);
-		HUD.insert(std::pair<std::string, Sprite*>("currentwep", currentwep));
-
-
-		// if weapon has casting ability, add label
-		if (p->getWeapon()->canBeCast()) {
-
-			// if new weapon previously did not have the cast label, add it
-			if (keyLabels.find("cast key") == keyLabels.end()) {
-				auto castKey = Label::createWithTTF(convertKeycodeToStr(CAST_KEY), "fonts/Marker Felt.ttf", 14);
-				castKey->setPosition(-570.f * RES_ADJUST, 215.5f * RES_ADJUST);
-				castKey->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
-				castKey->setOpacity(255);
-				this->addChild(castKey, 4);
-				keyLabels.insert(std::pair<std::string, Label*>("cast key", castKey));
-			}
-		}
-		// else remove the label if previous weapon could be cast
-		else if (!p->getWeapon()->canBeCast() && keyLabels.find("cast key") != keyLabels.end()) {
-			auto it = keyLabels.find("cast key");
-			it->second->removeFromParent();
-			keyLabels.erase(it);
-		}
-		
-	}
-	// If there was a casting label that can be removed because the player used the special, remove it
-	else if (!p->getWeapon()->canBeCast() && keyLabels.find("cast key") != keyLabels.end()) {
-		auto it = keyLabels.find("cast key");
-		it->second->removeFromParent();
-		keyLabels.erase(it);
-	}
-	else if (p->getWeapon()->canBeCast()) {
-		// if weapon previously did not have the cast label, add it
-		if (keyLabels.find("cast key") == keyLabels.end()) {
-			auto castKey = Label::createWithTTF(convertKeycodeToStr(CAST_KEY), "fonts/Marker Felt.ttf", 14);
-			castKey->setPosition(-570.f * RES_ADJUST, 215.5f * RES_ADJUST);
-			castKey->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
-			castKey->setOpacity(255);
-			this->addChild(castKey, 4);
-			keyLabels.insert(std::pair<std::string, Label*>("cast key", castKey));
-		}
-	}
-
-
-	// Update active item
-	if (p->hasActiveItem()) {
-		std::string name = p->getActiveItem()->getName();
-
-		// If there wasn't an active item equipped previously, construct the menu
-		if (HUD.find("Active") == HUD.end()) {
-			constructActiveItemHUD();
-		}
-		// else if current active item is different, switch the sprite
-		else if (HUD.find("Active")->second->getName() != name) {
-			updateActiveItemHUD();
-		}
-		// Display stack amount for Spelunker
-		else if (p->getName() == SPELUNKER) {
-			std::shared_ptr<Spelunker> sp = std::dynamic_pointer_cast<Spelunker>(p);
-			int count = sp->getRockCount();
-			sp.reset();
-		
-			keyLabels.find("Active Stack Amount")->second->setString("x" + std::to_string(count));			
-		}
-	}
-	else {
-		// If there's no active item equipped and there previously was, deconstruct the HUD
-		if (HUD.find("Active") != HUD.end())
-			deconstructActiveItemHUD();	
-	}
-
-	updateActiveItemBar();
-
-
-	// :::: Relic check ::::
-	if (p->hasRelic()) {
-		std::string relic = p->getRelic()->getName();
-		image = p->getRelic()->getImageName();
-
-		// If there is now a relic equipped, but there wasn't previously, construct the menu
-		if (image != "" && HUD.find("Current Relic") == HUD.end()) {
-			constructRelicHUD();
-		}
-		// else if current relic equipped is different, switch the sprite
-		else if (image != "" && HUD.find("Current Relic")->second->getName() != relic) {
-			// remove sprite
-			HUD.find("Current Relic")->second->removeFromParent();
-			HUD.erase("Current Relic");
-
-			Sprite* currentTrinket = Sprite::createWithSpriteFrameName(image);
-			this->addChild(currentTrinket, 3, relic);
-			currentTrinket->setPosition(-570 * RES_ADJUST, 110 * RES_ADJUST);
-			currentTrinket->setScale(0.50);
-			HUD.insert(std::pair<std::string, Sprite*>("Current Relic", currentTrinket));
-		}
-	}
-	else {
-		// if there's no trinket equipped and there was previously, deconstruct the trinket HUD
-		if (image == "" && HUD.find("Current Relic") != HUD.end())
-			deconstructRelicHUD();	
-	}
-	
-
-	// :::: HP & Stats check ::::
-	double x_scale = dungeon.getPlayer()->getHP() / (static_cast<double>(dungeon.getPlayer()->getMaxHP()) * 1.0);
-	cocos2d::Action* move = cocos2d::ScaleTo::create(.4f, x_scale, 1);
-	auto action = HUD.find("hp")->second->runAction(move);
-	action->setTag(5);
-
-	numericalHP->setString(std::to_string(p->getHP()) + "/" + std::to_string(p->getMaxHP()));
-
-	str->setString("Str: +" + std::to_string(p->getStr()));
-	dex->setString("Dex: +" + std::to_string(p->getDex() + p->getWeapon()->getDexBonus()));
-	intellect->setString("Int: +" + std::to_string(p->getInt()));
-	armor->setString("Amr: +" + std::to_string(p->getArmor()));
-	moneyBonus->setString("Money Bonus : " + std::to_string((int)p->getMoneyBonus()));
-
-
-	// :::: Quick access check ::::
-	if (p->getItems().size() > 0 && quick == 0)
-		quick = 1;
-
-	if (quick == 1 && p->getItems().size() > 0) {
-		std::string image = p->getItems().at(0)->getImageName();
-		std::string item = p->getItems()[0]->getName();
-
-		// if there weren't any items before, construct menu again
-		if (HUD.find("quick access") == HUD.end()) {
-			constructItemHUD();
-		}
-		// else if the item is different, switch the sprite
-		else if (HUD.find("quick item") != HUD.end() && HUD.find("quick item")->second->getName() != item) {
-			HUD.find("quick item")->second->removeFromParent();
-			HUD.erase(HUD.find("quick item"));
-
-			updateItemHUD();
-		}
-
-		// Display stack amount for item
-		if (p->getItems()[0]->canStack() || p->hasFatStacks()) {
-
-			// If there was no label for stackable items, add it
-			if (keyLabels.find("Stack Amount") == keyLabels.end()) {
-				//std::shared_ptr<Stackable> stackable = std::dynamic_pointer_cast<Stackable>(p->getItems()[0]);
-
-				auto stack = Label::createWithTTF("x" + std::to_string(p->getItems()[0]->getCount()), "fonts/Marker Felt.ttf", 16);
-				stack->setPosition(600.f * RES_ADJUST, 240.f * RES_ADJUST);
-				stack->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 0);
-				stack->setOpacity(250);
-				this->addChild(stack, 4);
-				keyLabels.insert(std::pair<std::string, Label*>("Stack Amount", stack));
-
-				//stackable.reset();
-			}
-		}
-		// Otherwise if a stack amount label exists
-		if (keyLabels.find("Stack Amount") != keyLabels.end()) {
-			
-			// Remove it because the new item can't stack, or it's a different item than before
-			if (!(p->getItems()[0]->canStack() || p->hasFatStacks()) || HUD.find("quick item")->second->getName() != item) {
-				keyLabels.find("Stack Amount")->second->removeFromParent();
-				keyLabels.erase(keyLabels.find("Stack Amount"));
-			}
-			// Update the count
-			else if (HUD.find("quick item")->second->getName() == item) {
-				//std::shared_ptr<Stackable> stackable = std::dynamic_pointer_cast<Stackable>(p->getItems()[0]);
-				keyLabels.find("Stack Amount")->second->setString("x" + std::to_string(p->getItems()[0]->getCount()));
-				//stackable.reset();
-			}
-		}
-	}
-	else {
-		quick = 0;
-		// if there's no item quick slotted but there was previously, deconstruct the HUD
-		if (HUD.find("quick access") != HUD.end())
-			deconstructItemHUD();	
-	}
+	checkPlayerStats();
+	checkWeaponHUD();
+	checkActiveItemHUD();
+	checkRelicHUD();
+	checkItemHUD();
 }
-void HUDLayer::showShopHUD(Dungeon &dungeon, int x, int y) {
-	// pricing symbols, prices themselves, etc.
-	itemprice = Label::createWithTTF("$", "fonts/Marker Felt.ttf", 24);
-	itemprice->setPosition(x * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (dungeon.getRows() - y) - Y_OFFSET);
-	this->addChild(itemprice, 3);
-	itemprice->setColor(cocos2d::Color3B(255, 215, 0));
-	itemprice->setString("$" + std::to_string(dungeon[(y-1)*dungeon.getCols() + x].price));
-}
-void HUDLayer::updateShopHUD() {
 
-}
 void HUDLayer::showBossHP() {
 	std::string image;
 
 	//		RENDER BOSS HP
 	image = "Boss_Health_Bar_Empty_Long.png";
 	Sprite* healthbar = Sprite::createWithSpriteFrameName(image);
-	this->addChild(healthbar, 2, "bosshealthbar");
+	this->addChild(healthbar, Z_HUD_ELEMENT, "bosshealthbar");
 	healthbar->setPosition(430, 0);
 	HUD.insert(std::pair<std::string, Sprite*>("bosshealthbar", healthbar));
 
 	image = "Boss_Health_Points_Long.png";
 	Sprite* hp = Sprite::createWithSpriteFrameName(image);
-	this->addChild(hp, 3, "bosshp");
+	this->addChild(hp, Z_HUD_ELEMENT, "bosshp");
 	hp->setAnchorPoint(Vec2(0.5, 0.0)); // set anchor point to left side
 	hp->setPosition(430, -134);
 	HUD.insert(std::pair<std::string, Sprite*>("bosshp", hp));
 }
 void HUDLayer::updateBossHUD(Dungeon &dungeon) {
 	// if there are still monsters, check for smasher
-	if (!dungeon.getMonsters().empty()) {
+	if (dungeon.monsterCount() > 0) {
 		// if smasher is still alive, update its hp
-		if (dungeon.getMonsters().at(0)->getName() == "Smasher") {
+		if (dungeon.monsterAt(0)->getName() == "Smasher") {
 			//	Check Boss HP bar
-			float y_scale = dungeon.getMonsters()[0]->getHP() / (static_cast<float>(dungeon.getMonsters()[0]->getMaxHP()) * 1.0);
+			float y_scale = dungeon.monsterAt(0)->getHP() / (static_cast<float>(dungeon.monsterAt(0)->getMaxHP()) * 1.0);
 			cocos2d::Action* move = cocos2d::ScaleTo::create(.3f, 1.0f, y_scale);
 			HUD.find("bosshp")->second->runAction(move);
 		}
@@ -2029,7 +1721,7 @@ void HUDLayer::NPCInteraction(cocos2d::EventListenerKeyboard* listener, NPC &npc
 	line->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
 	line->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
 	line->setAdditionalKerning(0.25f);
-	this->addChild(line, 4);
+	this->addChild(line, Z_HUD_LABEL);
 
 	// display first line
 	line->setString(m_dialogue[lineIndex]);
@@ -2040,7 +1732,7 @@ void HUDLayer::NPCInteraction(cocos2d::EventListenerKeyboard* listener, NPC &npc
 	eventListener->onKeyPressed = CC_CALLBACK_2(HUDLayer::NPCKeyPressed, this, &npc);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(eventListener, line);
 }
-void HUDLayer::NPCKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, NPC *npc) {
+void HUDLayer::NPCKeyPressed(KeyType keyCode, cocos2d::Event* event, NPC *npc) {
 
 	// if there's nothing left to say, remove text and restore control
 	if (lineIndex >= (int)m_dialogue.size()) {
@@ -2057,7 +1749,7 @@ void HUDLayer::NPCKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::E
 	}
 
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_SPACE:
+	case KeyType::KEY_SPACE:
 	default: {
 		if (!m_dialogue.empty() && lineIndex < (int)m_dialogue.size()) {
 			playInterfaceSound("Confirm 1.mp3");
@@ -2096,15 +1788,16 @@ void HUDLayer::NPCPrompt(NPC &npc, std::vector<std::string> choices) {
 	// Arrow sprite for selection
 	auto sprite = Sprite::create("Right_Arrow.png");
 	sprite->setPosition(-3 * MENU_SPACING, -2.5f * MENU_SPACING);
-	this->addChild(sprite, 3);
+	this->addChild(sprite, Z_HUD_SPRITE);
 	sprite->setScale(2.5f);
 	generalSprites.insert(std::pair<std::string, Sprite*>("Selector", sprite));
 
 	for (int i = 0; i < (int)choices.size(); i++) {
-		auto choice = Label::createWithTTF(choices[i], "fonts/Marker Felt.ttf", 20);
-		choice->setPosition(0, (-3 - ((float)i - 0.5)) * MENU_SPACING); // The spacing is the only thing that changes
-		this->addChild(choice, 5);
-		labels.insert(std::pair<std::string, Label*>(choices[i], choice));
+		addLabel(0, (-3 - ((float)i - 0.5)) * MENU_SPACING, choices[i], choices[i], 20);
+		//auto choice = Label::createWithTTF(choices[i], "fonts/Marker Felt.ttf", 20);
+		//choice->setPosition(0, (-3 - ((float)i - 0.5)) * MENU_SPACING); // The spacing is the only thing that changes
+		//this->addChild(choice, 5);
+		//labels.insert(std::pair<std::string, Label*>(choices[i], choice));
 	}
 
 	// add event listener for selecting
@@ -2112,12 +1805,12 @@ void HUDLayer::NPCPrompt(NPC &npc, std::vector<std::string> choices) {
 	eventListener->onKeyPressed = CC_CALLBACK_2(HUDLayer::NPCPromptKeyPressed, this, &npc);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(eventListener, sprite);
 }
-void HUDLayer::NPCPromptKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, NPC *npc) {
+void HUDLayer::NPCPromptKeyPressed(KeyType keyCode, cocos2d::Event* event, NPC *npc) {
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
+	case KeyType::KEY_UP_ARROW: {
 		if (index > 0) {
 			index--;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y + 1 * MENU_SPACING);
@@ -2126,7 +1819,7 @@ void HUDLayer::NPCPromptKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, coco
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
+	case KeyType::KEY_DOWN_ARROW: {
 		if (index < (int)(m_dialogue.size() - 1)) {
 			index++;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y - 1 * MENU_SPACING);
@@ -2135,8 +1828,8 @@ void HUDLayer::NPCPromptKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, coco
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_ENTER:
-	case EventKeyboard::KeyCode::KEY_SPACE:
+	case KeyType::KEY_ENTER:
+	case KeyType::KEY_SPACE:
 
 		playInterfaceSound("Confirm 1.mp3");
 
@@ -2164,26 +1857,28 @@ void HUDLayer::devilsWaters(cocos2d::EventListenerKeyboard* listener, Dungeon &d
 
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
-
 	constructSelectionMenu();
 
 	// Pause option
-	auto pause = Label::createWithTTF("The waters give off a strange aura. Take a drink from the fountain?", "fonts/Marker Felt.ttf", 40);
+	addLabel(0, 4.8f * MENU_SPACING, "The waters give off a strange aura. Take a drink from the fountain?", "pause", 40);
+	/*auto pause = Label::createWithTTF("The waters give off a strange aura. Take a drink from the fountain?", "fonts/Marker Felt.ttf", 40);
 	pause->setPosition(0, 4.8f * MENU_SPACING);
 	this->addChild(pause, 3);
-	labels.insert(std::pair<std::string, Label*>("pause", pause));
+	labels.insert(std::pair<std::string, Label*>("pause", pause));*/
 
 	// NO
-	auto no = Label::createWithTTF("NO", "fonts/Marker Felt.ttf", 36);
+	addLabel(0, 2 * MENU_SPACING, "NO", "no", 36);
+	/*auto no = Label::createWithTTF("NO", "fonts/Marker Felt.ttf", 36);
 	no->setPosition(0, 2 * MENU_SPACING);
 	this->addChild(no, 3);
-	labels.insert(std::pair<std::string, Label*>("no", no));
+	labels.insert(std::pair<std::string, Label*>("no", no));*/
 
 	// YES
-	auto yes = Label::createWithTTF("YES", "fonts/Marker Felt.ttf", 36);
+	addLabel(0, -2 * MENU_SPACING, "YES", "yes", 36);
+	/*auto yes = Label::createWithTTF("YES", "fonts/Marker Felt.ttf", 36);
 	yes->setPosition(0, -2 * MENU_SPACING);
 	this->addChild(yes, 3);
-	labels.insert(std::pair<std::string, Label*>("yes", yes));
+	labels.insert(std::pair<std::string, Label*>("yes", yes));*/
 
 
 	// add event listener for selecting
@@ -2191,12 +1886,12 @@ void HUDLayer::devilsWaters(cocos2d::EventListenerKeyboard* listener, Dungeon &d
 	eventListener->onKeyPressed = CC_CALLBACK_2(HUDLayer::devilKeyPressed, this, &dungeon);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(eventListener, menuSprites.find("Selector")->second);
 }
-void HUDLayer::devilKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, Dungeon *dungeon) {
+void HUDLayer::devilKeyPressed(KeyType keyCode, cocos2d::Event* event, Dungeon *dungeon) {
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
+	case KeyType::KEY_UP_ARROW: {
 		if (index > 0) {
 			index--;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y + 4 * MENU_SPACING);
@@ -2205,7 +1900,7 @@ void HUDLayer::devilKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d:
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
+	case KeyType::KEY_DOWN_ARROW: {
 		if (index < 1) {
 			index++;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y - 4 * MENU_SPACING);
@@ -2214,8 +1909,8 @@ void HUDLayer::devilKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d:
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_ENTER:
-	case EventKeyboard::KeyCode::KEY_SPACE:
+	case KeyType::KEY_ENTER:
+	case KeyType::KEY_SPACE:
 		switch (index) {
 			// NO
 		case 0: {
@@ -2295,12 +1990,12 @@ void HUDLayer::shrineChoice(cocos2d::EventListenerKeyboard* listener, std::strin
 	eventListener->onKeyPressed = CC_CALLBACK_2(HUDLayer::shrineKeyPressed, this, &dungeon, choices);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(eventListener, menuSprites.find("Selector")->second);
 }
-void HUDLayer::shrineKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, Dungeon *dungeon, int choices) {
+void HUDLayer::shrineKeyPressed(KeyType keyCode, cocos2d::Event* event, Dungeon *dungeon, int choices) {
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
+	case KeyType::KEY_UP_ARROW: {
 		if (index > 0 && index <= choices) {
 			playInterfaceSound("Select 1.mp3");
 
@@ -2315,7 +2010,7 @@ void HUDLayer::shrineKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
+	case KeyType::KEY_DOWN_ARROW: {
 		if (index < choices) {
 			playInterfaceSound("Select 1.mp3");
 
@@ -2330,8 +2025,8 @@ void HUDLayer::shrineKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_ENTER:
-	case EventKeyboard::KeyCode::KEY_SPACE: {
+	case KeyType::KEY_ENTER:
+	case KeyType::KEY_SPACE: {
 		Shrine* shrine = dynamic_cast<Shrine*>(dungeon);
 		shrine->useChoice(index);
 
@@ -2351,8 +2046,6 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 	activeListener = listener;
 
 	p = dungeon.getPlayer();
-	std::vector<std::shared_ptr<Passive>> passives = p->getPassives();
-	std::vector<std::shared_ptr<Drops>> iteminv = p->getItems();
 
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
@@ -2364,12 +2057,12 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 	inventory->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
 	inventory->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
 	inventory->setAdditionalKerning(0.25f);
-	this->addChild(inventory, 5);
+	this->addChild(inventory, Z_HUD_LABEL);
 	labels.insert(std::make_pair("inventory", inventory));
 
 	// menu border
 	Sprite* longBox = Sprite::create("Inventory_Box_Length_Medium.png");
-	this->addChild(longBox, 3);
+	this->addChild(longBox, Z_HUD_ELEMENT);
 	longBox->setPosition(-300 * RES_ADJUST, 0);
 	longBox->setScale(.46f * RES_ADJUST);
 	longBox->setOpacity(170);
@@ -2377,7 +2070,7 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 
 	// menu border
 	Sprite* wideBox = Sprite::create("Inventory_Box_Wide_Medium.png");
-	this->addChild(wideBox, 3);
+	this->addChild(wideBox, Z_HUD_ELEMENT);
 	wideBox->setPosition(150 * RES_ADJUST, 75 * RES_ADJUST);
 	wideBox->setScale(.46f * RES_ADJUST);
 	wideBox->setOpacity(170);
@@ -2385,7 +2078,7 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 
 	// menu border
 	Sprite* textBox = Sprite::create("Inventory_Box_Text_Medium.png");
-	this->addChild(textBox, 3);
+	this->addChild(textBox, Z_HUD_ELEMENT);
 	textBox->setPosition(130 * RES_ADJUST, -200 * RES_ADJUST);
 	textBox->setScale(.42f * RES_ADJUST);
 	textBox->setOpacity(170);
@@ -2393,7 +2086,7 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 
 	// menu border
 	Sprite* selectBox = Sprite::create("Selection_Box.png");
-	this->addChild(selectBox, 5);
+	this->addChild(selectBox, Z_HUD_ELEMENT + 1);
 	selectBox->setPosition(-350 * RES_ADJUST, 150 * RES_ADJUST);
 	selectBox->setScale(.1f);
 	selectBox->setOpacity(200);
@@ -2417,12 +2110,12 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 	std::string image;
 
 	// Display use items
-	for (int i = 0; i < (int)iteminv.size(); i++) {
-		inventoryText[i + 2] = std::make_pair(iteminv[i]->getName(), iteminv[i]->getDescription());
-		image = iteminv.at(i)->getImageName();
+	for (int i = 0; i < (int)p->itemCount(); i++) {
+		inventoryText[i + 2] = std::make_pair(p->itemAt(i)->getName(), p->itemAt(i)->getDescription());
+		image = p->itemAt(i)->getImageName();
 
 		Sprite* item = Sprite::createWithSpriteFrameName(image);
-		this->addChild(item, 4);
+		this->addChild(item, Z_HUD_SPRITE);
 		item->setPosition((1.9 * i * MENU_SPACING - 90) * RES_ADJUST, 180 * RES_ADJUST);
 		item->setScale(1.0);
 		inventoryMenuSprites.insert(std::pair<std::string, Sprite*>("item", item));
@@ -2446,7 +2139,7 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 	inventoryText[0] = std::make_pair(p->getWeapon()->getName(), p->getWeapon()->getDescription());
 
 	Sprite* weapon = Sprite::createWithSpriteFrameName(image);
-	this->addChild(weapon, 4);
+	this->addChild(weapon, Z_HUD_SPRITE);
 	weapon->setScale(1.0);
 	weapon->setPosition((-350) * RES_ADJUST, 150 * RES_ADJUST);
 	inventoryMenuSprites.insert(std::pair<std::string, Sprite*>("weapon", weapon));
@@ -2456,7 +2149,7 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 		inventoryText[1] = std::make_pair(p->getStoredWeapon()->getName(), p->getStoredWeapon()->getDescription());
 
 		Sprite* storedWeapon = Sprite::createWithSpriteFrameName(image);
-		this->addChild(storedWeapon, 4);
+		this->addChild(storedWeapon, Z_HUD_SPRITE);
 		storedWeapon->setScale(1.0);
 		storedWeapon->setPosition(-250 * RES_ADJUST, 150 * RES_ADJUST);
 		inventoryMenuSprites.insert(std::pair<std::string, Sprite*>("Stored Weapon", storedWeapon));
@@ -2470,7 +2163,7 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 	itemName->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
 	itemName->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
 	itemName->setAdditionalKerning(0.25f);
-	this->addChild(itemName, 5);
+	this->addChild(itemName, Z_HUD_LABEL);
 	labels.insert(std::make_pair("item name", itemName));
 
 	// Label for the item's description
@@ -2481,7 +2174,7 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 	itemDescription->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
 	itemDescription->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
 	itemDescription->setAdditionalKerning(0.25f);
-	this->addChild(itemDescription, 5);
+	this->addChild(itemDescription, Z_HUD_LABEL);
 	labels.insert(std::make_pair("item description", itemDescription));
 
 	// Displays first item info
@@ -2496,7 +2189,7 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 
 		// shield sprite
 		Sprite* currentshield = Sprite::createWithSpriteFrameName(image);
-		this->addChild(currentshield, 4, shield);
+		this->addChild(currentshield, Z_HUD_SPRITE, shield);
 		currentshield->setPosition(-350 * RES_ADJUST, 50 * RES_ADJUST);
 		currentshield->setScale(1.0);
 		inventoryMenuSprites.insert(std::pair<std::string, Sprite*>("currentshield", currentshield));
@@ -2510,7 +2203,7 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 
 		// trinket sprite
 		Sprite* currentRelic = Sprite::createWithSpriteFrameName(image);
-		this->addChild(currentRelic, 4, relic);
+		this->addChild(currentRelic, Z_HUD_SPRITE, relic);
 		currentRelic->setPosition(-250 * RES_ADJUST, 50 * RES_ADJUST);
 		currentRelic->setScale(1.0);
 		inventoryMenuSprites.insert(std::pair<std::string, Sprite*>("Current Relic", currentRelic));
@@ -2518,12 +2211,12 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 	}
 
 	// Display passives
-	for (int i = 0; i < (int)passives.size(); i++) {
-		inventoryText[i + 9] = std::make_pair(passives[i]->getName(), passives[i]->getDescription());
-		image = passives.at(i)->getImageName();
+	for (int i = 0; i < (int)p->passiveCount(); i++) {
+		inventoryText[i + 9] = std::make_pair(p->passiveAt(i)->getName(), p->passiveAt(i)->getDescription());
+		image = p->passiveAt(i)->getImageName();
 
 		Sprite* passive = Sprite::createWithSpriteFrameName(image);
-		this->addChild(passive, 4);
+		this->addChild(passive, Z_HUD_SPRITE);
 
 		// X: i % 5 since 5 entries per row; Y: 80 is the number of pixels to next row, i / 5 to get the correct row
 		passive->setPosition((1.9 * (i % 5) * MENU_SPACING - 90) * RES_ADJUST, (100 - (80 * (i / 5))) * RES_ADJUST);
@@ -2538,7 +2231,7 @@ void HUDLayer::inventoryMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(eventListener, selectBox);
 
 }
-void HUDLayer::inventoryMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, Dungeon *dungeon) {
+void HUDLayer::inventoryMenuKeyPressed(KeyType keyCode, cocos2d::Event* event, Dungeon *dungeon) {
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 	p = dungeon->getPlayer();
@@ -2573,7 +2266,7 @@ void HUDLayer::inventoryMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, 
 	}
 
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_LEFT_ARROW: {
+	case KeyType::KEY_LEFT_ARROW: {
 		if (index == 0) {
 			index = 6; // end of weapons
 			event->getCurrentTarget()->setPosition(((index - 2) * 1.9 * MENU_SPACING - 90) * RES_ADJUST, 180 * RES_ADJUST);
@@ -2640,7 +2333,7 @@ void HUDLayer::inventoryMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, 
 
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
+	case KeyType::KEY_RIGHT_ARROW: {
 		if (index == 0) {
 			index++;
 			event->getCurrentTarget()->setPosition(-250 * RES_ADJUST, 150 * RES_ADJUST);
@@ -2707,7 +2400,7 @@ void HUDLayer::inventoryMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, 
 
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
+	case KeyType::KEY_UP_ARROW: {
 		if (index == 7) {
 			index = 0;
 			event->getCurrentTarget()->setPosition(-350 * RES_ADJUST, 150 * RES_ADJUST);
@@ -2738,7 +2431,7 @@ void HUDLayer::inventoryMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, 
 
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
+	case KeyType::KEY_DOWN_ARROW: {
 		if (index == 0) {
 			index = 7;
 			event->getCurrentTarget()->setPosition(-350 * RES_ADJUST, 50 * RES_ADJUST);
@@ -2769,8 +2462,8 @@ void HUDLayer::inventoryMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, 
 
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_I:
-	case EventKeyboard::KeyCode::KEY_ESCAPE: {
+	case KeyType::KEY_I:
+	case KeyType::KEY_ESCAPE: {
 		index = 0;
 		deconstructMenu(inventoryMenuSprites);
 
@@ -2794,7 +2487,6 @@ void HUDLayer::itemMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dunge
 	activeListener = listener;
 
 	p = dungeon.getPlayer();
-	std::vector<std::shared_ptr<Drops>> iteminv = p->getItems();
 
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
@@ -2808,37 +2500,33 @@ void HUDLayer::itemMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dunge
 
 	for (int i = -2; i < 3; i++) {
 		Sprite* box = Sprite::create("Menu_Box1.png");
-		this->addChild(box, 2);
+		this->addChild(box, Z_HUD_ELEMENT);
 		box->setPosition(i*MENU_SPACING, 3);
 		box->setOpacity(200);
 		itemMenuSprites.insert(std::pair<std::string, Sprite*>("box", box));
 	}
 
 	std::string image = "cheese.png";
-	int size = iteminv.size();
+	int size = p->itemCount();
 
 	for (int i = -2; i < size - 2; i++) {
-		image = iteminv.at(i + 2)->getImageName();
+		image = p->itemAt(i + 2)->getImageName();
 
 		Sprite* item = Sprite::createWithSpriteFrameName(image);
-		this->addChild(item, 4);
+		this->addChild(item, Z_HUD_SPRITE);
 		item->setPosition(i*MENU_SPACING, origin.y);
 		item->setScale(0.8f);
 		itemMenuSprites.insert(std::pair<std::string, Sprite*>("item", item));
 
 		// If item is stackable, display stack amount for item
-		if (iteminv.at(i + 2)->canStack() || p->hasFatStacks()) {
-			//std::shared_ptr<Stackable> stackable = std::dynamic_pointer_cast<Stackable>(iteminv.at(i + 2));
-
-			auto stack = Label::createWithTTF("x" + std::to_string(iteminv.at(i + 2)->getCount()), "fonts/Marker Felt.ttf", 16);
+		if (p->itemAt(i + 2)->canStack() || p->hasFatStacks()) {
+			auto stack = Label::createWithTTF("x" + std::to_string(p->itemAt(i + 2)->getCount()), "fonts/Marker Felt.ttf", 16);
 			stack->setPosition(i * MENU_SPACING + 15.f, origin.y - 15.f);
 			stack->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
 			stack->setColor(Color3B(220, 220, 220));
 			stack->setOpacity(255);
-			this->addChild(stack, 4);
-			labels.insert(std::pair<std::string, Label*>(std::to_string(i + 2), stack));
-
-			//stackable.reset();		
+			this->addChild(stack, Z_HUD_LABEL);
+			labels.insert(std::pair<std::string, Label*>(std::to_string(i + 2), stack));	
 		}
 	}
 
@@ -2846,7 +2534,7 @@ void HUDLayer::itemMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dunge
 	auto sprite = Sprite::create("Down_Arrow.png");
 	sprite->setPosition(-2 * MENU_SPACING, MENU_SPACING);
 	sprite->setScale(2.0);
-	this->addChild(sprite, 4);
+	this->addChild(sprite, Z_HUD_SPRITE);
 	itemMenuSprites.insert(std::pair<std::string, Sprite*>("sprite", sprite));
 
 	// helper labels
@@ -2856,7 +2544,7 @@ void HUDLayer::itemMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dunge
 	equip->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
 	equip->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
 	equip->setAdditionalKerning(0.25f);
-	this->addChild(equip, 4);
+	this->addChild(equip, Z_HUD_LABEL);
 	labels.insert(std::make_pair("equip", equip));
 
 	auto use = Label::createWithTTF("Space/Enter: Use item", "fonts/Marker Felt.ttf", 20);
@@ -2865,7 +2553,7 @@ void HUDLayer::itemMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dunge
 	use->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
 	use->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
 	use->setAdditionalKerning(0.25f);
-	this->addChild(use, 4);
+	this->addChild(use, Z_HUD_LABEL);
 	labels.insert(std::make_pair("use", use));
 
 
@@ -2874,7 +2562,7 @@ void HUDLayer::itemMenu(cocos2d::EventListenerKeyboard* listener, Dungeon &dunge
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(eventListener, sprite);
 
 }
-void HUDLayer::itemMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event, Dungeon *dungeon) {
+void HUDLayer::itemMenuKeyPressed(KeyType keyCode, cocos2d::Event* event, Dungeon *dungeon) {
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 
@@ -2911,7 +2599,7 @@ void HUDLayer::itemMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 		}
 
 		// if player has items, set this to new quick item slot
-		if (dungeon->getPlayer()->getItems().size() > 0) {
+		if (dungeon->getPlayer()->hasItems()) {
 			quick = 1;
 			dungeon->assignQuickItem(index);
 		}
@@ -2927,29 +2615,29 @@ void HUDLayer::itemMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 	}
 
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_LEFT_ARROW: {
+	case KeyType::KEY_LEFT_ARROW: {
 		if (index > 0) {
 			index--;
 			event->getCurrentTarget()->setPosition(pos.x - MENU_SPACING, MENU_SPACING);
 
 			playInterfaceSound("Select 1.mp3");
 		}
-		else if (index == 0 && p->getItems().size() > 1) {
-			index = p->getItems().size() - 1;
+		else if (index == 0 && p->itemCount() > 1) {
+			index = p->itemCount() - 1;
 			event->getCurrentTarget()->setPosition(pos.x + index * MENU_SPACING, MENU_SPACING);
 
 			playInterfaceSound("Select 1.mp3");
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
-		if (index < (int)p->getItems().size() - 1) {
+	case KeyType::KEY_RIGHT_ARROW: {
+		if (index < (int)p->itemCount() - 1) {
 			index++;
 			event->getCurrentTarget()->setPosition(pos.x + MENU_SPACING, MENU_SPACING);
 
 			playInterfaceSound("Select 1.mp3");
 		}
-		else if (index == p->getItems().size() - 1 && p->getItems().size() > 1) {
+		else if (index == p->itemCount() - 1 && p->itemCount() > 1) {
 			index = 0;
 			event->getCurrentTarget()->setPosition(-2 * MENU_SPACING, MENU_SPACING);
 
@@ -2957,28 +2645,23 @@ void HUDLayer::itemMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_SPACE:
-	case EventKeyboard::KeyCode::KEY_ENTER: {
+	case KeyType::KEY_SPACE:
+	case KeyType::KEY_ENTER: {
 		playInterfaceSound("Confirm 1.mp3");
 
 		// if there are any lingering actions, finish them instantly
 		auto actions = this->getActionManager();
-		//while (actions->getNumberOfRunningActions() > 1) { // >1 because follow player is always running
-		//	actions->update(1.0);
-		//}
-		while (actions->getNumberOfRunningActionsByTag(1) > 0) { // >1 because follow player is always running
+		while (actions->getNumberOfRunningActionsByTag(1) > 0)
 			actions->update(1.0, 1);
-		}
-
-		if (p->getItems().size() != 0) {
+		
+		if (p->hasItems())
 			dungeon->callUse(index); // use item
-		}
-
+		
 		// if there are no more items, then there's no more quick access item
-		if (dungeon->getPlayer()->getItems().size() == 0)
+		if (dungeon->getPlayer()->itemCount() == 0)
 			quick = 0; // reset quick if first item is used
 	}
-	case EventKeyboard::KeyCode::KEY_ESCAPE: {
+	case KeyType::KEY_ESCAPE: {
 		index = 0;
 		deconstructMenu(itemMenuSprites);
 
@@ -3001,6 +2684,7 @@ void HUDLayer::itemMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 	}
 
 }
+
 void HUDLayer::gameOver() {
 	// prevent player movement
 	this->_eventDispatcher->removeAllEventListeners();
@@ -3030,22 +2714,22 @@ void HUDLayer::gameOver() {
 	// Game over!
 	auto pause = Label::createWithTTF("YOU DIED", "fonts/Marker Felt.ttf", 48);
 	pause->setPosition(0, 4.8 * MENU_SPACING);
-	this->addChild(pause, 3);
+	this->addChild(pause, Z_HUD_LABEL);
 
 	// Back to Menu option
 	auto back = Label::createWithTTF("Main Menu", "fonts/Marker Felt.ttf", 36);
 	back->setPosition(0, 2 * MENU_SPACING);
-	this->addChild(back, 3);
+	this->addChild(back, Z_HUD_LABEL);
 
 	// Restart option
 	auto resume = Label::createWithTTF("Restart", "fonts/Marker Felt.ttf", 36);
 	resume->setPosition(0, 1 * MENU_SPACING);
-	this->addChild(resume, 3);
+	this->addChild(resume, Z_HUD_LABEL);
 
 	// Quit option
 	auto exit = Label::createWithTTF("Exit Game", "fonts/Marker Felt.ttf", 36);
 	exit->setPosition(0, -2 * MENU_SPACING);
-	this->addChild(exit, 3);
+	this->addChild(exit, Z_HUD_LABEL);
 
 
 	// add new event listener for game over menu
@@ -3082,22 +2766,22 @@ void HUDLayer::gameOver(cocos2d::Scene &scene) {
 	// Game over!
 	auto pause = Label::createWithTTF("YOU DIED", "fonts/Marker Felt.ttf", 48);
 	pause->setPosition(0, 4.8 * MENU_SPACING);
-	this->addChild(pause, 3);
+	this->addChild(pause, Z_HUD_LABEL);
 
 	// Back to Menu option
 	auto back = Label::createWithTTF("Main Menu", "fonts/Marker Felt.ttf", 36);
 	back->setPosition(0, 2 * MENU_SPACING);
-	this->addChild(back, 3);
+	this->addChild(back, Z_HUD_LABEL);
 
 	// Resume option
 	auto resume = Label::createWithTTF("Restart", "fonts/Marker Felt.ttf", 36);
 	resume->setPosition(0, 1 * MENU_SPACING);
-	this->addChild(resume, 3);
+	this->addChild(resume, Z_HUD_LABEL);
 
 	// Quit option
 	auto exit = Label::createWithTTF("Exit Game", "fonts/Marker Felt.ttf", 36);
 	exit->setPosition(0, -2 * MENU_SPACING);
-	this->addChild(exit, 3);
+	this->addChild(exit, Z_HUD_LABEL);
 
 
 	// add new event listener for game over menu
@@ -3105,12 +2789,12 @@ void HUDLayer::gameOver(cocos2d::Scene &scene) {
 	eventListener->onKeyPressed = CC_CALLBACK_2(HUDLayer::gameOverKeyPressed, this);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(eventListener, menuSprites.find("Selector")->second);
 }
-void HUDLayer::gameOverKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event) {
+void HUDLayer::gameOverKeyPressed(KeyType keyCode, cocos2d::Event* event) {
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
+	case KeyType::KEY_UP_ARROW: {
 		if (index == 1) {
 			index--;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y + 1 * MENU_SPACING);
@@ -3125,7 +2809,7 @@ void HUDLayer::gameOverKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
+	case KeyType::KEY_DOWN_ARROW: {
 		if (index == 0) {
 			index++;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y - 1 * MENU_SPACING);
@@ -3140,8 +2824,8 @@ void HUDLayer::gameOverKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_ENTER:
-	//case EventKeyboard::KeyCode::KEY_SPACE:
+	case KeyType::KEY_ENTER:
+	//case KeyType::KEY_SPACE:
 		switch (index) {
 			// Back to main menu
 		case 0: {
@@ -3159,34 +2843,8 @@ void HUDLayer::gameOverKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 		}
 			// Restart
 		case 1: {
-			// stop music
-			cocos2d::experimental::AudioEngine::stopAll();
+			restartGame(*p);
 			playInterfaceSound("Confirm 1.mp3");
-
-			auto visibleSize = Director::getInstance()->getVisibleSize();
-
-			// Needed to reset passives obtained
-			GameTable::initializeTables();
-
-			// generate a new level 1 scene
-			std::shared_ptr<Player> newPlayer(nullptr);
-			if (p->getName() == ADVENTURER)
-				newPlayer = std::make_shared<Adventurer>();
-			else if (p->getName() == SPELLCASTER)
-				newPlayer = std::make_shared<Spellcaster>();
-			else if (p->getName() == MADMAN)
-				newPlayer = std::make_shared<TheMadman>();
-			else if (p->getName() == SPELUNKER)
-				newPlayer = std::make_shared<Spelunker>();
-			else if (p->getName() == ACROBAT)
-				newPlayer = std::make_shared<Acrobat>();
-			else
-				newPlayer = std::make_shared<Adventurer>();
-
-			auto level1Scene = LevelScene::createScene(newPlayer, 1);
-			level1Scene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
-
-			Director::getInstance()->replaceScene(level1Scene); // replace with new scene
 			return;
 		}
 		case 2: // Exit Game
@@ -3197,6 +2855,7 @@ void HUDLayer::gameOverKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos
 		break;
 	}
 }
+
 void HUDLayer::winner() {
 	// prevent player movement
 	this->_eventDispatcher->removeAllEventListeners();
@@ -3222,7 +2881,7 @@ void HUDLayer::winner() {
 
 	// menu border
 	Sprite* box = Sprite::create("Pause_Menu_Border_Red.png");
-	this->addChild(box, 2);
+	this->addChild(box, Z_HUD_ELEMENT);
 	box->setPosition(0, 0);
 	box->setScale(.2f);
 	box->setOpacity(170);
@@ -3230,23 +2889,23 @@ void HUDLayer::winner() {
 	// arrow sprite for selection
 	auto sprite = Sprite::create("Right_Arrow.png");
 	sprite->setPosition(-2 * MENU_SPACING, 2 * MENU_SPACING);
-	this->addChild(sprite, 3);
+	this->addChild(sprite, Z_HUD_SPRITE);
 	sprite->setScale(2.0f);
 
 	// You won!
 	auto pause = Label::createWithTTF("YOU WON!", "fonts/Marker Felt.ttf", 48);
 	pause->setPosition(0, 4.8 * MENU_SPACING);
-	this->addChild(pause, 3);
+	this->addChild(pause, Z_HUD_LABEL);
 
 	// Resume option
 	auto resume = Label::createWithTTF("Restart", "fonts/Marker Felt.ttf", 36);
 	resume->setPosition(0, 2 * MENU_SPACING);
-	this->addChild(resume, 3);
+	this->addChild(resume, Z_HUD_LABEL);
 
 	// Quit option
 	auto exit = Label::createWithTTF("Exit Game", "fonts/Marker Felt.ttf", 36);
 	exit->setPosition(0, -2 * MENU_SPACING);
-	this->addChild(exit, 3);
+	this->addChild(exit, Z_HUD_LABEL);
 
 
 	// add new event listener for win menu
@@ -3254,12 +2913,12 @@ void HUDLayer::winner() {
 	eventListener->onKeyPressed = CC_CALLBACK_2(HUDLayer::winnerKeyPressed, this);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(eventListener, sprite);
 }
-void HUDLayer::winnerKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event) {
+void HUDLayer::winnerKeyPressed(KeyType keyCode, cocos2d::Event* event) {
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
+	case KeyType::KEY_UP_ARROW: {
 		if (index > 0) {
 			index--;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y + 4 * MENU_SPACING);
@@ -3268,7 +2927,7 @@ void HUDLayer::winnerKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
+	case KeyType::KEY_DOWN_ARROW: {
 		if (index < 1) {
 			index++;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y - 4 * MENU_SPACING);
@@ -3277,37 +2936,13 @@ void HUDLayer::winnerKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_ENTER:
-	case EventKeyboard::KeyCode::KEY_SPACE:
+	case KeyType::KEY_ENTER:
+	case KeyType::KEY_SPACE:
 		switch (index) {
 			// Restart
 		case 0: {
+			restartGame(*p);
 			playInterfaceSound("Confirm 1.mp3");
-
-			auto visibleSize = Director::getInstance()->getVisibleSize();
-
-			// Needed to reset passives obtained
-			GameTable::initializeTables();
-
-			// generate a new level 1 scene
-			std::shared_ptr<Player> newPlayer(nullptr);
-			if (p->getName() == ADVENTURER)
-				newPlayer = std::make_shared<Adventurer>();
-			else if (p->getName() == SPELLCASTER)
-				newPlayer = std::make_shared<Spellcaster>();
-			else if (p->getName() == MADMAN)
-				newPlayer = std::make_shared<TheMadman>();
-			else if (p->getName() == SPELUNKER)
-				newPlayer = std::make_shared<Spelunker>();
-			else if (p->getName() == ACROBAT)
-				newPlayer = std::make_shared<Acrobat>();
-			else
-				newPlayer = std::make_shared<Adventurer>();
-
-			auto level1Scene = LevelScene::createScene(newPlayer, 1);
-			level1Scene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
-
-			Director::getInstance()->replaceScene(level1Scene); // replace with new scene
 			return;
 		}
 		case 1: // Exit Game
@@ -3322,7 +2957,7 @@ void HUDLayer::winnerKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d
 void HUDLayer::constructSelectionMenu() {
 	// menu border
 	Sprite* box = Sprite::create("Pause_Menu_Border_Red.png");
-	this->addChild(box, 2);
+	this->addChild(box, Z_HUD_ELEMENT);
 	box->setPosition(0, 0);
 	box->setScale(.2f);
 	box->setOpacity(170);
@@ -3331,7 +2966,7 @@ void HUDLayer::constructSelectionMenu() {
 	// arrow sprite for selection
 	auto arrow = Sprite::create("Right_Arrow.png");
 	arrow->setPosition(-2 * MENU_SPACING, 2 * MENU_SPACING);
-	this->addChild(arrow, 3);
+	this->addChild(arrow, Z_HUD_SPRITE);
 	arrow->setScale(2.0f);
 	menuSprites.insert(std::pair<std::string, Sprite*>("Selector", arrow));
 }
@@ -3350,6 +2985,23 @@ void HUDLayer::deconstructMenu(std::multimap<std::string, cocos2d::Sprite*> &spr
 	labels.clear();
 }
 
+void HUDLayer::checkPlayerStats() {
+	double x_scale = p->getHP() / (static_cast<double>(p->getMaxHP()) * 1.0);
+	cocos2d::Action* move = cocos2d::ScaleTo::create(.4f, x_scale, 1);
+	auto action = HUD.find("hp")->second->runAction(move);
+	action->setTag(5);
+
+	goldcount->setString(std::to_string(p->getMoney()));
+
+	numericalHP->setString(std::to_string(p->getHP()) + "/" + std::to_string(p->getMaxHP()));
+
+	str->setString("Str: +" + std::to_string(p->getStr()));
+	dex->setString("Dex: +" + std::to_string(p->getDex() + p->getWeapon()->getDexBonus()));
+	intellect->setString("Int: +" + std::to_string(p->getInt()));
+	armor->setString("Amr: +" + std::to_string(p->getArmor()));
+	moneyBonus->setString("Money Bonus : " + std::to_string((int)p->getMoneyBonus()));
+}
+
 void HUDLayer::constructActiveItemHUD() {
 	std::string name = p->getActiveItem()->getName();
 	std::string image = p->getActiveItem()->getImageName();
@@ -3360,12 +3012,12 @@ void HUDLayer::constructActiveItemHUD() {
 	activeBox->setScale(.2f * RES_ADJUST);
 	activeBox->setOpacity(160);
 	activeBox->setColor(cocos2d::Color3B(255, 175, 5));
-	this->addChild(activeBox, 2, "Active Box");
+	this->addChild(activeBox, Z_HUD_ELEMENT, "Active Box");
 	HUD.insert(std::pair<std::string, Sprite*>("Active Box", activeBox));
 
 	// Active Item sprite
 	Sprite* active = Sprite::createWithSpriteFrameName(image);
-	this->addChild(active, 3, name);
+	this->addChild(active, Z_HUD_SPRITE, name);
 	active->setPosition(-570.f * RES_ADJUST, 180.f * RES_ADJUST);
 	active->setScale(0.5f * RES_ADJUST);
 	HUD.insert(std::pair<std::string, Sprite*>("Active", active));
@@ -3373,14 +3025,14 @@ void HUDLayer::constructActiveItemHUD() {
 	if (p->activeHasMeter()) {
 		// Active Item bar
 		Sprite* activeBar = Sprite::createWithSpriteFrameName("Shield_Durability_Bar_Empty2.png");
-		this->addChild(activeBar, 3, "Active Bar");
+		this->addChild(activeBar, Z_HUD_ELEMENT, "Active Bar");
 		activeBar->setPosition(-550 * RES_ADJUST + SP_ADJUST, 150 * RES_ADJUST);
 		activeBar->setScale(1.0f * RES_ADJUST);
 		HUD.insert(std::pair<std::string, Sprite*>("Active Bar", activeBar));
 
 		// Active Item bar points
 		Sprite* activePoints = Sprite::createWithSpriteFrameName("Shield_Durability_Bar_Points2.png");
-		this->addChild(activePoints, 4, "Active Points");
+		this->addChild(activePoints, Z_HUD_ELEMENT + 1, "Active Points");
 		activePoints->setAnchorPoint(Vec2(0, 0.5)); // set anchor point to left side
 		activePoints->setPosition(-583 * RES_ADJUST, 150 * RES_ADJUST);
 		activePoints->setScale(0.4f * RES_ADJUST);
@@ -3392,7 +3044,7 @@ void HUDLayer::constructActiveItemHUD() {
 	space->setPosition(-570.f * RES_ADJUST, 162.f * RES_ADJUST);
 	space->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
 	space->setOpacity(245);
-	this->addChild(space, 4);
+	this->addChild(space, Z_HUD_LABEL);
 	keyLabels.insert(std::pair<std::string, Label*>("space", space));
 
 	// Display stack amount for Spelunker
@@ -3407,13 +3059,42 @@ void HUDLayer::constructActiveItemHUD() {
 			stack->setPosition(-540.f * RES_ADJUST, 180.f * RES_ADJUST);
 			stack->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 0);
 			stack->setOpacity(250);
-			this->addChild(stack, 4);
+			this->addChild(stack, Z_HUD_LABEL);
 			keyLabels.insert(std::pair<std::string, Label*>("Active Stack Amount", stack));
 		}
 		else {
 			keyLabels.find("Active Stack Amount")->second->setString("x" + std::to_string(count));
 		}
 	}
+}
+void HUDLayer::checkActiveItemHUD() {
+	if (p->hasActiveItem()) {
+		std::string name = p->getActiveItem()->getName();
+
+		// If there wasn't an active item equipped previously, construct the menu
+		if (HUD.find("Active") == HUD.end())
+			constructActiveItemHUD();
+
+		// else if current active item is different, switch the sprite
+		else if (HUD.find("Active")->second->getName() != name)
+			updateActiveItemHUD();
+
+		// Display stack amount for Spelunker
+		else if (p->getName() == SPELUNKER) {
+			std::shared_ptr<Spelunker> sp = std::dynamic_pointer_cast<Spelunker>(p);
+			int count = sp->getRockCount();
+			sp.reset();
+
+			keyLabels.find("Active Stack Amount")->second->setString("x" + std::to_string(count));
+		}
+	}
+	else {
+		// If there's no active item equipped and there previously was, deconstruct the HUD
+		if (HUD.find("Active") != HUD.end())
+			deconstructActiveItemHUD();
+	}
+
+	updateActiveItemBar();
 }
 void HUDLayer::updateActiveItemHUD() {
 	// Remove old sprite
@@ -3424,7 +3105,7 @@ void HUDLayer::updateActiveItemHUD() {
 	std::string image = p->getActiveItem()->getImageName();
 
 	Sprite* newActive = Sprite::createWithSpriteFrameName(image);
-	this->addChild(newActive, 3, name);
+	this->addChild(newActive, Z_HUD_SPRITE, name);
 	newActive->setPosition(-570 * RES_ADJUST, 180 * RES_ADJUST);
 	newActive->setScale(0.50f * RES_ADJUST);
 	HUD.insert(std::pair<std::string, Sprite*>("Active", newActive));
@@ -3470,7 +3151,7 @@ void HUDLayer::constructItemHUD() {
 	quickAccess->setScale(.2f * RES_ADJUST);
 	quickAccess->setOpacity(160);
 	quickAccess->setColor(cocos2d::Color3B(250, 188, 165));
-	this->addChild(quickAccess, 2, "quick access");
+	this->addChild(quickAccess, Z_HUD_ELEMENT, "quick access");
 	HUD.insert(std::pair<std::string, Sprite*>("quick access", quickAccess));
 
 	// key label
@@ -3478,15 +3159,69 @@ void HUDLayer::constructItemHUD() {
 	qKey->setPosition(570.f * RES_ADJUST, 217.f * RES_ADJUST);
 	qKey->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
 	qKey->setOpacity(245);
-	this->addChild(qKey, 4);
+	this->addChild(qKey, Z_HUD_LABEL);
 	keyLabels.insert(std::pair<std::string, Label*>("qKey", qKey));
 
 	updateItemHUD();
 }
+void HUDLayer::checkItemHUD() {
+	if (p->hasItems() && quick == 0)
+		quick = 1;
+
+	if (quick == 1 && p->hasItems()) {
+		std::string image = p->itemAt(0)->getImageName();
+		std::string item = p->itemAt(0)->getName();
+
+		// if there weren't any items before, construct menu again
+		if (HUD.find("quick access") == HUD.end()) {
+			constructItemHUD();
+		}
+		// else if the item is different, switch the sprite
+		else if (HUD.find("quick item") != HUD.end() && HUD.find("quick item")->second->getName() != item) {
+			HUD.find("quick item")->second->removeFromParent();
+			HUD.erase(HUD.find("quick item"));
+
+			updateItemHUD();
+		}
+
+		// Display stack amount for item
+		if (p->itemAt(0)->canStack() || p->hasFatStacks()) {
+
+			// If there was no label for stackable items, add it
+			if (keyLabels.find("Stack Amount") == keyLabels.end()) {
+				auto stack = Label::createWithTTF("x" + std::to_string(p->itemAt(0)->getCount()), "fonts/Marker Felt.ttf", 16);
+				stack->setPosition(600.f * RES_ADJUST, 240.f * RES_ADJUST);
+				stack->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 0);
+				stack->setOpacity(250);
+				this->addChild(stack, Z_HUD_LABEL);
+				keyLabels.insert(std::pair<std::string, Label*>("Stack Amount", stack));
+			}
+		}
+		// Otherwise if a stack amount label exists
+		if (keyLabels.find("Stack Amount") != keyLabels.end()) {
+
+			// Remove it because the new item can't stack, or it's a different item than before
+			if (!(p->itemAt(0)->canStack() || p->hasFatStacks()) || HUD.find("quick item")->second->getName() != item) {
+				keyLabels.find("Stack Amount")->second->removeFromParent();
+				keyLabels.erase(keyLabels.find("Stack Amount"));
+			}
+			// Update the count
+			else if (HUD.find("quick item")->second->getName() == item) {
+				keyLabels.find("Stack Amount")->second->setString("x" + std::to_string(p->itemAt(0)->getCount()));
+			}
+		}
+	}
+	else {
+		quick = 0;
+		// if there's no item quick slotted but there was previously, deconstruct the HUD
+		if (HUD.find("quick access") != HUD.end())
+			deconstructItemHUD();
+	}
+}
 void HUDLayer::updateItemHUD() {
 	// The item to display
-	Sprite* quickitem = Sprite::createWithSpriteFrameName(p->getItems().at(0)->getImageName());
-	this->addChild(quickitem, 3, p->getItems()[0]->getName());
+	Sprite* quickitem = Sprite::createWithSpriteFrameName(p->itemAt(0)->getImageName());
+	this->addChild(quickitem, Z_HUD_SPRITE, p->itemAt(0)->getName());
 	quickitem->setPosition(570.f * RES_ADJUST, 240.f * RES_ADJUST);
 	quickitem->setScale(0.8f);
 	HUD.insert(std::pair<std::string, Sprite*>("quick item", quickitem));
@@ -3516,15 +3251,46 @@ void HUDLayer::constructRelicHUD() {
 	trinketbox->setScale(.2f * RES_ADJUST);
 	trinketbox->setOpacity(200);
 	trinketbox->setColor(cocos2d::Color3B(200, 20, 0));
-	this->addChild(trinketbox, 2, "Relic Box");
+	this->addChild(trinketbox, Z_HUD_ELEMENT, "Relic Box");
 	HUD.insert(std::pair<std::string, Sprite*>("Relic Box", trinketbox));
 
 	// Relic sprite
 	Sprite* currentTrinket = Sprite::createWithSpriteFrameName(p->getRelic()->getImageName());
-	this->addChild(currentTrinket, 3, p->getRelic()->getName());
+	this->addChild(currentTrinket, Z_HUD_SPRITE, p->getRelic()->getName());
 	currentTrinket->setPosition(-570 * RES_ADJUST, 110 * RES_ADJUST);
 	currentTrinket->setScale(0.5);
 	HUD.insert(std::pair<std::string, Sprite*>("Current Relic", currentTrinket));
+}
+void HUDLayer::checkRelicHUD() {
+	if (p->hasRelic()) {
+		std::string relic = p->getRelic()->getName();
+
+		// If there is now a relic equipped, but there wasn't previously, construct the menu
+		if (HUD.find("Current Relic") == HUD.end())
+			constructRelicHUD();
+
+		// else if current relic equipped is different, switch the sprite
+		else if (HUD.find("Current Relic")->second->getName() != relic)
+			updateRelicHUD();
+	}
+	else {
+		// if there's no relic equipped and there was previously, deconstruct the HUD
+		if (HUD.find("Current Relic") != HUD.end())
+			deconstructRelicHUD();
+	}
+}
+void HUDLayer::updateRelicHUD() {
+	HUD.find("Current Relic")->second->removeFromParent();
+	HUD.erase("Current Relic");
+
+	std::string relic = p->getRelic()->getName();
+	std::string image = p->getRelic()->getImageName();
+
+	Sprite* currentRelic = Sprite::createWithSpriteFrameName(image);
+	this->addChild(currentRelic, Z_HUD_SPRITE, relic);
+	currentRelic->setPosition(-570 * RES_ADJUST, 110 * RES_ADJUST);
+	currentRelic->setScale(0.50);
+	HUD.insert(std::pair<std::string, Sprite*>("Current Relic", currentRelic));
 }
 void HUDLayer::deconstructRelicHUD() {
 	if (HUD.find("Relic Box") != HUD.end()) {
@@ -3535,6 +3301,82 @@ void HUDLayer::deconstructRelicHUD() {
 		HUD.erase(HUD.find("Current Relic"));
 		HUD.erase(HUD.find("Relic Box"));
 	}
+}
+
+void HUDLayer::constructWeaponHUD() {
+	// weapon
+	std::string image = "Current_Weapon_Box_1.png";
+	Sprite* wepbox = Sprite::createWithSpriteFrameName(image);
+	wepbox->setPosition(-570 * RES_ADJUST, 240 * RES_ADJUST);
+	wepbox->setScale(.2f * RES_ADJUST);
+	wepbox->setOpacity(160);
+	this->addChild(wepbox, Z_HUD_ELEMENT, "wepbox");
+	HUD.insert(std::pair<std::string, Sprite*>("wepbox", wepbox));
+
+	// load default weapon sprite
+	std::string weapon;
+	weapon = p->getWeapon()->getName();
+	image = p->getWeapon()->getImageName();
+	Sprite* currentwep = Sprite::createWithSpriteFrameName(image);
+	this->addChild(currentwep, Z_HUD_SPRITE, weapon);
+	currentwep->setPosition(-570 * RES_ADJUST, 240 * RES_ADJUST);
+	currentwep->setScale(0.6f * RES_ADJUST);
+	HUD.insert(std::pair<std::string, Sprite*>("currentwep", currentwep));
+
+	// if weapon has casting ability, add label
+	if (p->getWeapon()->canBeCast())
+		addWeaponCastLabel();
+}
+void HUDLayer::checkWeaponHUD() {
+	std::string weapon = p->getWeapon()->getName();
+	std::string image = p->getWeapon()->getImageName();
+
+	// if current weapon equipped is different, switch the weapon sprite
+	if (HUD.find("currentwep")->second->getName() != weapon)
+		updateWeaponHUD();
+
+	// If there was a casting label that can be removed because the player used the special, remove it
+	else if (!p->getWeapon()->canBeCast() && keyLabels.find("cast key") != keyLabels.end())
+		removeWeaponCastLabel();
+
+	else if (p->getWeapon()->canBeCast())
+		addWeaponCastLabel();
+}
+void HUDLayer::updateWeaponHUD() {
+	HUD.find("currentwep")->second->removeFromParent();
+	HUD.erase("currentwep");
+
+	std::string weapon = p->getWeapon()->getName();
+	std::string image = p->getWeapon()->getImageName();
+
+	Sprite* currentwep = Sprite::createWithSpriteFrameName(image);
+	this->addChild(currentwep, Z_HUD_SPRITE, weapon);
+	currentwep->setPosition(-570.f * RES_ADJUST, 240.f * RES_ADJUST);
+	currentwep->setScale(0.6f * RES_ADJUST);
+	HUD.insert(std::pair<std::string, Sprite*>("currentwep", currentwep));
+
+	// if weapon has casting ability, add label
+	if (p->getWeapon()->canBeCast())
+		addWeaponCastLabel();
+
+	// else remove the label if previous weapon could be cast
+	else if (!p->getWeapon()->canBeCast() && keyLabels.find("cast key") != keyLabels.end())
+		removeWeaponCastLabel();
+}
+void HUDLayer::addWeaponCastLabel() {
+	if (keyLabels.find("cast key") == keyLabels.end()) {
+		auto castKey = Label::createWithTTF(convertKeycodeToStr(CAST_KEY), "fonts/Marker Felt.ttf", 14);
+		castKey->setPosition(-570.f * RES_ADJUST, 215.5f * RES_ADJUST);
+		castKey->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
+		castKey->setOpacity(255);
+		this->addChild(castKey, Z_HUD_LABEL);
+		keyLabels.insert(std::pair<std::string, Label*>("cast key", castKey));
+	}
+}
+void HUDLayer::removeWeaponCastLabel() {
+	auto it = keyLabels.find("cast key");
+	it->second->removeFromParent();
+	keyLabels.erase(it);
 }
 
 void HUDLayer::deconstructShopHUD() {
@@ -3552,16 +3394,27 @@ void HUDLayer::deconstructBossHUD() {
 	}
 }
 
-void HUDLayer::addLabel(float x, float y, std::string name, std::string id, float fontSize) {
+cocos2d::Label* HUDLayer::getStatLabel(float x, float y, std::string text, float fontSize) {
+	cocos2d::Label *label = Label::createWithTTF(text, "fonts/Marker Felt.ttf", fontSize);
+	label->setPosition(x, y);
+	label->setOpacity(230);
+	label->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
+	label->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
+	label->setAdditionalKerning(0.25f);
+	this->addChild(label, Z_HUD_LABEL);
+
+	return label;
+}
+void HUDLayer::addLabel(float x, float y, std::string text, std::string id, float fontSize) {
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 
-	auto label = Label::createWithTTF(name, "fonts/Marker Felt.ttf", fontSize);
+	auto label = Label::createWithTTF(text, "fonts/Marker Felt.ttf", fontSize);
 	label->setPosition(x, y);
 	//label->setOpacity(230);
 	//label->setTextColor(cocos2d::Color4B(230, 230, 250, 255));
 	//label->enableOutline(cocos2d::Color4B(0, 0, 0, 255), 1);
 	//label->setAdditionalKerning(0.25f);
-	this->addChild(label, 4);
+	this->addChild(label, Z_HUD_LABEL);
 	labels.insert(std::make_pair(id, label));
 }
 void HUDLayer::updateLabel(std::string id, std::string newText) {
@@ -3573,14 +3426,14 @@ void HUDLayer::enableListener() {
 	release->onKeyReleased = CC_CALLBACK_2(HUDLayer::menuKeyReleased, this);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(release, this);
 }
-void HUDLayer::menuKeyReleased(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event) {
+void HUDLayer::menuKeyReleased(KeyType keyCode, cocos2d::Event* event) {
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_SPACE:
-	case EventKeyboard::KeyCode::KEY_ENTER:
-	case EventKeyboard::KeyCode::KEY_Q:
-	case EventKeyboard::KeyCode::KEY_W:
-	case EventKeyboard::KeyCode::KEY_C:
-	case EventKeyboard::KeyCode::KEY_ESCAPE:
+	case KeyType::KEY_SPACE:
+	case KeyType::KEY_ENTER:
+	case KeyType::KEY_Q:
+	case KeyType::KEY_W:
+	case KeyType::KEY_C:
+	case KeyType::KEY_ESCAPE:
 	default:
 		this->_eventDispatcher->removeEventListener(release);
 		activeListener->setEnabled(true);
@@ -3635,8 +3488,13 @@ Scene* LevelScene::createScene(std::shared_ptr<Player> p, int level)
 {
 	auto scene = Scene::create();
 
+	auto visibleSize = Director::getInstance()->getVisibleSize();
+	float vsw = visibleSize.width / 2;
+	float vsh = visibleSize.height / 2;
+
 	// create HUD layer
 	HUDLayer* hud = HUDLayer::create(p);
+	hud->setPosition(Vec2(vsw, vsh));
 	scene->addChild(hud, 10);
 
 	// create background layer
@@ -3645,7 +3503,7 @@ Scene* LevelScene::createScene(std::shared_ptr<Player> p, int level)
 
 	// calls LevelScene init()
 	auto layer = LevelScene::create(hud, p, level);
-	scene->addChild(layer);
+	scene->addChild(layer, 1, "Level Scene");
 
 	return scene;
 }
@@ -3695,7 +3553,7 @@ bool LevelScene::init()
 	//m_lighting->setBrightness(3.0);
 	//m_lighting->setLightColor(Color3B(200, 170, 200));
 
-	// new effect sprite
+	/// Effect sprite
 	/*
 	auto spriteFrame = SpriteFrameCache::getInstance()->getSpriteFrameByName("Player1_48x48.png");
 	m_playerLight = EffectSprite::createWithSpriteFrame(spriteFrame);
@@ -3708,7 +3566,7 @@ bool LevelScene::init()
 
 	// Hides the extra game layer!!
 	auto defaultCamera = this->getDefaultCamera();
-	defaultCamera->setCameraFlag(CameraFlag::USER1); // flag on camera
+	defaultCamera->setCameraFlag(CameraFlag::USER1);
 
 	/// nonsense camera
 	//gameCamera = Camera::createOrthographic(visibleSize.width, visibleSize.height, 1.0, 500);
@@ -3727,7 +3585,7 @@ bool LevelScene::init()
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(kbListener, m_player); // check this for player
 
 	
-	scheduleTimer();
+	//scheduleTimer();
 
 	return true;
 }
@@ -3802,9 +3660,10 @@ EffectSprite* LevelScene::createEffectSprite(std::string image, int x, int y, in
 	return sprite;
 }
 
-void LevelScene::LevelKeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
+void LevelScene::LevelKeyPressed(KeyType keyCode, Event* event) {
 	// Unschedule the inaction timer
-	if (keyCode != INVENTORY_KEY && keyCode != ITEM_KEY)
+	if (!(keyCode == INVENTORY_KEY || keyCode == ITEM_KEY ||
+		keyCode == KeyType::KEY_P || keyCode == KeyType::KEY_ESCAPE))
 		unscheduleTimer();
 
 	int x, y;
@@ -3812,15 +3671,12 @@ void LevelScene::LevelKeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
 	auto actions = this->getActionManager();
 
 	// resumes follow if it was paused
-	if (actions->getNumberOfRunningActions() == 0 && m_currentDungeon->getLevel() != FIRST_BOSS) {
-		auto visibleSize = Director::getInstance()->getVisibleSize();
-		this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
-	}
+	if (actions->getNumberOfRunningActions() == 0 && m_currentDungeon->getLevel() != FIRST_BOSS)
+		runAction(cocos2d::Follow::create(m_player));	
 
 	// if there are any lingering actions, finish them instantly
 	while (actions->getNumberOfRunningActionsByTag(1) > 0)
 		actions->update(1.0, 1);
-
 
 	p = m_currentDungeon->getPlayer();
 	x = p->getPosX(); y = p->getPosY();
@@ -3851,7 +3707,7 @@ void LevelScene::LevelKeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
 		m_currentDungeon->peekDungeon(x, y, 'd');
 	}
 	else if (keyCode == QUICK_KEY) {
-		if (m_currentDungeon->getPlayer()->getItems().size() > 0)
+		if (m_currentDungeon->getPlayer()->hasItems())
 			m_currentDungeon->callUse(0);
 
 		m_currentDungeon->peekDungeon(x, y, '-');
@@ -3883,14 +3739,15 @@ void LevelScene::LevelKeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
 		m_hud->itemMenu(kbListener, *m_currentDungeon);
 		return;
 	}
-	else if (keyCode == EventKeyboard::KeyCode::KEY_M) {
+	else if (keyCode == KeyType::KEY_M) {
 		if (cocos2d::experimental::AudioEngine::getVolume(bg_music_id) > 0)
 			cocos2d::experimental::AudioEngine::setVolume(bg_music_id, 0.0);
 		else
 			cocos2d::experimental::AudioEngine::setVolume(bg_music_id, 1.0 * GLOBAL_MUSIC_VOLUME);
 	}
-	else if (keyCode == EventKeyboard::KeyCode::KEY_P || keyCode == EventKeyboard::KeyCode::KEY_ESCAPE) {
+	else if (keyCode == KeyType::KEY_P || keyCode == KeyType::KEY_ESCAPE) {
 		pauseMenu();
+		return;
 	}
 	else {
 		m_currentDungeon->peekDungeon(x, y, '-');
@@ -3898,7 +3755,7 @@ void LevelScene::LevelKeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
 
 	/*
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_LEFT_ARROW: {
+	case KeyType::KEY_LEFT_ARROW: {
 		m_currentDungeon->peekDungeon(x, y, 'l');
 		
 		if (facingDirection != 'l') {
@@ -3906,7 +3763,7 @@ void LevelScene::LevelKeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_RIGHT_ARROW: {
+	case KeyType::KEY_RIGHT_ARROW: {
 		m_currentDungeon->peekDungeon(x, y, 'r');
 		
 		if (facingDirection != 'r') {
@@ -3914,55 +3771,55 @@ void LevelScene::LevelKeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
+	case KeyType::KEY_UP_ARROW: {
 		m_currentDungeon->peekDungeon(x, y, 'u');
 		
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
+	case KeyType::KEY_DOWN_ARROW: {
 		m_currentDungeon->peekDungeon(x, y, 'd');
 		
 		break;
 	}
 
 	//		Non-movement actions
-	case EventKeyboard::KeyCode::KEY_Q: { // for using quick access items
-		if (m_currentDungeon->getPlayer()->getItems().size() > 0)
+	case KeyType::KEY_Q: { // for using quick access items
+		if (m_currentDungeon->getPlayer()->hasItems())
 			m_currentDungeon->callUse(0);
 
 		m_currentDungeon->peekDungeon(x, y, '-');
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_S: { // for items with special actions
+	case KeyType::KEY_S: { // for items with special actions
 		m_currentDungeon->peekDungeon(x, y, WIND_UP);
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_SPACE:
+	case KeyType::KEY_SPACE:
 		m_currentDungeon->peekDungeon(x, y, 'b');
 		break;
-	case EventKeyboard::KeyCode::KEY_TAB:
-	case EventKeyboard::KeyCode::KEY_I: // open inventory/stats screen for viewing
+	case KeyType::KEY_TAB:
+	case KeyType::KEY_I: // open inventory/stats screen for viewing
 		kbListener->setEnabled(false);
 		m_hud->inventoryMenu(kbListener, *m_currentDungeon);
 		break;
-	case EventKeyboard::KeyCode::KEY_E: // pick up item/interact
+	case KeyType::KEY_E: // pick up item/interact
 		m_currentDungeon->peekDungeon(x, y, 'e');
 		if (playerAdvanced(currentLevel)) {
 			advanceLevel();
 		}
 		break;
-	case EventKeyboard::KeyCode::KEY_W: // open weapon menu
+	case KeyType::KEY_W: // open weapon menu
 		//kbListener->setEnabled(false);
 		//m_hud->weaponMenu(kbListener, *m_currentDungeon);
 		m_currentDungeon->peekDungeon(x, y, 'w');
 
 		break;
-	case EventKeyboard::KeyCode::KEY_C: // open item menu
+	case KeyType::KEY_C: // open item menu
 		kbListener->setEnabled(false);
 		m_hud->itemMenu(kbListener, *m_currentDungeon);
 
 		break;
-	case EventKeyboard::KeyCode::KEY_M: { // toggle music on/off
+	case KeyType::KEY_M: { // toggle music on/off
 		if (cocos2d::experimental::AudioEngine::getVolume(bg_music_id) > 0) {
 			cocos2d::experimental::AudioEngine::setVolume(bg_music_id, 0.0);
 		}
@@ -3971,8 +3828,8 @@ void LevelScene::LevelKeyPressed(EventKeyboard::KeyCode keyCode, Event* event) {
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_P:
-	case EventKeyboard::KeyCode::KEY_ESCAPE: // open pause menu
+	case KeyType::KEY_P:
+	case KeyType::KEY_ESCAPE: // open pause menu
 		pauseMenu();
 		break;
 	default:
@@ -4012,11 +3869,9 @@ void LevelScene::scheduleTimer() {
 		auto actions = this->getActionManager();
 
 		// resumes follow if it was paused
-		if (actions->getNumberOfRunningActions() == 0 && m_currentDungeon->getLevel() != FIRST_BOSS) {
-			auto visibleSize = Director::getInstance()->getVisibleSize();
-			this->runAction(Follow::createWithOffset(m_player, -visibleSize.width / 2, -visibleSize.height / 2, Rect::ZERO));
-		}
-
+		if (actions->getNumberOfRunningActions() == 0 && m_currentDungeon->getLevel() != FIRST_BOSS)
+			runAction(cocos2d::Follow::create(m_player));
+		
 		// if there are any lingering actions, finish them instantly
 		while (actions->getNumberOfRunningActionsByTag(1) > 0)
 			actions->update(1.0, 1);
@@ -4064,21 +3919,23 @@ void LevelScene::createPlayerSpriteAndCamera() {
 	m_player = Sprite::createWithSpriteFrameName(p->getImageName());
 	m_player->setPosition(x, y);
 	m_player->setScale(GLOBAL_SPRITE_SCALE);
-	this->addChild(m_player, 2);
+	this->addChild(m_player, m_currentDungeon->getPlayer()->getPosY() + Z_ACTOR);
 
 	switch (m_currentDungeon->getLevel()) {
 	case FIRST_BOSS:
 		this->setScale(0.4f);
-		this->setPosition((-vsw) * .7, (-vsh) * 1.2);
+		//this->setPosition((-vsw) * .7, (-vsh) * 1.2);
+		//setPosition(0, 0);
 		break;
 
 	default:
-		this->runAction(cocos2d::Follow::createWithOffset(m_player, -vsw, -vsh, cocos2d::Rect::ZERO));
+		//this->runAction(cocos2d::Follow::createWithOffset(m_player, -vsw, -vsh, cocos2d::Rect::ZERO));
+		this->runAction(cocos2d::Follow::create(m_player));
 		break;
 	}
 
 	m_player->visit();
-	m_currentDungeon->getPlayerVector().at(0)->setSprite(m_player);
+	m_currentDungeon->getPlayer()->setSprite(m_player);
 }
 void LevelScene::setMusic(int level) {
 	//cocos2d::experimental::AudioEngine::setMaxAudioInstance(32);
@@ -4126,57 +3983,29 @@ float LevelScene::getTimerSpeed() {
 }
 
 void LevelScene::pauseMenu() {
-	auto visibleSize = Director::getInstance()->getVisibleSize();
+	Director::getInstance()->getScheduler()->pauseTarget(this);
 
-	auto pauseMenuScene = PauseMenuScene::createScene(p, bg_music_id);
-	//pauseMenuScene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
+	auto pauseMenuScene = PauseMenuScene::createScene(this, p, bg_music_id);
 
 	Director::getInstance()->pushScene(pauseMenuScene);
-	//Director::getInstance()->replaceScene(pauseMenuScene);
 }
 void LevelScene::advanceLevel() {
-	auto visibleSize = Director::getInstance()->getVisibleSize();
-
 	// Unschedule the inaction timer and event listener
 	unscheduleTimer();
 	kbListener->setEnabled(false);
 
-	// stop music
 	cocos2d::experimental::AudioEngine::stop(bg_music_id);
+	
+	auto nextScene = LevelScene::createScene(m_currentDungeon->getPlayer(), m_currentDungeon->getLevel());
 
-	if (!(m_currentDungeon->getLevel() == FIRST_SHOP || m_currentDungeon->getLevel() == SECOND_SHOP)) {
-		auto nextScene = LevelScene::createScene(m_currentDungeon->getPlayer(), m_currentDungeon->getLevel());
-		nextScene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
+	auto transition = TransitionFade::create(0.75f, nextScene);
 
-		//Director::getInstance()->replaceScene(nextScene);
-		
-		auto transition = TransitionFade::create(0.75f, nextScene);
+	transition->setOnExitCallback([nextScene]() {
+		auto levelScene = dynamic_cast<LevelScene*>(nextScene->getChildByName("Level Scene"));
+		levelScene->scheduleTimer();
+	});
 
-		transition->setOnExitCallback([this, nextScene]() {
-			auto visibleSize = Director::getInstance()->getVisibleSize();
-			float vsw = visibleSize.width / 2;
-			float vsh = visibleSize.height / 2;
-			nextScene->setPosition(Vec2(vsw, vsh));
-		});
-
-		Director::getInstance()->replaceScene(transition);
-	}
-	else {
-		auto nextScene = ShopScene::createScene(m_currentDungeon->getPlayer(), m_currentDungeon->getLevel());
-		nextScene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
-
-		//Director::getInstance()->replaceScene(nextScene);
-		auto transition = TransitionFade::create(0.75f, nextScene);
-
-		transition->setOnExitCallback([this, nextScene]() {
-			auto visibleSize = Director::getInstance()->getVisibleSize();
-			float vsw = visibleSize.width / 2;
-			float vsh = visibleSize.height / 2;
-			nextScene->setPosition(Vec2(vsw, vsh));
-		});
-
-		Director::getInstance()->replaceScene(transition);
-	}
+	Director::getInstance()->replaceScene(transition);
 }
 inline bool LevelScene::playerAdvanced(int level) { 
 	return m_currentDungeon->getLevel() != level;
@@ -4196,75 +4025,38 @@ void LevelScene::returnToMainMenu() {
 	auto transition = TransitionFade::create(3.0f, startScene);
 	Director::getInstance()->replaceScene(transition);
 }
-
-
-//		SHOP SCENE
-ShopScene::ShopScene(HUDLayer* hud, std::shared_ptr<Player> p, int level) : LevelScene(hud, p, level) {
-	
-}
-Scene* ShopScene::createScene(std::shared_ptr<Player> p, int level)
-{
-	auto scene = Scene::create();
-
-	// create HUD layer
-	HUDLayer* hud = HUDLayer::create(p);
-	scene->addChild(hud, 10);
-
-	// create background layer
-	//BackgroundLayer* bglayer = BackgroundLayer::create();
-	//scene->addChild(bglayer, -10);
-
-	// calls LevelScene init()
-	auto layer = ShopScene::create(hud, p, level);
-	scene->addChild(layer);
-
-	return scene;
-}
-ShopScene* ShopScene::create(HUDLayer* hud, std::shared_ptr<Player> p, int level)
-{
-	ShopScene *pRet = new(std::nothrow) ShopScene(hud, p, level);
-	if (pRet && pRet->init())
-	{
-		pRet->autorelease();
-		return pRet;
-	}
-	else
-	{
-		delete pRet;
-		pRet = nullptr;
-		return nullptr;
-	}
-}
-
-void ShopScene::showShopHUD(Dungeon &dungeon, int x, int y) {
+void LevelScene::showShopHUD(int x, int y) {
 	// x and y are below the item's coordinates,
-	// we want the price to show two above that.
+	// We want the price to show two above that.
+
+	float fx, fy;
+	m_currentDungeon->transformDungeonToSpriteCoordinates(x, y - 2, fx, fy);
 
 	// pricing symbols, prices themselves, etc.
-	itemprice = Label::createWithTTF("$", "fonts/Marker Felt.ttf", 24);
-	itemprice->setPosition(x * SPACING_FACTOR - X_OFFSET, SPACING_FACTOR * (dungeon.getRows() - (y - 2)) - Y_OFFSET);
-	this->addChild(itemprice, 3);
-	itemprice->setColor(cocos2d::Color3B(255, 215, 0));
-	itemprice->setString("$" + std::to_string(dungeon[(y - 1)*dungeon.getCols() + x].price));
+	m_itemPrice = Label::createWithTTF("$", "fonts/Marker Felt.ttf", 24);
+	m_itemPrice->setPosition(fx, fy);
+	m_itemPrice->setColor(cocos2d::Color3B(255, 215, 0));
+	m_itemPrice->setString("$" + std::to_string((*m_currentDungeon)[(y - 1)*m_currentDungeon->getCols() + x].price));
+	this->addChild(m_itemPrice, Z_HUD_LABEL);
 }
-void ShopScene::deconstructShopHUD() {
-	if (itemprice != nullptr) {
-		itemprice->removeFromParent();
-		itemprice = nullptr;
+void LevelScene::deconstructShopHUD() {
+	if (m_itemPrice != nullptr) {
+		m_itemPrice->removeFromParent();
+		m_itemPrice = nullptr;
 	}
 }
 
 
 //		PAUSE MENU SCENE
-PauseMenuScene::PauseMenuScene(std::shared_ptr<Player> p, int id) : m_player(p), music_id(id) {
+PauseMenuScene::PauseMenuScene(LevelScene *levelScene, std::shared_ptr<Player> p, int id) : m_levelScene(levelScene), m_player(p), music_id(id) {
 
 }
 PauseMenuScene::~PauseMenuScene() {
 	if (m_player)
 		m_player.reset();
 }
-PauseMenuScene* PauseMenuScene::create(std::shared_ptr<Player> p, int id) {
-	PauseMenuScene *pRet = new(std::nothrow) PauseMenuScene(p, id);
+PauseMenuScene* PauseMenuScene::create(LevelScene *levelScene, std::shared_ptr<Player> p, int id) {
+	PauseMenuScene *pRet = new(std::nothrow) PauseMenuScene(levelScene, p, id);
 	if (pRet && pRet->init())
 	{
 		pRet->autorelease();
@@ -4278,11 +4070,11 @@ PauseMenuScene* PauseMenuScene::create(std::shared_ptr<Player> p, int id) {
 	}
 }
 
-Scene* PauseMenuScene::createScene(std::shared_ptr<Player> p, int id) {
+Scene* PauseMenuScene::createScene(LevelScene *levelScene, std::shared_ptr<Player> p, int id) {
 	auto scene = Scene::create();
 
 	// calls init()
-	auto layer = PauseMenuScene::create(p, id);
+	auto layer = PauseMenuScene::create(levelScene, p, id);
 	scene->addChild(layer);
 
 	return scene;
@@ -4378,14 +4170,14 @@ bool PauseMenuScene::init() {
 	return true;
 }
 
-void PauseMenuScene::pauseMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event) {
+void PauseMenuScene::pauseMenuKeyPressed(KeyType keyCode, cocos2d::Event* event) {
 	Vec2 pos = event->getCurrentTarget()->getPosition();
 	auto visibleSize = Director::getInstance()->getVisibleSize();
 	float vsw = visibleSize.width / 2;
 	float vsh = visibleSize.height / 2;
 
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_UP_ARROW: {
+	case KeyType::KEY_UP_ARROW: {
 		if (index > 0) {
 			index--;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y + MENU_SPACING);
@@ -4400,7 +4192,7 @@ void PauseMenuScene::pauseMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_DOWN_ARROW: {
+	case KeyType::KEY_DOWN_ARROW: {
 		if (index < 5) {
 			index++;
 			event->getCurrentTarget()->setPosition(pos.x, pos.y - MENU_SPACING);
@@ -4415,46 +4207,20 @@ void PauseMenuScene::pauseMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode
 		}
 		break;
 	}
-	case EventKeyboard::KeyCode::KEY_ENTER:
-	case EventKeyboard::KeyCode::KEY_SPACE:
+	case KeyType::KEY_ENTER:
+	case KeyType::KEY_SPACE:
 		switch (index) {
 			// Resume
 		case 0: { 
 			index = 0;
 			experimental::AudioEngine::resumeAll();
 			Director::getInstance()->popScene();
-
+			Director::getInstance()->getScheduler()->resumeTarget(m_levelScene);
 			return;
 		}
 			// Restart
 		case 1: { 
-			experimental::AudioEngine::stopAll(); // remove all sound before creating the next scene
-
-			auto visibleSize = Director::getInstance()->getVisibleSize();
-
-			// Needed to reset passives obtained
-			GameTable::initializeTables();
-			
-			// generate a new level 1 scene
-			std::shared_ptr<Player> newPlayer(nullptr);
-			if (m_player->getName() == ADVENTURER)
-				newPlayer = std::make_shared<Adventurer>();
-			else if (m_player->getName() == SPELLCASTER)
-				newPlayer = std::make_shared<Spellcaster>();
-			else if (m_player->getName() == MADMAN)
-				newPlayer = std::make_shared<TheMadman>();
-			else if (m_player->getName() == SPELUNKER)
-				newPlayer = std::make_shared<Spelunker>();
-			else if (m_player->getName() == ACROBAT)
-				newPlayer = std::make_shared<Acrobat>();
-			else
-				newPlayer = std::make_shared<Adventurer>();
-
-			auto level1Scene = LevelScene::createScene(newPlayer, 1);
-			level1Scene->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
-
-			// advance to next scene
-			Director::getInstance()->replaceScene(level1Scene); // replace with new scene
+			restartGame(*m_player);
 			return;
 		}
 			// Options	
@@ -4469,7 +4235,6 @@ void PauseMenuScene::pauseMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode
 		case 3: { 
 			playInterfaceSound("Confirm 1.mp3");
 
-			//Director::getInstance()->pushScene(this);
 			helpScreen();
 			break;
 		}
@@ -4485,18 +4250,20 @@ void PauseMenuScene::pauseMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode
 			Director::getInstance()->replaceScene(startScene); // replace with new scene
 			return;
 		}
-		case 5: // Exit Game
+			// Exit Game
+		case 5:
 			playInterfaceSound("Confirm 1.mp3");
 
 			Director::getInstance()->end();
 			return;
 		}
 		break;
-	case EventKeyboard::KeyCode::KEY_P:
-	case EventKeyboard::KeyCode::KEY_ESCAPE: {
+	case KeyType::KEY_P:
+	case KeyType::KEY_ESCAPE: {
 		index = 0;
 		experimental::AudioEngine::resumeAll();
 		Director::getInstance()->popScene();
+		Director::getInstance()->getScheduler()->resumeTarget(m_levelScene);
 		return;
 	}
 	default:
@@ -4656,11 +4423,11 @@ void PauseMenuScene::helpScreen() {
 	eventListener->onKeyPressed = CC_CALLBACK_2(PauseMenuScene::helpMenuKeyPressed, this);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(eventListener, sprite);
 }
-void PauseMenuScene::helpMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode, cocos2d::Event* event) {
+void PauseMenuScene::helpMenuKeyPressed(KeyType keyCode, cocos2d::Event* event) {
 	switch (keyCode) {
-	case EventKeyboard::KeyCode::KEY_ENTER:
-	case EventKeyboard::KeyCode::KEY_SPACE:
-	case EventKeyboard::KeyCode::KEY_ESCAPE: {
+	case KeyType::KEY_ENTER:
+	case KeyType::KEY_SPACE:
+	case KeyType::KEY_ESCAPE: {
 		playInterfaceSound("Confirm 1.mp3");
 
 		removeAll();
@@ -4674,506 +4441,506 @@ void PauseMenuScene::helpMenuKeyPressed(cocos2d::EventKeyboard::KeyCode keyCode,
 
 
 // Converts Key Code to string for use in labels
-std::string convertKeycodeToStr(cocos2d::EventKeyboard::KeyCode keyCode) {
+std::string convertKeycodeToStr(KeyType keyCode) {
 
 	std::string key;
 	switch (keyCode) {
-	case cocos2d::EventKeyboard::KeyCode::KEY_NONE:
+	case KeyType::KEY_NONE:
 		key = "None";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_PAUSE:
+	case KeyType::KEY_PAUSE:
 		key = "Pause";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_SCROLL_LOCK:
+	case KeyType::KEY_SCROLL_LOCK:
 		key = "Scroll Lock";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_PRINT:
+	case KeyType::KEY_PRINT:
 		key = "Print";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_SYSREQ:
+	case KeyType::KEY_SYSREQ:
 		key = "SysReq";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_BREAK:
+	case KeyType::KEY_BREAK:
 		key = "Break";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_ESCAPE:
+	case KeyType::KEY_ESCAPE:
 		key = "Escape";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_BACKSPACE:
+	case KeyType::KEY_BACKSPACE:
 		key = "Backspace";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_TAB:
+	case KeyType::KEY_TAB:
 		key = "Tab";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_BACK_TAB:
+	case KeyType::KEY_BACK_TAB:
 		key = "Back Tab";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_RETURN:
+	case KeyType::KEY_RETURN:
 		key = "Return";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPS_LOCK:
+	case KeyType::KEY_CAPS_LOCK:
 		key = "Caps Lock";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_LEFT_SHIFT:
+	case KeyType::KEY_LEFT_SHIFT:
 		key = "Left Shift";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_RIGHT_SHIFT:
+	case KeyType::KEY_RIGHT_SHIFT:
 		key = "Right Shift";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_LEFT_CTRL:
+	case KeyType::KEY_LEFT_CTRL:
 		key = "Left Ctrl";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_RIGHT_CTRL:
+	case KeyType::KEY_RIGHT_CTRL:
 		key = "Right Ctrl";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_LEFT_ALT:
+	case KeyType::KEY_LEFT_ALT:
 		key = "Left Alt";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_RIGHT_ALT:
+	case KeyType::KEY_RIGHT_ALT:
 		key = "Right Alt";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_MENU:
+	case KeyType::KEY_MENU:
 		key = "Menu";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_HYPER:
+	case KeyType::KEY_HYPER:
 		key = "Hyper";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_INSERT:
+	case KeyType::KEY_INSERT:
 		key = "Insert";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_HOME:
+	case KeyType::KEY_HOME:
 		key = "Home";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_PG_UP:
+	case KeyType::KEY_PG_UP:
 		key = "Page Up";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_DELETE:
+	case KeyType::KEY_DELETE:
 		key = "Delete";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_END:
+	case KeyType::KEY_END:
 		key = "End";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_PG_DOWN:
+	case KeyType::KEY_PG_DOWN:
 		key = "Page Down";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_LEFT_ARROW:
+	case KeyType::KEY_LEFT_ARROW:
 		key = "Left Arrow";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_RIGHT_ARROW:
+	case KeyType::KEY_RIGHT_ARROW:
 		key = "Right Arrow";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_UP_ARROW:
+	case KeyType::KEY_UP_ARROW:
 		key = "Up Arrow";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_DOWN_ARROW:
+	case KeyType::KEY_DOWN_ARROW:
 		key = "Down Arrow";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_NUM_LOCK:
+	case KeyType::KEY_NUM_LOCK:
 		key = "Num Lock";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_PLUS:
+	case KeyType::KEY_KP_PLUS:
 		key = "Keypad Plus";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_MINUS:
+	case KeyType::KEY_KP_MINUS:
 		key = "Keypad Minus";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_MULTIPLY:
+	case KeyType::KEY_KP_MULTIPLY:
 		key = "Keypad Multiply";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_DIVIDE:
+	case KeyType::KEY_KP_DIVIDE:
 		key = "Keypad Divide";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_ENTER:
+	case KeyType::KEY_KP_ENTER:
 		key = "Keypad Enter";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_HOME:
+	case KeyType::KEY_KP_HOME:
 		key = "Keypad Home";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_UP:
+	case KeyType::KEY_KP_UP:
 		key = "Keypad Up";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_PG_UP:
+	case KeyType::KEY_KP_PG_UP:
 		key = "Keypad Page Up";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_LEFT:
+	case KeyType::KEY_KP_LEFT:
 		key = "Keypad Left";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_FIVE:
+	case KeyType::KEY_KP_FIVE:
 		key = "Keypad 5";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_RIGHT:
+	case KeyType::KEY_KP_RIGHT:
 		key = "Keypad Right";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_END:
+	case KeyType::KEY_KP_END:
 		key = "Keypad End";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_DOWN:
+	case KeyType::KEY_KP_DOWN:
 		key = "Keypad Down";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_PG_DOWN:
+	case KeyType::KEY_KP_PG_DOWN:
 		key = "Keypad Page Down";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_INSERT:
+	case KeyType::KEY_KP_INSERT:
 		key = "Keypad Insert";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_KP_DELETE:
+	case KeyType::KEY_KP_DELETE:
 		key = "Keypad Delete";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_F1:
+	case KeyType::KEY_F1:
 		key = "F1";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_F2:
+	case KeyType::KEY_F2:
 		key = "F2";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_F3:
+	case KeyType::KEY_F3:
 		key = "F3";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_F4:
+	case KeyType::KEY_F4:
 		key = "F4";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_F5:
+	case KeyType::KEY_F5:
 		key = "F5";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_F6:
+	case KeyType::KEY_F6:
 		key = "F6";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_F7:
+	case KeyType::KEY_F7:
 		key = "F7";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_F8:
+	case KeyType::KEY_F8:
 		key = "F8";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_F9:
+	case KeyType::KEY_F9:
 		key = "F9";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_F10:
+	case KeyType::KEY_F10:
 		key = "F10";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_F11:
+	case KeyType::KEY_F11:
 		key = "F11";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_F12:
+	case KeyType::KEY_F12:
 		key = "F12";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_SPACE:
+	case KeyType::KEY_SPACE:
 		key = "Space";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_EXCLAM:
+	case KeyType::KEY_EXCLAM:
 		key = "!";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_QUOTE:
+	case KeyType::KEY_QUOTE:
 		key = "\"";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_NUMBER:
+	case KeyType::KEY_NUMBER:
 		key = "#";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_DOLLAR:
+	case KeyType::KEY_DOLLAR:
 		key = "$";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_PERCENT:
+	case KeyType::KEY_PERCENT:
 		key = "%";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CIRCUMFLEX:
+	case KeyType::KEY_CIRCUMFLEX:
 		key = "^";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_AMPERSAND:
+	case KeyType::KEY_AMPERSAND:
 		key = "&";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_APOSTROPHE:
+	case KeyType::KEY_APOSTROPHE:
 		key = "Apostrophe";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_LEFT_PARENTHESIS:
+	case KeyType::KEY_LEFT_PARENTHESIS:
 		key = "(";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_RIGHT_PARENTHESIS:
+	case KeyType::KEY_RIGHT_PARENTHESIS:
 		key = ")";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_ASTERISK:
+	case KeyType::KEY_ASTERISK:
 		key = "*";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_PLUS:
+	case KeyType::KEY_PLUS:
 		key = "+";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_COMMA:
+	case KeyType::KEY_COMMA:
 		key = ",";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_MINUS:
+	case KeyType::KEY_MINUS:
 		key = "-";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_PERIOD:
+	case KeyType::KEY_PERIOD:
 		key = ".";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_SLASH:
+	case KeyType::KEY_SLASH:
 		key = "/";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_0:
+	case KeyType::KEY_0:
 		key = "0";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_1:
+	case KeyType::KEY_1:
 		key = "1";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_2:
+	case KeyType::KEY_2:
 		key = "2";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_3:
+	case KeyType::KEY_3:
 		key = "3";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_4:
+	case KeyType::KEY_4:
 		key = "4";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_5:
+	case KeyType::KEY_5:
 		key = "5";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_6:
+	case KeyType::KEY_6:
 		key = "6";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_7:
+	case KeyType::KEY_7:
 		key = "7";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_8:
+	case KeyType::KEY_8:
 		key = "8";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_9:
+	case KeyType::KEY_9:
 		key = "9";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_COLON:
+	case KeyType::KEY_COLON:
 		key = ":";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_SEMICOLON:
+	case KeyType::KEY_SEMICOLON:
 		key = ";";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_LESS_THAN:
+	case KeyType::KEY_LESS_THAN:
 		key = "<";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_EQUAL:
+	case KeyType::KEY_EQUAL:
 		key = "=";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_GREATER_THAN:
+	case KeyType::KEY_GREATER_THAN:
 		key = ">";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_QUESTION:
+	case KeyType::KEY_QUESTION:
 		key = "?";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_AT:
+	case KeyType::KEY_AT:
 		key = "@";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_A:
+	case KeyType::KEY_CAPITAL_A:
 		key = "A";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_B:
+	case KeyType::KEY_CAPITAL_B:
 		key = "B";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_C:
+	case KeyType::KEY_CAPITAL_C:
 		key = "C";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_D:
+	case KeyType::KEY_CAPITAL_D:
 		key = "D";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_E:
+	case KeyType::KEY_CAPITAL_E:
 		key = "E";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_F:
+	case KeyType::KEY_CAPITAL_F:
 		key = "F";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_G:
+	case KeyType::KEY_CAPITAL_G:
 		key = "G";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_H:
+	case KeyType::KEY_CAPITAL_H:
 		key = "H";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_I:
+	case KeyType::KEY_CAPITAL_I:
 		key = "I";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_J:
+	case KeyType::KEY_CAPITAL_J:
 		key = "J";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_K:
+	case KeyType::KEY_CAPITAL_K:
 		key = "K";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_L:
+	case KeyType::KEY_CAPITAL_L:
 		key = "L";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_M:
+	case KeyType::KEY_CAPITAL_M:
 		key = "M";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_N:
+	case KeyType::KEY_CAPITAL_N:
 		key = "N";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_O:
+	case KeyType::KEY_CAPITAL_O:
 		key = "O";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_P:
+	case KeyType::KEY_CAPITAL_P:
 		key = "P";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_Q:
+	case KeyType::KEY_CAPITAL_Q:
 		key = "Q";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_R:
+	case KeyType::KEY_CAPITAL_R:
 		key = "R";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_S:
+	case KeyType::KEY_CAPITAL_S:
 		key = "S";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_T:
+	case KeyType::KEY_CAPITAL_T:
 		key = "T";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_U:
+	case KeyType::KEY_CAPITAL_U:
 		key = "U";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_V:
+	case KeyType::KEY_CAPITAL_V:
 		key = "V";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_W:
+	case KeyType::KEY_CAPITAL_W:
 		key = "W";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_X:
+	case KeyType::KEY_CAPITAL_X:
 		key = "X";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_Y:
+	case KeyType::KEY_CAPITAL_Y:
 		key = "Y";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_CAPITAL_Z:
+	case KeyType::KEY_CAPITAL_Z:
 		key = "Z";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_LEFT_BRACKET:
+	case KeyType::KEY_LEFT_BRACKET:
 		key = "[";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_BACK_SLASH:
+	case KeyType::KEY_BACK_SLASH:
 		key = "\\";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_RIGHT_BRACKET:
+	case KeyType::KEY_RIGHT_BRACKET:
 		key = "]";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_UNDERSCORE:
+	case KeyType::KEY_UNDERSCORE:
 		key = "_";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_GRAVE:
+	case KeyType::KEY_GRAVE:
 		key = "`";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_A:
+	case KeyType::KEY_A:
 		key = "A";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_B:
+	case KeyType::KEY_B:
 		key = "B";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_C:
+	case KeyType::KEY_C:
 		key = "C";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_D:
+	case KeyType::KEY_D:
 		key = "D";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_E:
+	case KeyType::KEY_E:
 		key = "E";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_F:
+	case KeyType::KEY_F:
 		key = "F";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_G:
+	case KeyType::KEY_G:
 		key = "G";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_H:
+	case KeyType::KEY_H:
 		key = "H";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_I:
+	case KeyType::KEY_I:
 		key = "I";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_J:
+	case KeyType::KEY_J:
 		key = "J";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_K:
+	case KeyType::KEY_K:
 		key = "K";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_L:
+	case KeyType::KEY_L:
 		key = "L";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_M:
+	case KeyType::KEY_M:
 		key = "M";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_N:
+	case KeyType::KEY_N:
 		key = "N";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_O:
+	case KeyType::KEY_O:
 		key = "O";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_P:
+	case KeyType::KEY_P:
 		key = "P";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_Q:
+	case KeyType::KEY_Q:
 		key = "Q";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_R:
+	case KeyType::KEY_R:
 		key = "R";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_S:
+	case KeyType::KEY_S:
 		key = "S";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_T:
+	case KeyType::KEY_T:
 		key = "T";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_U:
+	case KeyType::KEY_U:
 		key = "U";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_V:
+	case KeyType::KEY_V:
 		key = "V";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_W:
+	case KeyType::KEY_W:
 		key = "W";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_X:
+	case KeyType::KEY_X:
 		key = "X";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_Y:
+	case KeyType::KEY_Y:
 		key = "Y";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_Z:
+	case KeyType::KEY_Z:
 		key = "Z";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_LEFT_BRACE:
+	case KeyType::KEY_LEFT_BRACE:
 		key = "{";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_BAR:
+	case KeyType::KEY_BAR:
 		key = "Bar";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_RIGHT_BRACE:
+	case KeyType::KEY_RIGHT_BRACE:
 		key = "}";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_TILDE:
+	case KeyType::KEY_TILDE:
 		key = "`";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_EURO:
+	case KeyType::KEY_EURO:
 		key = "Euro";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_POUND:
+	case KeyType::KEY_POUND:
 		key = "Pound";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_YEN:
+	case KeyType::KEY_YEN:
 		key = "Yen";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_MIDDLE_DOT:
+	case KeyType::KEY_MIDDLE_DOT:
 		key = "Middle Dot";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_SEARCH:
+	case KeyType::KEY_SEARCH:
 		key = "Search";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_DPAD_LEFT:
+	case KeyType::KEY_DPAD_LEFT:
 		key = "Dpad Left";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_DPAD_RIGHT:
+	case KeyType::KEY_DPAD_RIGHT:
 		key = "Dpad Right";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_DPAD_UP:
+	case KeyType::KEY_DPAD_UP:
 		key = "Dpad Up";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_DPAD_DOWN:
+	case KeyType::KEY_DPAD_DOWN:
 		key = "Dpad Down";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_DPAD_CENTER:
+	case KeyType::KEY_DPAD_CENTER:
 		key = "Dpad Center";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_ENTER:
+	case KeyType::KEY_ENTER:
 		key = "Enter";
 		break;
-	case cocos2d::EventKeyboard::KeyCode::KEY_PLAY:
+	case KeyType::KEY_PLAY:
 		key = "Play";
 		break;
 	}
@@ -5182,7 +4949,7 @@ std::string convertKeycodeToStr(cocos2d::EventKeyboard::KeyCode keyCode) {
 }
 
 /*
-bool LevelScene::isKeyPressed(EventKeyboard::KeyCode code) {
+bool LevelScene::isKeyPressed(KeyType code) {
 	// Check if the key is currently pressed by seeing it it's in the std::map keys
 	// In retrospect, keys is a terrible name for a key/value paried datatype isnt it?
 	if (keys.find(code) != keys.end())
@@ -5190,8 +4957,8 @@ bool LevelScene::isKeyPressed(EventKeyboard::KeyCode code) {
 	return false;
 }
 
-double LevelScene::keyPressedDuration(EventKeyboard::KeyCode code) {
-	if (!isKeyPressed(EventKeyboard::KeyCode::KEY_LEFT_ARROW))
+double LevelScene::keyPressedDuration(KeyType code) {
+	if (!isKeyPressed(KeyType::KEY_LEFT_ARROW))
 		return 0;  // Not pressed, so no duration obviously
 
 	// Return the amount of time that has elapsed between now and when the user
@@ -5205,10 +4972,10 @@ void LevelScene::update(float delta) {
 	// Register an update function that checks to see if the CTRL key is pressed
 	// and if it is displays how long, otherwise tell the user to press it
 	Node::update(delta);
-	if (isKeyPressed(EventKeyboard::KeyCode::KEY_LEFT_ARROW)) {
+	if (isKeyPressed(KeyType::KEY_LEFT_ARROW)) {
 		std::stringstream ss;
 		ss << "Control key has been pressed for " <<
-			keyPressedDuration(EventKeyboard::KeyCode::KEY_LEFT_ARROW) << " ms";
+			keyPressedDuration(KeyType::KEY_LEFT_ARROW) << " ms";
 		label->setString(ss.str().c_str());
 	}
 	else
