@@ -259,3 +259,4 @@
 - Added a cocos2d::EventKeyboard::KeyCode typedef (using) named KeyType
 - Fixed the camera jerk transition bug used when doing a TransitionFade between levels. With the exception of the HUDLayer, all scene nodes are no longer adjusted in position. Namely, the Follow player sprite code no longer uses an offset.
 - Removed the shopHUD functions from the HUDLayer class
+- The LevelScene node is now named "Level Scene" so that we can identify it. This is used to unschedule the timer during the level transition, and reschedule it once the transition ends.
