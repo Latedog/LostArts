@@ -266,3 +266,4 @@
 - Added damagePlayer function to the Monster class
 - Added reactToDamage function to the Player class
 - Removed the attack(Monster) function from the Monster class
+- Removed moveWithSuccessfulChase from the Monster class since it was redundant with attemptMove
