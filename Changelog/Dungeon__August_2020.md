@@ -276,3 +276,4 @@
 8/30:
 
 - Privatized various Dungeon functions
+- Replaced randInt with a more suitable (and random) implementation that now takes 2 parameters for simpler and more straightforward usage
