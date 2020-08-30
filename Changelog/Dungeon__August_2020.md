@@ -272,3 +272,7 @@
 8/27:
 
 - Fixed resolution adjusting, it now works correctly when adjusting sizes in windowed and fullscreen
+
+8/30:
+
+- Privatized various Dungeon functions
