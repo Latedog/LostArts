@@ -6,3 +6,5 @@
 9/2:
 
 - Converted all current NPC dialogue to pull the data from text files
+- Converted item info display on the inventory screen to pull data from text files
+- Added utility function to format item descriptions with proper line breaks
