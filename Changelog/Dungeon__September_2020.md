@@ -9,3 +9,5 @@
 - Converted item info display on the inventory screen to pull data from text files
 - Added utility function to format item descriptions with proper line breaks
 - Fixed a bug that caused the player sprite to still appear after dying with the Teleporter
+- Revamped MenuScene to include a language selection option
+- Menu positions are now saved to make menuing consistent
