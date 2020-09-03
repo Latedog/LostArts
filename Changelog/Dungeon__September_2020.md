@@ -17,3 +17,4 @@
 - Converted all plain text to .json file format for easier future localization purposes
 - Included rapidjson c++ header library for json text parsing
 - Added TextUtils class and utility functions to extract menu/text/npc information from json files
+- Converted most if not all of in-game menu text to use the json text file
