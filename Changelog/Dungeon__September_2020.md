@@ -11,3 +11,9 @@
 - Fixed a bug that caused the player sprite to still appear after dying with the Teleporter
 - Revamped MenuScene to include a language selection option
 - Menu positions are now saved to make menuing consistent. i.e. navigating to a previous menu will now place the selector at the position the user was previously at
+
+9/3:
+
+- Converted all plain text to .json file format for easier future localization purposes
+- Included rapidjson c++ header library for json text parsing
+- Added TextUtils class and utility functions to extract menu/text/npc information from json files
