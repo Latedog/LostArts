@@ -10,4 +10,4 @@
 - Added utility function to format item descriptions with proper line breaks
 - Fixed a bug that caused the player sprite to still appear after dying with the Teleporter
 - Revamped MenuScene to include a language selection option
-- Menu positions are now saved to make menuing consistent
+- Menu positions are now saved to make menuing consistent. i.e. navigating to a previous menu will now place the selector at the position the user was previously at
