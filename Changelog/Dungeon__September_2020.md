@@ -18,3 +18,6 @@
 - Included rapidjson c++ header library for json text parsing
 - Added TextUtils class and utility functions to extract menu/text/npc information from json files
 - Converted most if not all of in-game menu text to use the json text file
+- Adjusted addLabel to calculate the position offsets instead of before the function is called
+- Changed the game text font style
+- Added function to MenuScene to create the selector sprite
