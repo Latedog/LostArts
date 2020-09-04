@@ -21,3 +21,7 @@
 - Adjusted addLabel to calculate the position offsets instead of before the function is called
 - Changed the game text font style
 - Added function to MenuScene to create the selector sprite
+
+9/4:
+
+- Added GameTimers class to manage the various affliction timers that the player can accrue. This fixes the problem where they wouldn't stop if the player paused the game, etc.
