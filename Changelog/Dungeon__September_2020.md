@@ -28,3 +28,8 @@
 - Tidied up code in MenuScene and PauseMenuScene classes
 - Added early infrastructure for controller support
 - Changed the design resolution to 1920x1080 and adjusted all game elements to reflect this change. The result is that everything looks crisper.
+
+9/5:
+
+- Explicitly prevented the Dungeon class from being copyable
+- Optimized playerInRange function
