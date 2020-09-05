@@ -25,3 +25,6 @@
 9/4:
 
 - Added GameTimers class to manage the various affliction timers that the player can accrue. This fixes the problem where they wouldn't stop if the player paused the game, etc.
+- Tidied up code in MenuScene and PauseMenuScene classes
+- Added early infrastructure for controller support
+- Changed the design resolution to 1920x1080 and adjusted all game elements to reflect this change. The result is that everything looks crisper.
