@@ -36,3 +36,4 @@
 - Corrected a small bug in formatItemDescriptionForDisplay that would cause text to extend outside of the box due to poor line splitting detection.
 - Key labels (for keyboards only, for now) are now updated correctly when the player changes their controls
 - Added some functionality for changing controls on gamepad. Currently there is no way to actually use a controller yet.
+- Removed unused factory code from MenuScene (create, etc.) and moved its constructor into protected
