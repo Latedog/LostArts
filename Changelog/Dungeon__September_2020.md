@@ -37,3 +37,10 @@
 - Key labels (for keyboards only, for now) are now updated correctly when the player changes their controls
 - Added some functionality for changing controls on gamepad. Currently there is no way to actually use a controller yet.
 - Removed unused factory code from MenuScene (create, etc.) and moved its constructor into protected
+
+9/6:
+
+- The HUDLayer class is now given a LevelScene pointer during LevelScene creation
+- Replaced all HUD functions that took in a keyboard event listener parameter and changed it so they no longer do.
+- Removed the gameOver HUD function that took in a Scene parameter and changed scheduleTimer() in the LevelScene class to no longer use this function.
+- Added infrastructure to support complete controller functionality
