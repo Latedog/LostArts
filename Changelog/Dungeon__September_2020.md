@@ -44,3 +44,8 @@
 - Replaced all HUD functions that took in a keyboard event listener parameter and changed it so they no longer do.
 - Removed the gameOver HUD function that took in a Scene parameter and changed scheduleTimer() in the LevelScene class to no longer use this function.
 - Added infrastructure to support complete controller functionality
+
+9/7:
+
+- Reclassifed Chests as Objects instead of Drops
+- Added Usable and AutoUsable subclasses of Drops to eliminate the flags that were used for these item types
