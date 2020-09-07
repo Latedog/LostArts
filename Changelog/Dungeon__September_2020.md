@@ -47,6 +47,7 @@
 
 9/7:
 
+- Added LightSource structure to the Dungeon class
 - Reclassifed Chests as Objects instead of Drops
 - Added Usable and AutoUsable subclasses of Drops to eliminate the flags that were used for these item types
 - Drops is now an abstract base class
