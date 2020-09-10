@@ -51,3 +51,8 @@
 - Reclassifed Chests as Objects instead of Drops
 - Added Usable and AutoUsable subclasses of Drops to eliminate the flags that were used for these item types
 - Drops is now an abstract base class
+
+9/10:
+
+- Fixed a crash when the active item HUD was being destroyed due to a recent change
+- Removed the x, y parameters from the peekDungeon function since they were no longer needed
