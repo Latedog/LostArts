@@ -62,3 +62,4 @@
 - Removed the "quick" member variable from the HUDLayer class because its existence made no sense
 - Moved all persistent-type HUD labels into their own container and replaced all "loose" labels accordingly, with the exception of the weapon cast key label
 - Renamed the player HUDLayer member variable to m_player
+- Removed the player and music id parameters from the PauseMenuScene class
