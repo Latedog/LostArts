@@ -56,3 +56,4 @@
 
 - Fixed a crash when the active item HUD was being destroyed due to a recent change
 - Removed the x, y parameters from the peekDungeon function since they were no longer needed
+- Opening and closing the item menu without using anything no longer costs a turn
