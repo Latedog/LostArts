@@ -60,3 +60,5 @@
 - Removed the Dungeon parameter from all HUDLayer functions and instead added an accessor to the Dungeon pointer in the LevelScene class
 - The GUI classes are now better encapsulated. For instance, it's made clearer that we can only create various scenes with their respective createScene/create functions.
 - Removed the "quick" member variable from the HUDLayer class because its existence made no sense
+- Moved all persistent-type HUD labels into their own container and replaced all "loose" labels accordingly, with the exception of the weapon cast key label
+- Renamed the player HUDLayer member variable to m_player
