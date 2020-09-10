@@ -57,3 +57,4 @@
 - Fixed a crash when the active item HUD was being destroyed due to a recent change
 - Removed the x, y parameters from the peekDungeon function since they were no longer needed
 - Opening and closing the item menu without using anything no longer costs a turn
+- Removed the Dungeon parameter from all HUDLayer functions and instead added an accessor to the Dungeon pointer in the LevelScene class
