@@ -63,3 +63,8 @@
 - Moved all persistent-type HUD labels into their own container and replaced all "loose" labels accordingly, with the exception of the weapon cast key label
 - Renamed the player HUDLayer member variable to m_player
 - Removed the player and music id parameters from the PauseMenuScene class
+
+9/11:
+
+- Added MonsterTransform item
+- Moved monsterDeath into public to allow MonsterTransform to call it early so that the enemy flag is not unflagged when the new monster is created.
