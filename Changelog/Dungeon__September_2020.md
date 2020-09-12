@@ -70,3 +70,8 @@
 - Moved monsterDeath into public to allow MonsterTransform to call it early so that the enemy flag is not unflagged when the new monster is created.
 - Added SleddingScarf item along with FactoryTile traps
 - Added functionality to use the SleddingScarf item. The game stops briefly and allows the player to place special FactoryTiles for a short duration.
+
+9/12:
+
+- Added functionality to simulate a zoom feature
+- Replaced the existing misc_sprites vector with a better one that holds Dungeon coordinates since converting between sprite to dungeon coordinates was lossy.
