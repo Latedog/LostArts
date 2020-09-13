@@ -75,3 +75,9 @@
 
 - Added functionality to simulate a zoom feature
 - Replaced the existing misc_sprites vector with a better one that holds Dungeon coordinates since converting between sprite to dungeon coordinates was lossy.
+
+9/13:
+
+- Removed the isPlayer and isMonster flags from the Actor class and replaced them with virtual versions
+- Moved all passive/item abilities granted to a struct for simpler data copying and storing
+- Added a Player copy constructor to be used with DNASplitter
