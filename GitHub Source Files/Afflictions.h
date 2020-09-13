@@ -258,9 +258,12 @@ public:
 
 	void adjust(Actors &a, Afflictions &affliction);
 
+	std::string getTimerName() const { return m_timerName; };
+
 protected:
 	void reduceDurationBy(float time) { m_duration -= time; };
 
+	std::string m_timerName;
 	bool m_timerIsSet = false;
 	float m_duration;
 	float m_interval;

@@ -2,20 +2,16 @@
 #include "AudioEngine.h"
 #include "GUI.h"
 #include "global.h"
+#include "EffectSprite.h"
+#include "GameUtils.h"
 #include "Dungeon.h"
 #include "GameObjects.h"
 #include "Actors.h"
 #include "Afflictions.h"
 #include "FX.h"
-#include "GameUtils.h"
 #include <iostream>
 #include <memory>
 
-using std::shared_ptr;
-using std::make_shared;
-using std::dynamic_pointer_cast;
-using std::string;
-using std::to_string;
 
 Dungeon::Dungeon(LevelScene* scene, std::shared_ptr<Player> p, int level, int rows, int cols) : m_scene(scene), m_level(level), m_rows(rows), m_cols(cols) {
 	player.push_back(p);
@@ -35,6 +31,9 @@ Dungeon::~Dungeon() {
 
 	player.at(0).reset();
 	m_exit.reset();
+
+	for (auto &it : m_playerClones)
+		it.reset();
 
 	for (auto &it : m_npcs)
 		it.reset();
@@ -61,12 +60,16 @@ Dungeon::~Dungeon() {
 		it.reset();
 
 	// Sprites
-	for (auto &it : misc_sprites)
+	/*for (auto &it : misc_sprites)
 		if (it)
-			it->removeFromParent();
+			it->removeFromParent();*/
+
+	for (auto &it : m_miscSprites)
+		if (it.sprite)
+			it.sprite->removeFromParent();
 }
 
-void Dungeon::peekDungeon(int x, int y, char move) {
+void Dungeon::peekDungeon(char move) {
 	int initHP = player.at(0)->getHP(); // used for checking if player took damage ever
 
 	bool usedMove = false;
@@ -75,15 +78,17 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 	if (!player.at(0)->isSlow()) {
 		player.at(0)->move(move);
 		usedMove = true;
+
+		if (!m_playerClones.empty()) {
+			for (size_t i = 0; i < m_playerClones.size(); ++i)
+				m_playerClones[i]->move(move);
+		}
 	}
 
 	// Check these if player does not have Matrix Vision
 	if (!player.at(0)->hasMatrixVision()) {
-
 		checkActive();
-
 		checkDoors();
-
 		checkMonsters();
 	}
 	// If they do have it, then roll to see if these get skipped
@@ -92,7 +97,7 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 		// Ability was finished and has finished cooling down
 		if (matrixTurns == 0 && matrixCooldown == 0) {
 			// Failed the roll
-			if (1 + randInt(100) <= 95) {
+			if (randReal(1, 100) <= 95) {
 				checkActive();
 				checkDoors();
 				checkMonsters();
@@ -120,16 +125,20 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 	}
 
 	// Player moves after the monsters if they are Slow
-	if (player.at(0)->isSlow() && !usedMove)
+	if (player.at(0)->isSlow() && !usedMove) {
 		player.at(0)->move(move);
 
-	// update sprite lighting
+		if (!m_playerClones.empty()) {
+			for (size_t i = 0; i < m_playerClones.size(); ++i)
+				m_playerClones[i]->move(move);
+		}
+	}
+
 	updateLighting();
 
 	// do any special actions unique to the floor
 	specialActions();
 
-	// check if player is holding the skeleton key
 	if (player.at(0)->hasSkeletonKey())
 		player.at(0)->checkKeyConditions();
 
@@ -138,7 +147,7 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 		player.at(0)->setHP(initHP);
 
 	// Effects if player took damage
-	if (player.at(0)->getHP() < initHP) {
+	if (player.at(0)->getHP() < initHP && !player.at(0)->isDead()) {
 
 		// if player is invisible, they lose invisibility when damaged unless they had enough intellect
 		if (player.at(0)->isInvisible() && player.at(0)->getInt() < 8)
@@ -149,8 +158,8 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 		player.at(0)->decreaseMoneyBonus();
 
 		// Spell retaliation
-		if (player.at(0)->hasSpellRetaliation() && 1 + randInt(100) + player.at(0)->getLuck() > 90) {
-			switch (randInt(12)) {
+		if (player.at(0)->hasSpellRetaliation() && randReal(1, 100) + player.at(0)->getLuck() > 90) {
+			switch (randInt(0, 11)) {
 			case 0: {
 				FreezeSpell spell(player.at(0)->getPosX(), player.at(0)->getPosY());
 				spell.useItem(*this);
@@ -215,9 +224,7 @@ void Dungeon::peekDungeon(int x, int y, char move) {
 		}
 	}
 
-	// run actions
 	runSpawn();
-
 }
 
 void Dungeon::assignQuickItem(int index) {
@@ -228,7 +235,7 @@ void Dungeon::callUse(int index) {
 }
 
 void Dungeon::checkActive() {
-	for (int i = 0; i < (int)m_traps.size(); i++) {
+	for (int i = 0; i < static_cast<int>(m_traps.size()); i++) {
 		if (!m_traps.at(i)->isDestroyed())
 			m_traps.at(i)->activeTrapAction();
 
@@ -244,7 +251,7 @@ void Dungeon::checkMonsters() {
 		return;
 	
 	int mx, my, mInitHP;
-	for (unsigned i = 0; i < m_monsters.size(); i++) {
+	for (int i = 0; i < static_cast<int>(m_monsters.size()); i++) {
 		mInitHP = m_monsters.at(i)->getHP();
 		mx = m_monsters.at(i)->getPosX();
 		my = m_monsters.at(i)->getPosY();
@@ -279,8 +286,8 @@ void Dungeon::checkMonsters() {
 	monsterTrapEncounter();
 }
 
-int Dungeon::findDecoy(int x, int y) {
-	for (int i = 0; i < (int)m_decoys.size(); i++)
+int Dungeon::findDecoy(int x, int y) const {
+	for (int i = 0; i < static_cast<int>(m_decoys.size()); i++)
 		if (m_decoys.at(i)->getPosX() == x && m_decoys.at(i)->getPosY() == y)
 			return i;
 
@@ -324,7 +331,7 @@ void Dungeon::checkDoors() {
 		int x, y;
 
 		for (unsigned int i = 0; i < m_doors.size(); i++) {
-			shared_ptr<Door> door = m_doors.at(i);
+			std::shared_ptr<Door> door = m_doors.at(i);
 			x = door->getPosX();
 			y = door->getPosY();
 
@@ -403,9 +410,8 @@ void Dungeon::interactWithNPC(int x, int y) {
 		m_npcs.at(pos)->talk();
 	
 }
-void Dungeon::playNPCDialogue(NPC &npc, std::vector<std::string> dialogue) {
-	m_scene->enableListener(false);
-	m_scene->callNPCInteraction(npc, dialogue);
+void Dungeon::playNPCDialogue(const NPC &npc) {
+	m_scene->callNPCInteraction(npc);
 }
 
 //		Trap handling
@@ -444,7 +450,7 @@ std::vector<int> Dungeon::findTraps(int x, int y) const {
 
 	return traps;
 }
-int Dungeon::countTrapNumber(int x, int y) {
+int Dungeon::countTrapNumber(int x, int y) const {
 	int count = 0;
 	for (unsigned int i = 0; i < m_traps.size(); i++) {
 		if (m_traps[i]->getPosX() == x && m_traps[i]->getPosY() == y)
@@ -549,19 +555,42 @@ void Dungeon::damagePlayer(int damage, DamageType type) {
 		// then the player takes the full damage in hp
 		if (player.at(0)->getMoney() - moneyDamage < 0) {
 			player.at(0)->decreaseStatBy(StatType::HP, damage);
+
+			damageClone(damage);
 		}
 		else {
 			player.at(0)->decreaseStatBy(StatType::HP, hpDamage);
 			player.at(0)->setMoney(player.at(0)->getMoney() - moneyDamage);
+
+			damageClone(hpDamage);
 		}
 
 		if (player.at(0)->getMoney() < 0)
 			player.at(0)->setMoney(0);
 	}
-	else
+	else {
 		player.at(0)->decreaseStatBy(StatType::HP, damage);
+
+		damageClone(damage);
+	}
+}
+void Dungeon::damageClone(int damage) {
+	if (!m_playerClones.empty()) {
+		for (int i = m_playerClones.size() - 1; i >= 0; --i)
+			m_playerClones[i]->decreaseStatBy(StatType::HP, damage);		
+	}
 }
 void Dungeon::actorRemoval() {
+	if (!m_playerClones.empty()) {
+		for (int i = m_playerClones.size() - 1; i >= 0; --i) {
+			if (m_playerClones[i]->isDead()) {
+				m_playerClones[i]->death();
+				m_playerClones[i].reset();
+				m_playerClones.erase(m_playerClones.begin() + i);
+			}
+		}
+	}
+
 	if (m_deadActorIndexes.empty())
 		return;
 
@@ -578,9 +607,9 @@ void Dungeon::actorRemoval() {
 void Dungeon::insertActorForRemoval(int index) {
 	m_deadActorIndexes.insert(index);
 }
-int Dungeon::findMonster(int mx, int my) const {
+int Dungeon::findMonster(int x, int y) const {
 	for (int i = 0; i < (int)m_monsters.size(); i++) {
-		if (m_monsters.at(i)->getPosX() == mx && m_monsters.at(i)->getPosY() == my) {
+		if (m_monsters.at(i)->getPosX() == x && m_monsters.at(i)->getPosY() == y) {
 			if (m_monsters.at(i)->isUnderground())
 				continue;
 
@@ -732,7 +761,7 @@ bool Dungeon::monsterHash(int &x, int &y, bool &switched, char move, bool strict
 				move = 'u';
 			
 			else
-				move = (randInt(2) == 0 ? 'u' : 'd');
+				move = (randInt(0, 1) == 0 ? 'u' : 'd');
 			
 			switched = true;
 		}
@@ -752,7 +781,7 @@ bool Dungeon::monsterHash(int &x, int &y, bool &switched, char move, bool strict
 				move = 'u';
 			
 			else
-				move = (randInt(2) == 0 ? 'u' : 'd');
+				move = (randInt(0, 1) == 0 ? 'u' : 'd');
 			
 			switched = true;
 		}
@@ -772,7 +801,7 @@ bool Dungeon::monsterHash(int &x, int &y, bool &switched, char move, bool strict
 				move = 'l';
 			
 			else
-				move = (randInt(2) == 0 ? 'l' : 'r');
+				move = (randInt(0, 1) == 0 ? 'l' : 'r');
 			
 			switched = true;
 		}
@@ -792,7 +821,7 @@ bool Dungeon::monsterHash(int &x, int &y, bool &switched, char move, bool strict
 				move = 'l';
 			
 			else
-				move = (randInt(2) == 0 ? 'l' : 'r');
+				move = (randInt(0, 1) == 0 ? 'l' : 'r');
 			
 			switched = true;
 		}
@@ -1037,13 +1066,13 @@ void Dungeon::itemHash(int &x, int &y) {
 	if (!(itemObject(x, y) || wall(x, y) || trap(x, y)))
 		return;
 
-	int n = -1 + randInt(3);
-	int m = -1 + randInt(3);
+	int n = randInt(-1, 1);
+	int m = randInt(-1, 1);
 
 	// while hash draws out of bounds, find a new position
 	while (!withinBounds(x + n, y + m) || wallObject(x + n, y + m)) {
-		n = -1 + randInt(3);
-		m = -1 + randInt(3);
+		n = randInt(-1, 1);
+		m = randInt(-1, 1);
 	}
 
 	// hash until we find a valid spot
@@ -1079,7 +1108,7 @@ void Dungeon::collectItem(int x, int y) {
 	}
 
 	// otherwise check if there's an item to interact with
-	if (object->isAutoUse()) {
+	if (object->isAutoUsable()) {
 		std::shared_ptr<Drops> drop = std::dynamic_pointer_cast<Drops>(object);
 		drop->useItem(*this);
 
@@ -1089,7 +1118,7 @@ void Dungeon::collectItem(int x, int y) {
 
 		removeItem(x, y);
 	}
-	else if (object->isItem()) {
+	else if (object->isUsable()) {
 
 		// For Spellcaster
 		if (object->isSpell() && player.at(0)->getName() == SPELLCASTER) {
@@ -1207,11 +1236,69 @@ void Dungeon::removeGoldWithActions(int x, int y, cocos2d::Vector<cocos2d::Finit
 }
 
 //		Helper
+Coords Dungeon::findNearbyFreeTile(const Coords &start) const {
+	int x = start.x;
+	int y = start.y;
+	std::vector<Coords> coords;
+
+	while (coords.empty()) {
+		if (!withinBounds(x, y)) {
+			x += randInt(-1, 1);
+			y += randInt(-1, 1);
+			continue;
+		}
+
+		if (!(wall(x - 1, y) || enemy(x - 1, y) || hero(x - 1, y)))
+			coords.push_back(Coords(x - 1, y));
+
+		if (!(wall(x + 1, y) || enemy(x + 1, y) || hero(x + 1, y)))
+			coords.push_back(Coords(x + 1, y));
+
+		if (!(wall(x, y - 1) || enemy(x, y - 1) || hero(x, y - 1)))
+			coords.push_back(Coords(x, y - 1));
+
+		if (!(wall(x, y + 1) || enemy(x, y + 1) || hero(x, y + 1)))
+			coords.push_back(Coords(x, y + 1));
+
+		if (!coords.empty())
+			break;
+
+		x += randInt(-1, 1);
+		y += randInt(-1, 1);
+	}
+
+	int index = randInt(0, static_cast<int>(coords.size()) - 1);
+	return coords[index];
+}
 bool Dungeon::withinBounds(int x, int y) const {
 	if (x < 0 || x > m_cols - 1 || y < 0 || y > m_rows - 1)
 		return false;
 
 	return true;
+}
+
+//		Other
+void Dungeon::factoryTileCreation() {
+	m_scene->callFactoryTileCreation();
+}
+void Dungeon::clonePlayer() {
+	std::shared_ptr<Player> newClone(nullptr);
+	if (player[0]->getName() == ADVENTURER) {
+		std::shared_ptr<Adventurer> adv = std::dynamic_pointer_cast<Adventurer>(player[0]);
+		newClone = std::make_shared<Adventurer>(*adv);
+	}
+
+	newClone->setSprite(createSprite(player[0]->getPosX(), player[0]->getPosY(), player[0]->getPosY() + Z_ACTOR, player[0]->getImageName()));
+
+	Coords newPos = findNearbyFreeTile(Coords(player[0]->getPosX(), player[0]->getPosY()));
+
+	newClone->setPosX(newPos.x); newClone->setPosY(newPos.y);
+	m_maze[newPos.y*m_cols + newPos.x].hero = true;
+	queueMoveSprite(newClone->getSprite(), newPos.x, newPos.y);
+	newClone->getSprite()->setLocalZOrder(newPos.y + Z_ACTOR);
+	//newClone->moveTo(newPos.x, newPos.y);
+
+	m_playerClones.push_back(newClone);
 }
 
 //		Shop prices
@@ -1267,8 +1354,7 @@ void Dungeon::createFlooring(int x, int y) {
 	int cols = getCols();
 	std::string image;
 
-	int rand = 1 + randInt(8);
-	switch (rand) {
+	switch (randInt(1, 8)) {
 	case 1: image = "FloorTile1_48x48.png"; break;
 	case 2: image = "FloorTile2_48x48.png"; break;
 	case 3: image = "FloorTile3_48x48.png"; break;
@@ -1303,12 +1389,12 @@ void Dungeon::generateNPCs() {
 		double roll = randReal(1, 100);
 		if (roll < spawnChance) {
 
-			x = 1 + randInt(cols - 2);
-			y = 1 + randInt(rows - 2);
+			x = randInt(1, cols - 2);
+			y = randInt(1, rows - 2);
 
 			while (noSpawn(x, y) || wall(x, y) || enemy(x, y) || hero(x, y) || trap(x, y) || item(x, y)) {
-				x = 1 + randInt(cols - 2);
-				y = 1 + randInt(rows - 2);
+				x = randInt(1, cols - 2);
+				y = randInt(1, rows - 2);
 			}
 
 			npc = rollNPC(this, x, y);
@@ -1336,33 +1422,33 @@ void Dungeon::generateMonsters() {
 	for (int i = 0; i < 17; i++) {
 
 		switch (i) {
-		case 0: n = 10 + randInt(3); name = SEEKER; break;
-		case 1: n = 8 + randInt(3); name = GOO_SACK; break;
-		case 2: n = 8 + randInt(4); name = ROUNDABOUT; break;
-		case 3: n = 5 + randInt(4); name = BROUNDABOUT; break;
-		case 4: n = 6 + randInt(4); name = RAT; break;
-		case 5: n = 3 + randInt(4); name = SPIDER; break;
-		case 6: n = 3 + randInt(4); name = SHOOTING_SPIDER; break;
-		case 7: n = 3 + randInt(4); name = POUNCING_SPIDER; break;
-		case 8: n = 3 + randInt(4); name = GOBLIN; break;
-		case 9: n = 10 + randInt(5); name = WANDERER; break;
-		case 10: n = 6 + randInt(3); name = SLEEPING_WANDERER; break;
-		case 11: n = 6 + randInt(3); name = PROVOCABLE_WANDERER; break;
-		case 12: n = 0 + randInt(2); name = RABID_WANDERER; break;
-		case 13: n = 0 + randInt(3); name = TOAD; break;
-		case 14: n = 3 + randInt(3); name = WEAK_CRATE; break;
-		case 15: n = 3 + randInt(3); name = WEAK_BARREL; break;
-		case 16: n = 3 + randInt(3); name = WEAK_LARGE_POT; break;
+		case 0: n = 10 + randInt(0, 2); name = SEEKER; break;
+		case 1: n = 8 + randInt(0, 2); name = GOO_SACK; break;
+		case 2: n = 8 + randInt(0, 3); name = ROUNDABOUT; break;
+		case 3: n = 5 + randInt(0, 3); name = BROUNDABOUT; break;
+		case 4: n = 6 + randInt(0, 3); name = RAT; break;
+		case 5: n = 3 + randInt(0, 3); name = SPIDER; break;
+		case 6: n = 3 + randInt(0, 3); name = SHOOTING_SPIDER; break;
+		case 7: n = 3 + randInt(0, 3); name = POUNCING_SPIDER; break;
+		case 8: n = 3 + randInt(0, 3); name = GOBLIN; break;
+		case 9: n = 10 + randInt(0, 3); name = WANDERER; break;
+		case 10: n = 6 + randInt(0, 3); name = SLEEPING_WANDERER; break;
+		case 11: n = 6 + randInt(0, 3); name = PROVOCABLE_WANDERER; break;
+		case 12: n = 0 + randInt(0, 3); name = RABID_WANDERER; break;
+		case 13: n = 0 + randInt(0, 3); name = TOAD; break;
+		case 14: n = 3 + randInt(0, 3); name = WEAK_CRATE; break;
+		case 15: n = 3 + randInt(0, 3); name = WEAK_BARREL; break;
+		case 16: n = 3 + randInt(0, 3); name = WEAK_LARGE_POT; break;
 		}
 
 		while (n > 0) {
 
-			x = 1 + randInt(cols - 2);
-			y = 1 + randInt(rows - 2);
+			x = randInt(1, cols - 2);
+			y = randInt(1, rows - 2);
 
 			while (noSpawn(x, y) || wall(x, y) || enemy(x, y) || hero(x, y)) {
-				x = 1 + randInt(cols - 2);
-				y = 1 + randInt(rows - 2);
+				x = randInt(1, cols - 2);
+				y = randInt(1, rows - 2);
 			}
 
 			addMonster(createMonsterByName(name, this, x, y));
@@ -1385,27 +1471,27 @@ void Dungeon::generateTraps() {
 
 		// number of each trap to spawn
 		switch (i) {
-		case 0: n = 2 + randInt(5); break; // Pit
-		case 1: n = 10 + randInt(1); break; // Firebars
-		case 2: n = 10 + randInt(1); break; // Braziers
-		case 3: n = 15 + randInt(5); break; // Puddles
-		case 4: n = 5 + randInt(10); break; // Springs
-		case 5: n = 15 + randInt(3); break; // Turrets
-		case 6: n = 3 + randInt(3); break; // 
-		case 7: n = 10 + randInt(3); break; // 
-		case 8: n = 3 + randInt(3); break; // 
+		case 0: n = 2 + randInt(0, 3); break; // Pit
+		case 1: n = 10 + randInt(0, 0); break; // Firebars
+		case 2: n = 10 + randInt(0, 0); break; // Braziers
+		case 3: n = 15 + randInt(0, 5); break; // Puddles
+		case 4: n = 5 + randInt(0, 10); break; // Springs
+		case 5: n = 15 + randInt(0, 3); break; // Turrets
+		case 6: n = 3 + randInt(0, 3); break; // 
+		case 7: n = 10 + randInt(0, 3); break; // 
+		case 8: n = 3 + randInt(0, 3); break; // 
 		default: n = 0; break;
 		}
 
 		while (n > 0) {
 
-			x = 1 + randInt(cols - 2);
-			y = 1 + randInt(rows - 2);
+			x = randInt(1, cols - 2);
+			y = randInt(1, rows - 2);
 
 			// while position clashes with wall, player, etc., then reroll its position
 			while (noSpawn(x, y) || wall(x, y) || enemy(x, y) || hero(x, y) || Dungeon::trap(x, y) || item(x, y)) {
-				x = 1 + randInt(cols - 2);
-				y = 1 + randInt(rows - 2);
+				x = randInt(1, cols - 2);
+				y = randInt(1, rows - 2);
 			}
 
 			// Type of trap to spawn
@@ -1449,11 +1535,11 @@ void Dungeon::generateItems() {
 		case 4: n = 1; break; // Skeleton Key
 		case 5: n = 1; break; // Wood Shield
 		case 6: n = 2; break; // Freeze Spell
-		case 7: n = 1 + randInt(3); break; // Earthquake Spell
-		case 8: n = 2 + randInt(3); break; // 
-		case 9: n = 2 + randInt(3); break; // 
-		case 10: n = 2 + randInt(3); break; // 
-		case 11: n = 1 + randInt(1); break; // 
+		case 7: n = 1 + randInt(0, 2); break; // Earthquake Spell
+		case 8: n = 2 + randInt(0, 2); break; // 
+		case 9: n = 2 + randInt(0, 2); break; // 
+		case 10: n = 2 + randInt(0, 2); break; // 
+		case 11: n = 1 + randInt(0, 0); break; // 
 		case 12: n = 1; break;
 		case 13: n = 1; break;
 		case 14: n = 1; break;
@@ -1469,12 +1555,12 @@ void Dungeon::generateItems() {
 
 		while (n > 0) {
 
-			x = 1 + randInt(cols - 2);
-			y = 1 + randInt(rows - 2);
+			x = randInt(1, cols - 2);
+			y = randInt(1, rows - 2);
 
 			while (noSpawn(x, y) || wall(x, y) || hero(x, y) || trap(x, y) || Dungeon::item(x, y)) {
-				x = 1 + randInt(cols - 2);
-				y = 1 + randInt(rows - 2);
+				x = randInt(1, cols - 2);
+				y = randInt(1, rows - 2);
 			}
 
 			// Type of item to spawn
@@ -1525,7 +1611,7 @@ void Dungeon::fillLevel(std::vector<std::string> finalvec, int start, int end) {
 		for (int j = 1; j < cols + end; j++) {
 			if (finalvec.at(count) == RANDOM_WALL) {
 				// 50% chance to spawn wall
-				if (randInt(2) == 0) {
+				if (randInt(0, 1) == 0) {
 					std::shared_ptr<Wall> wall = std::make_shared<RegularWall>(this, j, i);
 					m_walls.push_back(wall);
 					m_maze[i*cols + j].wallObject = wall;
@@ -1654,23 +1740,6 @@ void Dungeon::fillLevel(std::vector<std::string> finalvec, int start, int end) {
 				addMonster(std::make_shared<Pikeman>(this, j, i));
 			}
 			else if (finalvec.at(count) == RANDOM_MONSTER) {
-
-				/*switch (randInt(12)) {
-				case 0: monster = std::make_shared<Goblin>(this, j, i, 10); break;
-				case 1:	monster = std::make_shared<Wanderer>(this, j, i);	break;
-				case 2:	monster = std::make_shared<ShootingSpider>(*this, j, i); break;
-				case 3:	monster = std::make_shared<DeadSeeker>(this, j, i); break;
-				case 4:	monster = std::make_shared<Spider>(*this, j, i); break;
-				case 5:	monster = std::make_shared<Roundabout>(this, j, i);	break;
-				case 6:	monster = std::make_shared<Seeker>(this, j, i, 10);	break;
-				case 7:	monster = std::make_shared<GooSack>(this, j, i);	break;
-				case 8:	monster = std::make_shared<Broundabout>(this, j, i);	break;
-				case 9:	monster = std::make_shared<GustySpikedInvertedPuff>(this, j, i); break;
-				case 10: monster = std::make_shared<GustyPuff>(this, j, i);	break;
-				case 11: monster = std::make_shared<PouncingSpider>(this, j, i);	break;
-				case 12: monster = std::make_shared<ProvocableWanderer>(this, j, i);	break;
-				}*/
-
 				monster = rollMonster(m_level, this, j, i);
 				addMonster(monster);
 			}
@@ -1737,7 +1806,7 @@ void Dungeon::fillLevel(std::vector<std::string> finalvec, int start, int end) {
 			}
 			else if (finalvec.at(count) == TURRET) {
 				char move;
-				switch (1 + randInt(4)) {
+				switch (randInt(1, 4)) {
 				case 1: move = 'l'; break;	// L
 				case 2: move = 'r'; break;	// R
 				case 3: move = 'u'; break;	// U
@@ -1766,9 +1835,7 @@ void Dungeon::fillLevel(std::vector<std::string> finalvec, int start, int end) {
 			}
 
 			else if (finalvec.at(count) == GOLD) {
-				//m_maze[i*cols + j].gold = 4 + randInt(9);
-				//addGoldSprite(j, i);
-				addGold(j, i, 4 + randInt(9));
+				addGold(j, i, 4 + randInt(1, 10));
 			}
 			else if (finalvec.at(count) == HEART_POD) {
 				createItem(std::make_shared<HeartPod>(j, i));
@@ -1837,7 +1904,7 @@ void Dungeon::fillLevel(std::vector<std::string> finalvec, int start, int end) {
 // Helper
 void Dungeon::transformSpriteToDungeonCoordinates(float x, float y, int &fx, int &fy) const {
 	fx = (x + X_OFFSET) / SPACING_FACTOR;
-	fy = m_rows - ((y + Y_OFFSET) / SPACING_FACTOR);
+	fy = static_cast<float>(m_rows) - ((y + Y_OFFSET) / SPACING_FACTOR);
 }
 void Dungeon::transformDungeonToSpriteCoordinates(int x, int y, float &fx, float &fy) const {
 	fx = x * SPACING_FACTOR - X_OFFSET;
@@ -1847,63 +1914,15 @@ void Dungeon::transformDungeonToSpriteCoordinates(float x, float y, float &fx, f
 	fx = x * SPACING_FACTOR - X_OFFSET;
 	fy = (m_rows - y)*SPACING_FACTOR - Y_OFFSET;
 }
+cocos2d::Vec2 Dungeon::dungeonToLightCoordinates(float x, float y) const {
+	auto vs = cocos2d::Director::getInstance()->getVisibleSize();
+	auto vsw = vs.width / 2;
+	auto vsh = vs.height / 2;
 
-int Dungeon::findSprite(std::vector<cocos2d::Sprite*> &sprites, int x, int y) {
+	float fx = x + vsw;
+	float fy = y + vsh;
 
-	// the position of the actual sprite on the screen
-	int x_sprite = x * SPACING_FACTOR - X_OFFSET;
-	int y_sprite = (m_rows - y)*SPACING_FACTOR - Y_OFFSET;
-
-	// used for storing the current sprite's x and y coordinates
-	cocos2d::Vec2 point;
-	int px, py;
-
-	for (unsigned int i = 0; i < sprites.size(); i++) {
-		point = sprites[i]->getPosition();
-		px = point.x;
-		py = point.y;
-
-		if (x_sprite == px && y_sprite == py)
-			return i;
-	}
-
-	return -1;
-}
-
-// Set sprites to position
-void Dungeon::teleportSprite(cocos2d::Sprite* sprite, int x, int y) {
-	float fx, fy;
-	transformDungeonToSpriteCoordinates(x, y, fx, fy);
-
-	sprite->setPosition(fx, fy);
-}
-
-// Move sprites
-void Dungeon::queueMoveSprite(cocos2d::Sprite* sprite, int cx, int cy, float time, bool front) {
-	float fx, fy;
-	transformDungeonToSpriteCoordinates(cx, cy, fx, fy);
-
-	auto move = cocos2d::MoveTo::create(time, cocos2d::Vec2(fx, fy));
-	insertActionIntoSpawn(sprite, move, front);
-}
-void Dungeon::queueMoveSprite(cocos2d::Sprite* sprite, float cx, float cy, float time, bool front) {
-	float fx, fy;
-	transformDungeonToSpriteCoordinates(cx, cy, fx, fy);
-
-	auto move = cocos2d::MoveTo::create(time, cocos2d::Vec2(fx, fy));
-	insertActionIntoSpawn(sprite, move, front);
-}
-cocos2d::MoveTo* Dungeon::getMoveAction(cocos2d::Sprite* sprite, int cx, int cy, float time) {
-	float fx, fy;
-	transformDungeonToSpriteCoordinates(cx, cy, fx, fy);
-
-	return cocos2d::MoveTo::create(time, cocos2d::Vec2(fx, fy));
-}
-cocos2d::MoveTo* Dungeon::getMoveAction(cocos2d::Sprite* sprite, float cx, float cy, float time) {
-	float fx, fy;
-	transformDungeonToSpriteCoordinates(cx, cy, fx, fy);
-
-	return cocos2d::MoveTo::create(time, cocos2d::Vec2(fx, fy));
+	return cocos2d::Vec2(fx, fy);
 }
 
 // Create new sprites
@@ -1929,7 +1948,21 @@ cocos2d::Sprite* Dungeon::createSprite(int x, int y, int z, std::string image) {
 
 	sprite->setPosition(fx, fy);
 	sprite->setScale(GLOBAL_SPRITE_SCALE);
-	
+
+	return sprite;
+}
+SpriteType* Dungeon::createEffectSprite(int x, int y, int z, std::string image) {
+	auto spriteFrame = cocos2d::SpriteFrameCache::getInstance()->getSpriteFrameByName(image);
+	SpriteType* sprite = EffectSprite::createWithSpriteFrame(spriteFrame);
+	m_scene->addChild(sprite, z);
+
+	float fx, fy;
+	transformDungeonToSpriteCoordinates(x, y, fx, fy);
+
+	sprite->setPosition(fx, fy);
+	sprite->setScale(GLOBAL_SPRITE_SCALE);
+	m_scene->setLightingOn(sprite);
+
 	return sprite;
 }
 cocos2d::Sprite* Dungeon::createSprite(float x, float y, int z, std::string image) {
@@ -1953,7 +1986,10 @@ cocos2d::Sprite* Dungeon::createMiscSprite(float x, float y, int z, std::string 
 
 	sprite->setPosition(fx, fy);
 	sprite->setScale(GLOBAL_SPRITE_SCALE);
-	misc_sprites.push_back(sprite);
+
+	MiscSprite misc(Coords(x, y), sprite);
+	m_miscSprites.push_back(misc);
+	//misc_sprites.push_back(sprite);
 
 	return sprite;
 }
@@ -1967,14 +2003,17 @@ void Dungeon::addSprite(int x, int y, int z, std::string image) {
 	sprite->setPosition(fx, fy);
 	sprite->setScale(GLOBAL_SPRITE_SCALE);
 
-	misc_sprites.push_back(sprite);
+	MiscSprite misc(Coords(x, y), sprite);
+	m_miscSprites.push_back(misc);
+
+	//misc_sprites.push_back(sprite);
 }
 cocos2d::Sprite* Dungeon::createWallSprite(int x, int y, int z, std::string type) {
 	std::string image;
 	cocos2d::Sprite* wall = nullptr;
 
 	if (type == REG_WALL) {
-		switch (1 + randInt(13)) {
+		switch (randInt(1, 13)) {
 		case 1: image = "D_Wall_Terrain1_48x48.png"; break;
 		case 2: image = "D_Wall_Terrain2_48x48.png"; break;
 		case 3: image = "D_Wall_Terrain3_48x48.png"; break;
@@ -1994,11 +2033,7 @@ cocos2d::Sprite* Dungeon::createWallSprite(int x, int y, int z, std::string type
 		wall->setColor(cocos2d::Color3B(0, 0, 0));
 	}
 	else if (type == UNB_WALL) {
-		int rand = 1 + randInt(15);
-		//if (i == 0) rand = randInt(3) + 1 + (randInt(2) * 12); // upper border
-		//else if (j == cols - 1) rand = randInt(3) + 4;// + (randInt(2) * 9); // right border
-		//else if (i == rows - 1) rand = randInt(3) + 7 + (randInt(2) * 6); // lower border
-		//else if (j == 0) rand = randInt(3) + 10;// + (randInt(2) * 3); // left border
+		int rand = randInt(1, 15);
 
 		switch (rand) {
 		case 1: image = "C_Wall_Terrain1_48x48.png"; break;
@@ -2027,6 +2062,48 @@ cocos2d::Sprite* Dungeon::createWallSprite(int x, int y, int z, std::string type
 	}
 
 	return wall;
+}
+
+// Set sprites to position
+void Dungeon::teleportSprite(cocos2d::Sprite* sprite, int x, int y) {
+	float fx, fy;
+	transformDungeonToSpriteCoordinates(x, y, fx, fy);
+
+	sprite->setPosition(fx, fy);
+}
+void Dungeon::teleportSprite(cocos2d::Sprite* sprite, float x, float y) {
+	float fx, fy;
+	transformDungeonToSpriteCoordinates(x, y, fx, fy);
+
+	sprite->setPosition(fx, fy);
+}
+
+// Move sprites
+void Dungeon::queueMoveSprite(cocos2d::Sprite* sprite, int cx, int cy, float time, bool front) {
+	float fx, fy;
+	transformDungeonToSpriteCoordinates(cx, cy, fx, fy);
+
+	auto move = cocos2d::MoveTo::create(time, cocos2d::Vec2(fx, fy));
+	insertActionIntoSpawn(sprite, move, front);
+}
+void Dungeon::queueMoveSprite(cocos2d::Sprite* sprite, float cx, float cy, float time, bool front) {
+	float fx, fy;
+	transformDungeonToSpriteCoordinates(cx, cy, fx, fy);
+
+	auto move = cocos2d::MoveTo::create(time, cocos2d::Vec2(fx, fy));
+	insertActionIntoSpawn(sprite, move, front);
+}
+cocos2d::MoveTo* Dungeon::getMoveAction(int cx, int cy, float time) {
+	float fx, fy;
+	transformDungeonToSpriteCoordinates(cx, cy, fx, fy);
+
+	return cocos2d::MoveTo::create(time, cocos2d::Vec2(fx, fy));
+}
+cocos2d::MoveTo* Dungeon::getMoveAction(float cx, float cy, float time) {
+	float fx, fy;
+	transformDungeonToSpriteCoordinates(cx, cy, fx, fy);
+
+	return cocos2d::MoveTo::create(time, cocos2d::Vec2(fx, fy));
 }
 
 // Remove sprites
@@ -2064,7 +2141,10 @@ void Dungeon::updateLighting() {
 	if (m_level == FIRST_BOSS)
 		return;
 
-	int cols = getCols();
+	//cocos2d::Vec2 vec = dungeonToLightCoordinates(player.at(0)->getPosX(), player.at(0)->getPosY());
+	//m_scene->movePlayerLightTo(vec.x, vec.y);
+
+	int cols = m_cols;
 
 	int px = player.at(0)->getPosX();
 	int py = player.at(0)->getPosY();
@@ -2073,7 +2153,7 @@ void Dungeon::updateLighting() {
 	int sx, sy, dist, color;
 
 	// Extra sprites for decoration
-	for (unsigned int i = 0; i < misc_sprites.size(); i++) {
+	/*for (unsigned int i = 0; i < misc_sprites.size(); i++) {
 		if (!misc_sprites[i])
 			continue;
 
@@ -2087,6 +2167,23 @@ void Dungeon::updateLighting() {
 			color = (255 * formula);
 
 		misc_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+	}*/
+
+	for (unsigned int i = 0; i < m_miscSprites.size(); i++) {
+		if (!m_miscSprites[i].sprite)
+			continue;
+
+		sx = m_miscSprites[i].pos.x;
+		sy = m_miscSprites[i].pos.y;
+
+		dist = abs(sx - px) + abs(sy - py);
+		float formula = (p_cutoff - dist) / static_cast<float>(p_cutoff);
+		color = 0;
+
+		if (dist <= p_cutoff)
+			color = (255 * formula);
+
+		m_miscSprites[i].sprite->setColor(cocos2d::Color3B(color, color, color));
 	}
 
 	// npc sprites
@@ -2177,10 +2274,8 @@ void Dungeon::updateLighting() {
 				m_traps.at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
 
 			// if trap uses extra sprites, update their lighting too
-			if (m_traps.at(i)->hasExtraSprites()) {
-				m_traps.at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));
-			}
-
+			if (m_traps.at(i)->hasExtraSprites())
+				m_traps.at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));			
 		}
 	}
 
@@ -2274,7 +2369,7 @@ void Dungeon::updateSecondaryLighting() {
 		py = lightEmitters.at(n).second;
 
 		// Extra sprites for decoration
-		for (unsigned int i = 0; i < misc_sprites.size(); i++) {
+		/*for (unsigned int i = 0; i < misc_sprites.size(); i++) {
 			if (!misc_sprites[i])
 				continue;
 
@@ -2287,6 +2382,23 @@ void Dungeon::updateSecondaryLighting() {
 				c3b = misc_sprites.at(i)->getDisplayedColor();
 				color = std::max((int)c3b.r, (int)(255 * formula));
 				misc_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}*/
+
+		for (unsigned int i = 0; i < m_miscSprites.size(); i++) {
+			if (!m_miscSprites[i].sprite)
+				continue;
+
+			sx = m_miscSprites[i].pos.x;
+			sy = m_miscSprites[i].pos.y;
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / static_cast<float>(p_cutoff);
+
+			if (dist <= p_cutoff) {
+				c3b = m_miscSprites[i].sprite->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				m_miscSprites[i].sprite->setColor(cocos2d::Color3B(color, color, color));
 			}
 		}
 
@@ -2421,12 +2533,12 @@ void Dungeon::updateSecondaryLighting() {
 
 	// Check other light sources
 	for (unsigned int pos = 0; pos < m_lightSources.size(); pos++) {
-		px = m_lightSources.at(pos).first.first;
-		py = m_lightSources.at(pos).first.second;
-		p_cutoff = (int)m_lightSources.at(pos).second.first;
+		px = m_lightSources.at(pos).pos.x;
+		py = m_lightSources.at(pos).pos.y;
+		p_cutoff = static_cast<int>(m_lightSources.at(pos).radius);
 
 		// Extra sprites for decoration
-		for (unsigned int i = 0; i < misc_sprites.size(); i++) {
+		/*for (unsigned int i = 0; i < misc_sprites.size(); i++) {
 			if (!misc_sprites[i])
 				continue;
 
@@ -2439,6 +2551,23 @@ void Dungeon::updateSecondaryLighting() {
 				c3b = misc_sprites.at(i)->getDisplayedColor();
 				color = std::max((int)c3b.r, (int)(255 * formula));
 				misc_sprites.at(i)->setColor(cocos2d::Color3B(color, color, color));
+			}
+		}*/
+
+		for (unsigned int i = 0; i < m_miscSprites.size(); i++) {
+			if (!m_miscSprites[i].sprite)
+				continue;
+
+			sx = m_miscSprites[i].pos.x;
+			sy = m_miscSprites[i].pos.y;
+
+			dist = abs(sx - px) + abs(sy - py);
+			float formula = (p_cutoff - dist) / static_cast<float>(p_cutoff);
+
+			if (dist <= p_cutoff) {
+				c3b = m_miscSprites[i].sprite->getDisplayedColor();
+				color = std::max((int)c3b.r, (int)(255 * formula));
+				m_miscSprites[i].sprite->setColor(cocos2d::Color3B(color, color, color));
 			}
 		}
 
@@ -2498,9 +2627,9 @@ void Dungeon::updateSecondaryLighting() {
 				m_traps.at(i)->getSprite()->setColor(cocos2d::Color3B(color, color, color));
 
 				// if trap uses extra sprites, update their lighting too
-				if (m_traps.at(i)->hasExtraSprites()) {
+				if (m_traps.at(i)->hasExtraSprites())
 					m_traps.at(i)->setSpriteColor(cocos2d::Color3B(color, color, color));
-				}
+				
 			}
 
 		}
@@ -2576,8 +2705,8 @@ void Dungeon::updateSecondaryLighting() {
 
 int Dungeon::findLightSource(int x, int y, std::string name) {
 	for (int i = 0; i < (int)m_lightSources.size(); i++) {
-		if (m_lightSources.at(i).first.first == x && m_lightSources.at(i).first.second == y &&
-			m_lightSources.at(i).second.second == name) {
+		if (m_lightSources.at(i).pos.x == x && m_lightSources.at(i).pos.y == y &&
+			m_lightSources.at(i).name == name) {
 			return i;
 		}
 	}
@@ -2585,9 +2714,12 @@ int Dungeon::findLightSource(int x, int y, std::string name) {
 	return -1;
 }
 void Dungeon::addLightSource(int x, int y, double strength, std::string name) {
-	std::pair<int, int> coords = std::make_pair(x, y);
-	std::pair<double, std::string> info = std::make_pair(strength, name);
-	std::pair<std::pair<int, int>, std::pair<double, std::string>> lightSource = std::make_pair(coords, info);
+	//std::pair<int, int> coords = std::make_pair(x, y);
+	//std::pair<double, std::string> info = std::make_pair(strength, name);
+	//std::pair<std::pair<int, int>, std::pair<double, std::string>> lightSource = std::make_pair(coords, info);
+
+	Coords coords(x, y);
+	LightSource lightSource(coords, strength, name);
 
 	m_lightSources.push_back(lightSource);
 }
@@ -2600,6 +2732,138 @@ void Dungeon::removeLightSource(int x, int y, std::string name) {
 	m_lightSources.erase(m_lightSources.begin() + pos);
 }
 
+void Dungeon::zoomInBy(float factor) {
+	// Since the ratio of sprite scale to spacing factor is 1/44, we increment by this same ratio
+	// NOTE: This ratio is subject to change when art is finalized.
+
+	GLOBAL_SPRITE_SCALE += factor;
+	SPACING_FACTOR += factor * 44.0f;
+
+	updateSpriteScaling();
+}
+void Dungeon::zoomOutBy(float factor) {
+	if (GLOBAL_SPRITE_SCALE - factor <= 0.0f)
+		return;
+	
+	GLOBAL_SPRITE_SCALE -= factor;
+	SPACING_FACTOR -= factor * 44.0f;
+
+	updateSpriteScaling();
+}
+void Dungeon::updateSpriteScaling() {
+	int cols = m_cols;
+	int rows = m_rows;
+
+	cocos2d::ScaleTo* scale = cocos2d::ScaleTo::create(0.1f, GLOBAL_SPRITE_SCALE);
+	cocos2d::Vector<cocos2d::FiniteTimeAction*> actions;
+
+	actions.pushBack(scale);
+	actions.pushBack(getMoveAction(player.at(0)->getPosX(), player.at(0)->getPosY()));
+	queueCustomSpawnActions(player.at(0)->getSprite(), actions);
+	//player.at(0)->getSprite()->setScale(GLOBAL_SPRITE_SCALE);
+	//queueCustomAction(player.at(0)->getSprite(), cocos2d::ScaleTo::create(0.1f, GLOBAL_SPRITE_SCALE));
+	//queueMoveSprite(player.at(0)->getSprite(), player.at(0)->getPosX(), player.at(0)->getPosY());
+
+	// Extra sprites for decoration
+	for (unsigned int i = 0; i < m_miscSprites.size(); i++) {
+		actions.clear();
+		actions.pushBack(scale->clone());
+		actions.pushBack(getMoveAction(m_miscSprites[i].pos.x, m_miscSprites[i].pos.y));
+		queueCustomSpawnActions(m_miscSprites[i].sprite, actions);
+
+		//m_miscSprites[i].sprite->setScale(GLOBAL_SPRITE_SCALE);
+		//queueCustomAction(m_miscSprites[i].sprite, cocos2d::ScaleTo::create(0.1f, GLOBAL_SPRITE_SCALE));
+		//queueMoveSprite(m_miscSprites[i].sprite, m_miscSprites[i].pos.x, m_miscSprites[i].pos.y);
+	}
+
+	// npc sprites
+	for (unsigned int i = 0; i < m_npcs.size(); i++) {
+		actions.clear();
+		actions.pushBack(scale->clone());
+		actions.pushBack(getMoveAction(m_npcs[i]->getPosX(), m_npcs[i]->getPosY()));
+		queueCustomSpawnActions(m_npcs[i]->getSprite(), actions);
+
+		//m_npcs[i]->getSprite()->setScale(GLOBAL_SPRITE_SCALE);
+		//queueCustomAction(m_npcs[i]->getSprite(), cocos2d::ScaleTo::create(0.1f, GLOBAL_SPRITE_SCALE));
+		//queueMoveSprite(m_npcs[i]->getSprite(), m_npcs[i]->getPosX(), m_npcs[i]->getPosY());
+	}
+
+	// monster sprites
+	for (unsigned int i = 0; i < m_monsters.size(); i++) {
+		actions.clear();
+		actions.pushBack(scale->clone());
+		actions.pushBack(getMoveAction(m_monsters[i]->getPosX(), m_monsters[i]->getPosY()));
+		queueCustomSpawnActions(m_monsters[i]->getSprite(), actions);
+
+		//m_monsters[i]->getSprite()->setScale(GLOBAL_SPRITE_SCALE);
+		//queueCustomAction(m_monsters[i]->getSprite(), cocos2d::ScaleTo::create(0.1f, GLOBAL_SPRITE_SCALE));
+		//queueMoveSprite(m_monsters[i]->getSprite(), m_monsters[i]->getPosX(), m_monsters[i]->getPosY());
+	}
+
+	// trap sprites
+	for (unsigned int i = 0; i < m_traps.size(); i++) {
+		actions.clear();
+		actions.pushBack(scale->clone());
+		actions.pushBack(getMoveAction(m_traps[i]->getPosX(), m_traps[i]->getPosY()));
+		queueCustomSpawnActions(m_traps[i]->getSprite(), actions);
+
+		//m_traps[i]->getSprite()->setScale(GLOBAL_SPRITE_SCALE);
+		//queueCustomAction(m_traps[i]->getSprite(), cocos2d::ScaleTo::create(0.1f, GLOBAL_SPRITE_SCALE));
+		//queueMoveSprite(m_traps[i]->getSprite(), m_traps[i]->getPosX(), m_traps[i]->getPosY());
+	}
+
+	// floor sprites
+	for (int i = 0; i < cols; i++) {
+		for (int j = 0; j < rows; j++) {
+			actions.clear();
+			actions.pushBack(scale->clone());
+			actions.pushBack(getMoveAction(i, j));
+			queueCustomSpawnActions(m_maze[j*cols + i].floor, actions);
+
+			//m_maze[j*cols + i].floor->setScale(GLOBAL_SPRITE_SCALE);
+			//queueCustomAction(m_maze[j*cols + i].floor, cocos2d::ScaleTo::create(0.1f, GLOBAL_SPRITE_SCALE));
+			//queueMoveSprite(m_maze[j*cols + i].floor, i, j);
+		}
+	}
+
+	// Walls
+	for (unsigned int i = 0; i < m_walls.size(); i++) {
+		actions.clear();
+		actions.pushBack(scale->clone());
+		actions.pushBack(getMoveAction(m_walls[i]->getPosX(), m_walls[i]->getPosY()));
+		queueCustomSpawnActions(m_walls[i]->getSprite(), actions);
+
+		//m_walls[i]->getSprite()->setScale(GLOBAL_SPRITE_SCALE);
+		//queueCustomAction(m_walls[i]->getSprite(), cocos2d::ScaleTo::create(0.1f, GLOBAL_SPRITE_SCALE));
+		//queueMoveSprite(m_walls[i]->getSprite(), m_walls[i]->getPosX(), m_walls[i]->getPosY());
+	}
+
+	// item sprites
+	for (unsigned int i = 0; i < m_items.size(); i++) {
+		actions.clear();
+		actions.pushBack(scale->clone());
+		actions.pushBack(getMoveAction(m_items[i]->getPosX(), m_items[i]->getPosY()));
+		queueCustomSpawnActions(m_items[i]->getSprite(), actions);
+
+		//m_items[i]->getSprite()->setScale(GLOBAL_SPRITE_SCALE);
+		//queueCustomAction(m_items[i]->getSprite(), cocos2d::ScaleTo::create(0.1f, GLOBAL_SPRITE_SCALE));
+		//queueMoveSprite(m_items[i]->getSprite(), m_items[i]->getPosX(), m_items[i]->getPosY());
+	}
+
+	// money sprites
+	for (unsigned int i = 0; i < m_money.size(); i++) {
+		actions.clear();
+		actions.pushBack(scale->clone());
+		actions.pushBack(getMoveAction(m_money[i]->getPosX(), m_money[i]->getPosY()));
+		queueCustomSpawnActions(m_money[i]->getSprite(), actions);
+
+		//m_money[i]->getSprite()->setScale(GLOBAL_SPRITE_SCALE);
+		//queueCustomAction(m_money[i]->getSprite(), cocos2d::ScaleTo::create(0.1f, GLOBAL_SPRITE_SCALE));
+		//queueMoveSprite(m_money[i]->getSprite(), m_money[i]->getPosX(), m_money[i]->getPosY());
+	}
+
+	runSpawn();
+}
 
 // Run sprite actions
 int Dungeon::spriteFound(cocos2d::Sprite* sprite) {
@@ -2655,6 +2919,7 @@ cocos2d::Sprite* Dungeon::runAnimationForever(cocos2d::Vector<cocos2d::SpriteFra
 }
 void Dungeon::runSingleAnimation(cocos2d::Vector<cocos2d::SpriteFrame*> frames, int frameInterval, int x, int y, int z) {
 	auto sprite = cocos2d::Sprite::createWithSpriteFrame(frames.front());
+	sprite->setScale(GLOBAL_SPRITE_SCALE);
 	m_scene->addChild(sprite, z);
 	teleportSprite(sprite, x, y);
 
@@ -2745,7 +3010,7 @@ TutorialFloor::TutorialFloor(LevelScene* scene, std::shared_ptr<Player> p) : Dun
 					// Breakable object
 			case 'B': { 
 				std::shared_ptr<Monster> object(nullptr);
-				switch (randInt(3)) {
+				switch (randInt(0, 2)) {
 				case 0:
 					object = std::make_shared<WeakCrate>(this, j, i);
 					break;
@@ -2766,6 +3031,8 @@ TutorialFloor::TutorialFloor(LevelScene* scene, std::shared_ptr<Player> p) : Dun
 				//std::shared_ptr<Monster> object = std::make_shared<ArrowSign>(this, j, i);
 				//m_monsters.push_back(object);
 
+				//m_npcs.push_back(std::make_shared<Enchanter>(this, j, i));
+
 				//addMonster(std::make_shared<SandCentipede>(this, j, i));
 
 				//addMonster(std::make_shared<ConstructorDemon>(this, j, i));
@@ -2784,21 +3051,21 @@ TutorialFloor::TutorialFloor(LevelScene* scene, std::shared_ptr<Player> p) : Dun
 			}
 					// Outside Man 1
 			case 'M': {			
-				/*std::shared_ptr<NPC> npc = std::make_shared<OutsideMan1>(j, i);
+				/*std::shared_ptr<NPC> npc = std::make_shared<TutorialNPC1>(j, i);
 				m_npcs.push_back(npc);*/
 
 				//m_npcs.push_back(std::make_shared<InjuredExplorer>(this, j, i));
 
-				addMonster(std::make_shared<IncendiaryInfuser>(this, j, i));
+				//addMonster(std::make_shared<IncendiaryInfuser>(this, j, i));
 
 				//addTrap(std::make_shared<SquareMovingBlock>(*this, j, i, 'l', 6, true));
-				//addTrap(std::make_shared<FlareCandle>(*this, j, i));
+				addTrap(std::make_shared<DNASplitter>(*this, j, i));
 
 				break;
 			}
 					  // Outside Man 2
 			case 'Q': {
-				std::shared_ptr<NPC> npc = std::make_shared<OutsideMan2>(this, j, i);
+				std::shared_ptr<NPC> npc = std::make_shared<TutorialNPC2>(this, j, i);
 				m_npcs.push_back(npc);
 
 				break;
@@ -2817,15 +3084,15 @@ TutorialFloor::TutorialFloor(LevelScene* scene, std::shared_ptr<Player> p) : Dun
 
 	/*int x, y;
 	for (int i = 0; i < 30; i++) {
-		x = 1 + randInt(cols - 2);
-		y = 1 + randInt(rows - 2);
+		x = randInt(1, cols - 2);
+		y = randInt(1, rows - 2);
 
 		while (wall(x, y) || enemy(x, y) || hero(x, y)) {
-			x = 1 + randInt(cols - 2);
-			y = 1 + randInt(rows - 2);
+			x = randInt(1, cols - 2);
+			y = randInt(1, rows - 2);
 		}
 
-		addMonster(rollMonster(EIGHTH_FLOOR, this, x, y));
+		addMonster(rollMonster(SEVENTH_FLOOR, this, x, y));
 	}*/
 }
 
@@ -2935,7 +3202,7 @@ WorldHub::WorldHub(LevelScene* scene, std::shared_ptr<Player> p) : Dungeon(scene
 					  // Breakable object
 			case 'B': {
 				std::shared_ptr<Monster> object(nullptr);
-				switch (randInt(3)) {
+				switch (randInt(0, 2)) {
 				case 0:
 					object = std::make_shared<WeakCrate>(this, j, i);
 					break;
@@ -3134,8 +3401,9 @@ Shop::Shop(LevelScene* scene, std::shared_ptr<Player> p, int level) : Dungeon(sc
 			}
 				// shop counter
 			case 'c': {
-				cocos2d::Sprite* object = createSprite(j, i, 1, "Countertop_48x48.png");
-				misc_sprites.push_back(object);
+				addSprite(j, i, i + Z_ITEM - 1, "Countertop_48x48.png");
+				//cocos2d::Sprite* object = createSprite(j, i, 1, "Countertop_48x48.png");
+				//misc_sprites.push_back(object);
 
 				m_maze[i*cols + j].wall = true;
 				m_maze[i*cols + j].boundary = true;
@@ -3151,7 +3419,7 @@ Shop::Shop(LevelScene* scene, std::shared_ptr<Player> p, int level) : Dungeon(sc
 				// breakable object
 			case 'd': {
 				std::shared_ptr<Monster> object(nullptr);
-				switch (randInt(3)) {
+				switch (randInt(0, 2)) {
 				case 0:
 					object = std::make_shared<WeakCrate>(this, j, i);
 					break;
@@ -3169,14 +3437,15 @@ Shop::Shop(LevelScene* scene, std::shared_ptr<Player> p, int level) : Dungeon(sc
 			}
 				// secret thing
 			case 'b': {
-				cocos2d::Sprite* object = createSprite(j, i, 1, "Stairs_48x48.png");
-				misc_sprites.push_back(object);
+				addSprite(j, i, i + Z_EXIT, "Stairs_48x48.png");
+				//cocos2d::Sprite* object = createSprite(j, i, 1, "Stairs_48x48.png");
+				//misc_sprites.push_back(object);
 
 				break;
 			}
 					  // 1, 2, 3 : hp, shield repair, utility
 			case '1': {
-				switch (randInt(5)) {
+				switch (randInt(0, 4)) {
 				case 0: m_maze[i*cols + j].object = std::make_shared<LifePotion>(j, i); m_maze[i*cols + j].price = 30 * m_priceMultiplier; break;
 				case 1: m_maze[i*cols + j].object = std::make_shared<BigLifePotion>(j, i); m_maze[i*cols + j].price = 45 * m_priceMultiplier; break;
 				case 2: m_maze[i*cols + j].object = std::make_shared<SoulPotion>(j, i); m_maze[i*cols + j].price = 37 * m_priceMultiplier; break;
@@ -3184,19 +3453,21 @@ Shop::Shop(LevelScene* scene, std::shared_ptr<Player> p, int level) : Dungeon(sc
 				case 4: m_maze[i*cols + j].object = std::make_shared<SteadyLifePotion>(j, i); m_maze[i*cols + j].price = 36 * m_priceMultiplier; break;
 				}
 
-				m_maze[i*cols + j].object->setSprite(createSprite(j, i, 2, m_maze[i*cols + j].object->getImageName()));
+				m_maze[i*cols + j].object->setSprite(createSprite(j, i, i + Z_ITEM, m_maze[i*cols + j].object->getImageName()));
 				m_items.push_back(m_maze[i*cols + j].object);
 				
 				m_maze[i*cols + j].boundary = true;
 				m_maze[i*cols + j].wall = true;
 				m_maze[i*cols + j].item = true;
 
-				cocos2d::Sprite* object = createSprite(j, i, 1, "Countertop_48x48.png");
-				misc_sprites.push_back(object);
+				addSprite(j, i, i + Z_ITEM - 1, "Countertop_48x48.png");
+
+				//cocos2d::Sprite* object = createSprite(j, i, 1, "Countertop_48x48.png");
+				//misc_sprites.push_back(object);
 				break;
 			}
 			case '2': {
-				switch (randInt(6)) {
+				switch (randInt(0, 5)) {
 				case 0: m_maze[i*cols + j].object = std::make_shared<SmokeBomb>(j, i); m_maze[i*cols + j].price = 20 * m_priceMultiplier; break;
 				case 1: m_maze[i*cols + j].object = std::make_shared<Bomb>(j, i);  m_maze[i*cols + j].price = 25 * m_priceMultiplier; break;
 				case 2: m_maze[i*cols + j].object = std::make_shared<StatPotion>(j, i); m_maze[i*cols + j].price = 23 * m_priceMultiplier; break;
@@ -3205,18 +3476,20 @@ Shop::Shop(LevelScene* scene, std::shared_ptr<Player> p, int level) : Dungeon(sc
 				case 5: m_maze[i*cols + j].object = std::make_shared<Firecrackers>(j, i); m_maze[i*cols + j].price = 20 * m_priceMultiplier; break;
 				}
 
-				m_maze[i*cols + j].object->setSprite(createSprite(j, i, 2, m_maze[i*cols + j].object->getImageName()));
+				m_maze[i*cols + j].object->setSprite(createSprite(j, i, i + Z_ITEM, m_maze[i*cols + j].object->getImageName()));
 				m_items.push_back(m_maze[i*cols + j].object);
 				m_maze[i*cols + j].boundary = true;
 				m_maze[i*cols + j].wall = true;
 				m_maze[i*cols + j].item = true;
 				
-				cocos2d::Sprite* object = createSprite(j, i, 1, "Countertop_48x48.png");
-				misc_sprites.push_back(object);
+				addSprite(j, i, i + Z_ITEM - 1, "Countertop_48x48.png");
+
+				//cocos2d::Sprite* object = createSprite(j, i, 1, "Countertop_48x48.png");
+				//misc_sprites.push_back(object);
 				break;
 			}
 			case '3': {
-				switch (randInt(7)) {
+				switch (randInt(0, 6)) {
 				case 0: m_maze[i*cols + j].object = std::make_shared<LifePotion>(j, i); m_maze[i*cols + j].price = 30 * m_priceMultiplier; break;
 				case 1: m_maze[i*cols + j].object = std::make_shared<BinaryLifePotion>(j, i); m_maze[i*cols + j].price = 45 * m_priceMultiplier; break;
 				case 2: m_maze[i*cols + j].object = std::make_shared<RottenApple>(j, i); m_maze[i*cols + j].price = 25 * m_priceMultiplier; break;
@@ -3226,68 +3499,72 @@ Shop::Shop(LevelScene* scene, std::shared_ptr<Player> p, int level) : Dungeon(sc
 				case 6: m_maze[i*cols + j].object = std::make_shared<ArmorDrop>(j, i); m_maze[i*cols + j].price = 55 * m_priceMultiplier; break;
 				}
 
-				m_maze[i*cols + j].object->setSprite(createSprite(j, i, 2, m_maze[i*cols + j].object->getImageName()));
+				m_maze[i*cols + j].object->setSprite(createSprite(j, i, i + Z_ITEM, m_maze[i*cols + j].object->getImageName()));
 				m_items.push_back(m_maze[i*cols + j].object);
 				m_maze[i*cols + j].boundary = true;
 				m_maze[i*cols + j].wall = true;
 				m_maze[i*cols + j].item = true;
 				
-				cocos2d::Sprite* object = createSprite(j, i, 1, "Countertop_48x48.png");
-				misc_sprites.push_back(object);
+				addSprite(j, i, i + Z_ITEM - 1, "Countertop_48x48.png");
+
+				//cocos2d::Sprite* object = createSprite(j, i, 1, "Countertop_48x48.png");
+				//misc_sprites.push_back(object);
 				break;
 			}
 					  // 4, 5 : random items
 			case '4': {
-				switch (randInt(9)) {
-				case 0: m_maze[i*cols + j].object = std::make_shared<BoStaff>(j, i); m_maze[i*cols + j].price = (80 + randInt(6)) * m_priceMultiplier; break;
-				case 1: m_maze[i*cols + j].object = std::make_shared<Pike>(j, i); m_maze[i*cols + j].price = (80 + randInt(5)) * m_priceMultiplier; break;
-				case 2: m_maze[i*cols + j].object = std::make_shared<Boomerang>(j, i); m_maze[i*cols + j].price = (55 + randInt(5)) * m_priceMultiplier; break;
-				case 3: m_maze[i*cols + j].object = std::make_shared<Katana>(j, i); m_maze[i*cols + j].price = (85 + randInt(4)) * m_priceMultiplier; break;
-				case 4: m_maze[i*cols + j].object = std::make_shared<Estoc>(j, i); m_maze[i*cols + j].price = (120 + randInt(11)) * m_priceMultiplier; break;
+				switch (randInt(0, 8)) {
+				case 0: m_maze[i*cols + j].object = std::make_shared<BoStaff>(j, i); m_maze[i*cols + j].price = (80 + randInt(0, 5)) * m_priceMultiplier; break;
+				case 1: m_maze[i*cols + j].object = std::make_shared<Pike>(j, i); m_maze[i*cols + j].price = (80 + randInt(0, 5)) * m_priceMultiplier; break;
+				case 2: m_maze[i*cols + j].object = std::make_shared<Boomerang>(j, i); m_maze[i*cols + j].price = (55 + randInt(0, 5)) * m_priceMultiplier; break;
+				case 3: m_maze[i*cols + j].object = std::make_shared<Katana>(j, i); m_maze[i*cols + j].price = (85 + randInt(0, 5)) * m_priceMultiplier; break;
+				case 4: m_maze[i*cols + j].object = std::make_shared<Estoc>(j, i); m_maze[i*cols + j].price = (120 + randInt(0, 10)) * m_priceMultiplier; break;
 				case 5: m_maze[i*cols + j].object = std::make_shared<Hammer>(j, i); m_maze[i*cols + j].price = 58 * m_priceMultiplier; break;
 				case 6: m_maze[i*cols + j].object = std::make_shared<Nunchuks>(j, i); m_maze[i*cols + j].price = 65 * m_priceMultiplier; break;
-				case 7: m_maze[i*cols + j].object = std::make_shared<Zweihander>(j, i); m_maze[i*cols + j].price = (70 + randInt(8)) * m_priceMultiplier; break;
-				case 8: m_maze[i*cols + j].object = std::make_shared<Jian>(j, i); m_maze[i*cols + j].price = (70 + randInt(8)) * m_priceMultiplier; break;
+				case 7: m_maze[i*cols + j].object = std::make_shared<Zweihander>(j, i); m_maze[i*cols + j].price = (70 + randInt(0, 8)) * m_priceMultiplier; break;
+				case 8: m_maze[i*cols + j].object = std::make_shared<Jian>(j, i); m_maze[i*cols + j].price = (70 + randInt(0, 8)) * m_priceMultiplier; break;
 				}
 
-				m_maze[i*cols + j].object->setSprite(createSprite(j, i, 2, m_maze[i*cols + j].object->getImageName()));
+				m_maze[i*cols + j].object->setSprite(createSprite(j, i, i + Z_ITEM, m_maze[i*cols + j].object->getImageName()));
 				m_items.push_back(m_maze[i*cols + j].object);
 				m_maze[i*cols + j].boundary = true;
 				m_maze[i*cols + j].wall = true;
 				m_maze[i*cols + j].item = true;
 				
-				cocos2d::Sprite* object = createSprite(j, i, 1, "Countertop_48x48.png");
-				misc_sprites.push_back(object);
+				addSprite(j, i, i + Z_ITEM - 1, "Countertop_48x48.png");
+				//cocos2d::Sprite* object = createSprite(j, i, 1, "Countertop_48x48.png");
+				//misc_sprites.push_back(object);
 				break;
 			}
 			case '5': {
-				switch (randInt(11)) {
+				switch (randInt(0, 10)) {
 				case 0: m_maze[i*cols + j].object = std::make_shared<BigLifePotion>(j, i); m_maze[i*cols + j].price = (30) * m_priceMultiplier; break;
-				case 1: m_maze[i*cols + j].object = std::make_shared<FireBlastSpell>(j, i); m_maze[i*cols + j].price = (39 + randInt(3)) * m_priceMultiplier; break;
-				case 2: m_maze[i*cols + j].object = std::make_shared<FireExplosionSpell>(j, i); m_maze[i*cols + j].price = (40 + randInt(3)) * m_priceMultiplier; break;
-				case 3: m_maze[i*cols + j].object = std::make_shared<FireCascadeSpell>(j, i); m_maze[i*cols + j].price = (45 + randInt(9)) * m_priceMultiplier; break;
-				case 4: m_maze[i*cols + j].object = std::make_shared<Claw>(j, i); m_maze[i*cols + j].price = (85 + randInt(20)) * m_priceMultiplier; break;
-				case 5: m_maze[i*cols + j].object = std::make_shared<FreezeSpell>(j, i); m_maze[i*cols + j].price = (38 + randInt(5)) * m_priceMultiplier; break;
-				case 6: m_maze[i*cols + j].object = std::make_shared<HailStormSpell>(j, i); m_maze[i*cols + j].price = (48 + randInt(5)) * m_priceMultiplier; break;
-				case 7: m_maze[i*cols + j].object = std::make_shared<EtherealSpell>(j, i); m_maze[i*cols + j].price = (50 + randInt(6)) * m_priceMultiplier; break;
-				case 8: m_maze[i*cols + j].object = std::make_shared<RockSummonSpell>(j, i); m_maze[i*cols + j].price = (43 + randInt(8)) * m_priceMultiplier; break;
-				case 9: m_maze[i*cols + j].object = std::make_shared<ShockwaveSpell>(j, i); m_maze[i*cols + j].price = (51 + randInt(7)) * m_priceMultiplier; break;
-				case 10: m_maze[i*cols + j].object = std::make_shared<WindBlastSpell>(j, i); m_maze[i*cols + j].price = (32 + randInt(8)) * m_priceMultiplier; break;
+				case 1: m_maze[i*cols + j].object = std::make_shared<FireBlastSpell>(j, i); m_maze[i*cols + j].price = (39 + randInt(0, 3)) * m_priceMultiplier; break;
+				case 2: m_maze[i*cols + j].object = std::make_shared<FireExplosionSpell>(j, i); m_maze[i*cols + j].price = (40 + randInt(0, 3)) * m_priceMultiplier; break;
+				case 3: m_maze[i*cols + j].object = std::make_shared<FireCascadeSpell>(j, i); m_maze[i*cols + j].price = (45 + randInt(0, 9)) * m_priceMultiplier; break;
+				case 4: m_maze[i*cols + j].object = std::make_shared<Claw>(j, i); m_maze[i*cols + j].price = (85 + randInt(0, 20)) * m_priceMultiplier; break;
+				case 5: m_maze[i*cols + j].object = std::make_shared<FreezeSpell>(j, i); m_maze[i*cols + j].price = (38 + randInt(0, 5)) * m_priceMultiplier; break;
+				case 6: m_maze[i*cols + j].object = std::make_shared<HailStormSpell>(j, i); m_maze[i*cols + j].price = (48 + randInt(0, 5)) * m_priceMultiplier; break;
+				case 7: m_maze[i*cols + j].object = std::make_shared<EtherealSpell>(j, i); m_maze[i*cols + j].price = (50 + randInt(0, 6)) * m_priceMultiplier; break;
+				case 8: m_maze[i*cols + j].object = std::make_shared<RockSummonSpell>(j, i); m_maze[i*cols + j].price = (43 + randInt(0, 8)) * m_priceMultiplier; break;
+				case 9: m_maze[i*cols + j].object = std::make_shared<ShockwaveSpell>(j, i); m_maze[i*cols + j].price = (51 + randInt(0, 7)) * m_priceMultiplier; break;
+				case 10: m_maze[i*cols + j].object = std::make_shared<WindBlastSpell>(j, i); m_maze[i*cols + j].price = (32 + randInt(0, 8)) * m_priceMultiplier; break;
 				}
 
-				m_maze[i*cols + j].object->setSprite(createSprite(j, i, 2, m_maze[i*cols + j].object->getImageName()));
+				m_maze[i*cols + j].object->setSprite(createSprite(j, i, i + Z_ITEM, m_maze[i*cols + j].object->getImageName()));
 				m_items.push_back(m_maze[i*cols + j].object);
 				m_maze[i*cols + j].boundary = true;
 				m_maze[i*cols + j].wall = true;
 				m_maze[i*cols + j].item = true;
 				
-				cocos2d::Sprite* object = createSprite(j, i, 1, "Countertop_48x48.png");
-				misc_sprites.push_back(object);
+				addSprite(j, i, i + Z_ITEM - 1, "Countertop_48x48.png");
+				//cocos2d::Sprite* object = createSprite(j, i, 1, "Countertop_48x48.png");
+				//misc_sprites.push_back(object);
 				break;
 			}
 					  // 6 : random chest
 			case '6': {
-				int n = 1 + randInt(100) + p->getLuck();
+				double n = randReal(1, 100) + p->getLuck();
 				
 				// 50% chance
 				if (n <= 50) { m_maze[i*cols + j].object = std::make_shared<BrownChest>(this, j, i); m_maze[i*cols + j].price = 25 * m_priceMultiplier; }
@@ -3301,8 +3578,9 @@ Shop::Shop(LevelScene* scene, std::shared_ptr<Player> p, int level) : Dungeon(sc
 				m_items.push_back(m_maze[i*cols + j].object);
 				m_maze[i*cols + j].boundary = true;
 				
-				cocos2d::Sprite* object = createSprite(j, i, 1, "Countertop_48x48.png");
-				misc_sprites.push_back(object);
+				addSprite(j, i, i + Z_ITEM - 1, "Countertop_48x48.png");
+				//cocos2d::Sprite* object = createSprite(j, i, 1, "Countertop_48x48.png");
+				//misc_sprites.push_back(object);
 				break;
 			}
 			}
@@ -3332,7 +3610,7 @@ void Shop::purchaseItem(int x, int y) {
 	int maxItems = player.at(0)->maxItemCount();
 
 	// if player has enough money, let them buy it
-	if (playerGold >= price && (!object->isItem() || (object->isItem() && items < maxItems))) {
+	if (playerGold >= price && (!object->isUsable() || (object->isUsable() && items < maxItems))) {
 		playSound("Purchase_Item1.mp3");
 
 		player.at(0)->setMoney(playerGold - price);
@@ -3376,7 +3654,7 @@ void Shop::collectItem(int x, int y) {
 		return;
 	}
 
-	if (object->isAutoUse()) {
+	if (object->isAutoUsable()) {
 		std::shared_ptr<Drops> drop = std::dynamic_pointer_cast<Drops>(object);
 		drop->useItem(*this);
 		playSound(drop->getSoundName());
@@ -3387,7 +3665,7 @@ void Shop::collectItem(int x, int y) {
 		else
 			removeItem(x, y);
 	}
-	else if (object->isItem()) {
+	else if (object->isUsable()) {
 
 		// For Spellcaster
 		if (object->isSpell() && player.at(0)->getName() == SPELLCASTER) {
@@ -3547,7 +3825,7 @@ Shrine::Shrine(LevelScene* scene, std::shared_ptr<Player> p, int level) : Dungeo
 					  // Breakable object
 			case 'B': {
 				std::shared_ptr<Monster> object(nullptr);
-				switch (randInt(3)) {
+				switch (randInt(0, 2)) {
 				case 0:
 					object = std::make_shared<WeakCrate>(this, j, i);
 					break;
@@ -3579,7 +3857,7 @@ Shrine::Shrine(LevelScene* scene, std::shared_ptr<Player> p, int level) : Dungeo
 			}
 					  // Outside Man 1
 			case 'M': {
-				std::shared_ptr<NPC> npc = std::make_shared<OutsideMan1>(this, j, i);
+				std::shared_ptr<NPC> npc = std::make_shared<TutorialNPC1>(this, j, i);
 				m_npcs.push_back(npc);
 
 				break;
@@ -3684,7 +3962,6 @@ void Shrine::specialActions() {
 	}
 
 	if (m_maze[y*cols + x].shrine_action != "" && !makingChoice) {
-		m_scene->enableListener(false);
 		m_scene->callShrineChoice(m_maze[y*cols + x].shrine_action);
 		makingChoice = true;
 	}
@@ -3718,7 +3995,7 @@ void Shrine::useChoice(int index) {
 				playSound("Devils_Gift.mp3");
 
 				if (player.at(0)->hasPassives())
-					player.at(0)->removePassive(randInt(player.at(0)->passiveCount()));
+					player.at(0)->removePassive(randInt(0, (int)player.at(0)->passiveCount() - 1));
 				else
 					player.at(0)->removeItems();
 
@@ -3837,9 +4114,8 @@ bool Shrine::sacrificeWeapon() {
 	}
 	// Possesses 2 weapons
 	else {
-
 		// Choose one at random and remove it
-		if (1 + randInt(100) > 50)
+		if (randReal(1, 100) > 50)
 			player.at(0)->switchWeapon();
 
 		player.at(0)->removeStoredWeapon();	
@@ -3884,7 +4160,7 @@ void Shrine::spawnChests() {
 			itemHash(n, m);
 
 		/*std::shared_ptr<Objects> objects(nullptr);
-		switch (randInt(6)) {
+		switch (randInt(0, 5)) {
 		case 0: objects = std::make_shared<BrownChest>(this, n, m); break;
 		case 1: objects = std::make_shared<SilverChest>(this, n, m); break;
 		case 2: objects = std::make_shared<GoldenChest>(this, n, m); break;
@@ -4762,16 +5038,16 @@ std::vector<std::vector<std::vector<std::string>>> FirstFloor::mixChunks(std::ve
 		else if ((layer - 1) * 6 + i == specialChunk2)
 			v.push_back(specialRoom2);
 		else
-			v.push_back(c[randInt(c.size())]);
+			v.push_back(c[randInt(0, (int)c.size() - 1)]);
 	}
 
 	/*if (layer == specialChunkLayer1) {
-		s = randInt(v.size());
+		s = randInt(0, (int)v.size() - 1);
 		v.erase(v.begin() + s);
 		v.emplace(v.begin() + s, specialroom1);
 	}
 	if (layer == specialChunkLayer2) {
-		s = randInt(v.size());
+		s = randInt(0, (int)v.size() - 1);
 		v.erase(v.begin() + s);
 		v.emplace(v.begin() + s, specialroom2);
 	}*/
@@ -4804,7 +5080,7 @@ std::vector<std::string> FirstFloor::generateLevel() {
 
 
 	// player spawns in middle with special chunk
-	int n = 1 + randInt(4);
+	int n = randInt(1, 4);
 	switch (n) {
 	case 1: playerChunk = 14; break;
 	case 2: playerChunk = 15; break;
@@ -4813,7 +5089,7 @@ std::vector<std::string> FirstFloor::generateLevel() {
 	}
 
 	// exit spawns in one of four corners
-	n = 1 + randInt(4);
+	n = randInt(1, 4);
 	switch (n) {
 	case 1: exitChunk = 0; break;
 	case 2: exitChunk = 5; break;
@@ -4822,18 +5098,18 @@ std::vector<std::string> FirstFloor::generateLevel() {
 	}
 
 	// chooses layer for the special chunks to be on
-	specialChunk1 = randInt(36);
+	specialChunk1 = randInt(0, 35);
 	while (specialChunk1 == playerChunk || specialChunk1 == exitChunk) {
-		specialChunk1 = randInt(36);
+		specialChunk1 = randInt(0, 35);
 	}
 
-	specialChunk2 = randInt(36);
+	specialChunk2 = randInt(0, 35);
 	while (specialChunk2 == playerChunk || specialChunk2 == exitChunk) {
-		specialChunk2 = randInt(36);
+		specialChunk2 = randInt(0, 35);
 	}
 
-	specialChunkLayer1 = 1 + randInt(6);
-	specialChunkLayer2 = 1 + randInt(6);
+	specialChunkLayer1 = randInt(1, 6);
+	specialChunkLayer2 = randInt(1, 6);
 	layer = 1;
 
 	int count = 0;
@@ -4882,79 +5158,79 @@ SecondFloor::SecondFloor(LevelScene* scene, std::shared_ptr<Player> p) : Dungeon
 
 	// GENERATE EXTRA MONSTERS
 	int n, x, y;
-	shared_ptr<Monster> monster(nullptr);
+	std::shared_ptr<Monster> monster(nullptr);
 	for (int i = 0; i < 18; i++) {
 
 		//	selects how many of a type of monster to place
 		switch (i) {
-		case 0: n = 8 + randInt(4); break; // 
-		case 1: n = 5 + randInt(5); break; //
-		case 2: n = 6 + randInt(8); break; // 
-		case 3: n = 15 + randInt(10); break; // 
-		case 4: n = 1 + randInt(2); break; // 
-		case 5: n = 2 + randInt(2); break; // 
-		case 6: n = 5 + randInt(3); break; // 
-		case 7: n = 14 + randInt(3); break; // 
-		case 8: n = 5 + randInt(4); break; //
-		case 9: n = 8 + randInt(4); break; //
-		case 10: n = 12 + randInt(4); break; //
-		case 11: n = 8 + randInt(4); break; //
-		case 12: n = 4 + randInt(4); break; //
-		case 13: n = 8 + randInt(4); break; //
-		case 14: n = 4 + randInt(4); break; //
-		case 15: n = 1 + randInt(1); break; //
-		case 16: n = 10 + randInt(4); break; //
-		case 17: n = 4 + randInt(4); break; //
+		case 0: n = 8 + randInt(0, 4); break; // 
+		case 1: n = 5 + randInt(0, 5); break; //
+		case 2: n = 6 + randInt(0, 8); break; // 
+		case 3: n = 15 + randInt(0, 10); break; // 
+		case 4: n = 1 + randInt(0, 2); break; // 
+		case 5: n = 2 + randInt(0, 2); break; // 
+		case 6: n = 5 + randInt(0, 3); break; // 
+		case 7: n = 14 + randInt(0, 3); break; // 
+		case 8: n = 5 + randInt(0, 4); break; //
+		case 9: n = 8 + randInt(0, 4); break; //
+		case 10: n = 12 + randInt(0, 4); break; //
+		case 11: n = 8 + randInt(0, 4); break; //
+		case 12: n = 4 + randInt(0, 4); break; //
+		case 13: n = 8 + randInt(0, 4); break; //
+		case 14: n = 4 + randInt(0, 4); break; //
+		case 15: n = 1 + randInt(0, 1); break; //
+		case 16: n = 10 + randInt(0, 4); break; //
+		case 17: n = 4 + randInt(0, 4); break; //
 		}
 
 		while (n > 0) {
 
-			x = 1 + randInt(cols - 2);
-			y = 1 + randInt(rows - 2);
+			x = randInt(1, cols - 2);
+			y = randInt(1, rows - 2);
 
 			while (noSpawn(x, y) || wall(x, y) || enemy(x, y) || hero(x, y) || trap(x, y)) {
-				x = 1 + randInt(cols - 2);
-				y = 1 + randInt(rows - 2);
+				x = randInt(1, cols - 2);
+				y = randInt(1, rows - 2);
 			}
 
 			// the type of enemy
 			switch (i) {
 			case 0:
-				monster = make_shared<Wanderer>(this, x, y); break;
+				monster = std::make_shared<Wanderer>(this, x, y); break;
 			case 1:
-				monster = make_shared<RabidWanderer>(this, x, y); break;
+				monster = std::make_shared<RabidWanderer>(this, x, y); break;
 			case 2:		
-				monster = make_shared<ProvocableWanderer>(this, x, y); break;
+				monster = std::make_shared<ProvocableWanderer>(this, x, y); break;
 			case 3:
-				monster = make_shared<FlameWanderer>(this, x, y); break;
+				monster = std::make_shared<FlameWanderer>(this, x, y); break;
 			case 4:
-				monster = make_shared<Bombee>(this, x, y); break;
+				monster = std::make_shared<Bombee>(this, x, y); break;
 			case 5:
-				monster = make_shared<CharredBombee>(this, x, y); break;			
+				monster = std::make_shared<CharredBombee>(this, x, y); break;
 			case 6:
-				monster = make_shared<Roundabout>(this, x, y); break;
+				monster = std::make_shared<Roundabout>(this, x, y); break;
 			case 7:
-				monster = make_shared<FireRoundabout>(this, x, y); break;			
+				monster = std::make_shared<FireRoundabout>(this, x, y); break;
 			case 8:
-				monster = make_shared<Zapper>(this, x, y); break;
+				monster = std::make_shared<Zapper>(this, x, y); break;
 			case 9:
-				monster = make_shared<Spinner>(this, x, y); break;
+				monster = std::make_shared<Spinner>(this, x, y); break;
 			case 10:
-				monster = make_shared<Puff>(this, x, y); break;
+				monster = std::make_shared<Puff>(this, x, y); break;
 			case 11:
-				monster = make_shared<GustyPuff>(this, x, y); break;
+				monster = std::make_shared<GustyPuff>(this, x, y); break;
 			case 12:
-				monster = make_shared<StrongGustyPuff>(this, x, y); break;
+				monster = std::make_shared<StrongGustyPuff>(this, x, y); break;
 			case 13:
-				monster = make_shared<InvertedPuff>(this, x, y); break;
+				monster = std::make_shared<InvertedPuff>(this, x, y); break;
 			case 14:
-				monster = make_shared<SpikedInvertedPuff>(this, x, y); break;
+				monster = std::make_shared<SpikedInvertedPuff>(this, x, y); break;
 			case 15:
-				monster = make_shared<ItemThief>(this, x, y); break;
+				monster = std::make_shared<ItemThief>(this, x, y); break;
 			case 16:
-				monster = make_shared<Serpent>(this, x, y); break;
+				monster = std::make_shared<Serpent>(this, x, y); break;
 			case 17:
-				monster = make_shared<Charger>(this, x, y); break;
+				monster = std::make_shared<Charger>(this, x, y); break;
 			}
 
 			addMonster(monster);
@@ -4985,10 +5261,8 @@ void SecondFloor::specialActions() {
 	}
 }
 bool SecondFloor::specialTrapCheck(int x, int y) {
-	std::string trap_name;
-
 	std::vector<int> indexes = findTraps(x, y);
-	for (int i = 0; i < (int)indexes.size(); i++) {
+	for (int i = 0; i < static_cast<int>(indexes.size()); i++) {
 		if (m_traps.at(indexes[i])->getName() == BUTTON_UNPRESSED) {
 			if (m_exit->isLocked()) {
 				playSound("Button_Pressed.mp3");
@@ -5075,7 +5349,6 @@ void SecondFloor::guardiansDefeated() {
 void SecondFloor::devilsWaterPrompt() {
 	m_waterPrompt = true;
 
-	m_scene->enableListener(false);
 	m_scene->callDevilsWaters();
 }
 
@@ -5205,7 +5478,7 @@ std::vector<std::vector<std::string>> SecondFloor::outermostChunks() {
 	c.push_back(xxi);*/
 
 
-	return c.at(randInt(c.size()));
+	return c.at(randInt(0, (int)c.size() - 1));
 }
 std::vector<std::vector<std::string>> SecondFloor::edgeChunks() {
 	std::vector<std::vector<std::string>> i =
@@ -5331,7 +5604,7 @@ std::vector<std::vector<std::string>> SecondFloor::edgeChunks() {
 
 	//c = mixEdgeChunks(c);
 
-	return c.at(randInt(c.size()));
+	return c.at(randInt(0, (int)c.size() - 1));
 }
 
 /*
@@ -5629,7 +5902,7 @@ std::vector<std::vector<std::string>> cornerChunks(int corner, bool innerRing) {
 	c.push_back(xxi);
 	*/
 
-	return c.at(randInt(c.size()));
+	return c.at(randInt(0, (int)c.size() - 1));
 }
 std::vector<std::vector<std::string>> junctionChunks() {
 	std::vector<std::vector<std::string>> i =
@@ -5754,7 +6027,7 @@ std::vector<std::vector<std::string>> junctionChunks() {
 	*/
 
 
-	return c.at(randInt(c.size()));
+	return c.at(randInt(0, (int)c.size() - 1));
 }
 
 std::vector<std::vector<std::string>> SecondFloor::lavaChunks() {
@@ -5881,7 +6154,7 @@ std::vector<std::vector<std::string>> SecondFloor::lavaChunks() {
 
 	//c = mixInnerChunks1(c);
 
-	return c.at(randInt(c.size()));
+	return c.at(randInt(0, (int)c.size() - 1));
 }
 std::vector<std::vector<std::string>> SecondFloor::fixedChunks(std::string chunk) {
 	// the player's chunk where they spawn
@@ -6012,6 +6285,7 @@ std::vector<std::vector<std::string>> SecondFloor::fixedChunks(std::string chunk
 	else if (chunk == "vii") return vii;
 	else if (chunk == "viii") return viii;
 	else if (chunk == "ix") return ix;
+	else return empty;
 }
 
 std::vector<std::string> SecondFloor::generateLevel() {
@@ -6137,7 +6411,7 @@ void ThirdFloor::checkDoors() {
 
 		for (unsigned int i = 0; i < m_doors.size(); i++) {
 
-			shared_ptr<Door> door = dynamic_pointer_cast<Door>(m_doors.at(i));
+			std::shared_ptr<Door> door = std::dynamic_pointer_cast<Door>(m_doors.at(i));
 			x = door->getPosX();
 			y = door->getPosY();
 
@@ -6209,16 +6483,16 @@ void ThirdFloor::toggleDoorLocks(int dx, int dy) {
 		if (px < dx) {
 			// find the doors to lock/unlock
 			for (unsigned int i = 0; i < m_doors.size(); i++) {
-				shared_ptr<Door> door = m_doors.at(i);
+				std::shared_ptr<Door> door = m_doors.at(i);
 				x = door->getPosX();
 				y = door->getPosY();
 
-				if ((x == dx - 14 && y == dy) || (x == dx && y == dy)) {
+				if ((x == dx - 14 && y == dy) || (x == dx && y == dy))
 					door->toggleLock();
-				}
-				else if ((x == dx - 7 && y == dy - 5) || (x == dx - 7 && y == dy + 5)) {
+				
+				else if ((x == dx - 7 && y == dy - 5) || (x == dx - 7 && y == dy + 5))
 					door->toggleLock();
-				}
+				
 				door.reset();
 			}
 
@@ -6226,7 +6500,7 @@ void ThirdFloor::toggleDoorLocks(int dx, int dy) {
 		// else if player is to the right of the given door
 		else {
 			for (unsigned int i = 0; i < m_doors.size(); i++) {
-				shared_ptr<Door> door = m_doors.at(i);
+				std::shared_ptr<Door> door = m_doors.at(i);
 				x = door->getPosX();
 				y = door->getPosY();
 
@@ -6246,7 +6520,7 @@ void ThirdFloor::toggleDoorLocks(int dx, int dy) {
 		if (py < dy) {
 			// find the doors to lock/unlock
 			for (unsigned int i = 0; i < m_doors.size(); i++) {
-				shared_ptr<Door> door = m_doors.at(i);
+				std::shared_ptr<Door> door = m_doors.at(i);
 				x = door->getPosX();
 				y = door->getPosY();
 
@@ -6263,7 +6537,7 @@ void ThirdFloor::toggleDoorLocks(int dx, int dy) {
 		// else if player is below the given door
 		else {
 			for (unsigned int i = 0; i < m_doors.size(); i++) {
-				shared_ptr<Door> door = m_doors.at(i);
+				std::shared_ptr<Door> door = m_doors.at(i);
 				x = door->getPosX();
 				y = door->getPosY();
 
@@ -7431,7 +7705,7 @@ std::vector<std::vector<std::string>> ThirdFloor::exitChunks() {
 
 void ThirdFloor::mixChunks(std::vector<std::vector<std::vector<std::string>>> &current, std::vector<std::vector<std::vector<std::string>>> pool) {
 	for (int i = 1; i < (getCols() - 2) / 13 - 1; i++) {
-		current.push_back(pool[randInt(pool.size())]);
+		current.push_back(pool[randInt(0, (int)pool.size() - 1)]);
 	}
 }
 void ThirdFloor::pickSingleChunk(std::vector<std::vector<std::vector<std::string>>> &current, std::vector<std::vector<std::vector<std::string>>> pool) {
@@ -7445,13 +7719,13 @@ void ThirdFloor::pickSingleChunk(std::vector<std::vector<std::vector<std::string
 		m_exitplaced = true;
 	}
 	else
-		current.push_back(pool[randInt(pool.size())]);
+		current.push_back(pool[randInt(0, (int)pool.size() - 1)]);
 }
 
 std::vector<std::string> ThirdFloor::generateLevel() {
 	// selects layer for the player and exit chunks to be on
 	m_layer = 1;
-	m_playerchunk = 1 + randInt(4);
+	m_playerchunk = randInt(1, 4);
 	m_playerplaced = m_exitplaced = false;
 
 	switch (m_playerchunk) {
@@ -7508,6 +7782,33 @@ std::vector<std::string> ThirdFloor::combineChunks(std::vector<std::vector<std::
 }
 
 
+
+FourthFloor::FourthFloor(LevelScene *scene, std::shared_ptr<Player> p) : Dungeon(scene, p, FOURTH_FLOOR, 0, 0) {
+
+}
+
+FifthFloor::FifthFloor(LevelScene *scene, std::shared_ptr<Player> p) : Dungeon(scene, p, FIFTH_FLOOR, 0, 0) {
+
+}
+
+SixthFloor::SixthFloor(LevelScene *scene, std::shared_ptr<Player> p) : Dungeon(scene, p, SIXTH_FLOOR, 0, 0) {
+
+}
+
+SeventhFloor::SeventhFloor(LevelScene *scene, std::shared_ptr<Player> p) : Dungeon(scene, p, SEVENTH_FLOOR, 0, 0) {
+
+}
+
+EighthFloor::EighthFloor(LevelScene *scene, std::shared_ptr<Player> p) : Dungeon(scene, p, EIGHTH_FLOOR, 0, 0) {
+
+}
+
+NinthFloor::NinthFloor(LevelScene *scene, std::shared_ptr<Player> p) : Dungeon(scene, p, NINTH_FLOOR, 0, 0) {
+
+}
+
+
+
 // ================================================
 //				:::: BOSS FLOOR ::::
 // ================================================
@@ -7524,51 +7825,20 @@ FirstBoss::FirstBoss(LevelScene* scene, std::shared_ptr<Player> p) : Dungeon(sce
 	//	spawn boss
 	addMonster(std::make_shared<Smasher>(this));
 
-	
-	/*
-	// test enemies
-	int n = 60;
-	int mx, my;
-	char top, upper;
-	while (n > 0) {
-		Archer archer;
-		mx = 1 + randInt(cols - 2);
-		my = BOSSROWS / 2 + randInt(BOSSROWS / 2 - 2);
-		archer.setPosX(mx);
-		archer.setPosY(my);
-
-		top = m_maze[archer.getPosY()*cols + archer.getPosX()].top;
-		upper = m_maze[archer.getPosY()*cols + archer.getPosX()].upper;
-		while (top != SPACE || upper == SMASHER) { 
-			mx = 1 + randInt(cols - 2);
-			my = BOSSROWS / 2 + randInt(BOSSROWS / 2 - 2);
-			archer.setPosX(mx);
-			archer.setPosY(my);
-
-			top = m_maze[archer.getPosY()*cols + archer.getPosX()].top;
-			upper = m_maze[archer.getPosY()*cols + archer.getPosX()].upper;
-		}
-
-		m_firstbossMonsters.emplace_back(new Archer(archer));
-		m_maze[archer.getPosY()*cols + archer.getPosX()].top = ARCHER;
-		m_maze[archer.getPosY()*cols + archer.getPosX()].enemy = true;
-		n--;
-	}
-	*/
 
 	//	spawn spike traps
 	int x, y, speed;
-	int m = 12 + randInt(5);
+	int m = 12 + randInt(0, 5);
 
 	while (m > 0) {
-		x = 1 + randInt(cols - 2);
-		y = rows / 2 + randInt(rows / 2 - 2);
-		speed = 3 + randInt(3);
+		x = randInt(1, cols - 2);
+		y = rows / 2 + randInt(0, rows / 2 - 1);
+		speed = 3 + randInt(0, 2);
 
 		while (trap(x, y)) {
-			x = 1 + randInt(cols - 2);
-			y = rows / 2 + randInt(rows / 2 - 2);
-			speed = 3 + randInt(3);
+			x = randInt(1, cols - 2);
+			y = rows / 2 + randInt(0, rows / 2 - 1);
+			speed = 3 + randInt(0, 2);
 		}
 
 		addTrap(std::make_shared<SpikeTrap>(*this, x, y, speed));

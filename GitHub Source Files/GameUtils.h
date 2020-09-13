@@ -1,6 +1,8 @@
 #ifndef GAMEUTILS_H
 #define GAMEUTILS_H
 
+#include "include/rapidjson/document.h"
+
 class cocos2d::SpriteFrame;
 class Dungeon;
 class Player;
@@ -13,6 +15,8 @@ class Relic;
 class Chests;
 class Weapon;
 class Shield;
+
+extern std::string GAME_TEXT_FILE;
 
 enum class DamageType {
 	NORMAL, PIERCING, CRUSHING, EXPLOSIVE, FIRE, MELTING, ACIDIC, POISONOUS, LIGHTNING, MAGICAL
@@ -89,19 +93,25 @@ std::shared_ptr<Monster> createMonsterByName(std::string name, Dungeon *dungeon,
 std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y);
 
 // Common utilities
+class GameTimers {
+public:
+	static void addGameTimer(const std::string &name, void *target);
+	static void removeGameTimer(const std::string &name);
+	static void resumeAllGameTimers();
+	static void pauseAllGameTimers();
+	static void removeAllGameTimers();
+
+private:
+	static std::map<std::string, void*> m_gameTimers;
+};
+
 struct Coords {
 	int x;
 	int y;
 
-	Coords() {
-		x = 0;
-		y = 0;
-	};
+	Coords() : x(0), y(0) {};
 
-	Coords(int _x, int _y) {
-		x = _x;
-		y = _y;
-	};
+	Coords(int _x, int _y) : x(_x), y(_y) {};
 
 	Coords& operator=(const Coords &other) {
 		x = other.x;
@@ -121,8 +131,7 @@ struct Coords {
 	};
 };
 
-namespace std
-{
+namespace std {
 	template <>
 	struct hash<Coords>
 	{
@@ -140,14 +149,19 @@ void insertCoordsAdjacentTo(const Dungeon &dungeon, std::vector<Coords> &coords,
 void getCoordsAdjacentTo(const Dungeon &dungeon, std::vector<Coords> &coords, int x, int y, bool all = false);
 void getDiagonalCoordsAdjacentTo(const Dungeon &dungeon, std::vector<Coords> &coords, int x, int y);
 
-// Return a uniformly distributed random integer from 0 to limit-1 inclusive
-inline int randInt(int limit) {
-	return std::rand() % limit;
+// Return a uniformly distributed random integer between [min, max]
+inline int randInt(int min, int max) {
+	if (max < min)
+		std::swap(max, min);
+
+	static std::random_device rd;
+	static std::default_random_engine generator(rd());
+	std::uniform_int_distribution<> distro(min, max);
+	return distro(generator);
 }
 
 // Return a uniformly distributed double between [min, max]
-inline double randReal(int min, int max)
-{
+inline double randReal(int min, int max) {
 	if (max < min)
 		std::swap(max, min);
 
@@ -183,5 +197,41 @@ bool playerInBufferedLinearRange(int range, int buffer, int sx, int sy, int ex, 
 bool playerIsAdjacent(const Player &p, int x, int y, bool diagonals = false);
 
 bool playerInRectangularRange(const Player &p, int length, int width, int x, int y);
+
+
+// Text Utils
+class TextUtils {
+public:
+	static void initJsonText();
+
+	static rapidjson::Document jsonTree;
+};
+
+// json text parsers
+std::string fetchMenuText(const std::string &menuType, const std::string &id);
+std::string fetchPromptText(const std::string &promptType, const std::string &id);
+void fetchNPCDialogue(const std::string &name, const std::string &id, std::vector<std::string> &dialogue);
+void fetchItemInfo(const std::string &type, const std::string &id, std::string &name, std::string &desc);
+std::string fetchItemName(const std::string &type, const std::string &id);
+
+// Deprecated. Plain text parsers.
+void getNPCDialogue(const std::string &filename, const std::string &id, std::vector<std::string> &dialogue);
+void getItemInfo(const std::string &filename, const std::string &id, std::string &name, std::string &desc);
+std::string getItemName(const std::string &filename, const std::string &id);
+
+void formatItemDescriptionForDisplay(std::string &desc);
+void replaceTextVariableWith(std::vector<std::string> &text, const std::string &varText, const std::string &actualText);
+
+// Save File System
+class SaveManager {
+public:
+	static void createNewSaveFile();
+	static void loadSaveFile(const std::string &file);
+	static void overwriteSaveFile(const std::string &file);
+	static void deleteSaveFile(const std::string &file);
+
+private:
+	
+};
 
 #endif
