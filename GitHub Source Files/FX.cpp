@@ -2,10 +2,10 @@
 #include "AudioEngine.h"
 #include "global.h"
 #include "FX.h"
+#include "GameUtils.h"
 #include "Dungeon.h"
 #include "Actors.h"
 #include "GameObjects.h"
-#include "GameUtils.h"
 #include <string>
 
 float GLOBAL_MUSIC_VOLUME = 0.5f;
@@ -239,7 +239,7 @@ int playSoundWithID(std::string sound, float volume, bool loop) {
 
 void playBleed(float volume) {
 	std::string sound;
-	switch (1 + randInt(4)) {
+	switch (randInt(1, 4)) {
 	case 1: sound = "Water_Drip1.mp3"; break;
 	case 2: sound = "Water_Drip2.mp3"; break;
 	case 3: sound = "Water_Drip3.mp3"; break;
@@ -250,7 +250,7 @@ void playBleed(float volume) {
 }
 void playPoison(const Player& p, int x, int y) {
 	std::string sound;
-	switch (1 + randInt(2)) {
+	switch (randInt(1, 2)) {
 	case 1: sound = "Poison_Damage1.mp3"; break;
 	case 2: sound = "Poison_Damage2.mp3"; break;
 	}
@@ -259,7 +259,7 @@ void playPoison(const Player& p, int x, int y) {
 }
 void playBirdSound(float volume) {
 	std::string sound;
-	switch (1 + randInt(3)) {
+	switch (randInt(1, 3)) {
 	case 1: sound = "Bird1.mp3"; break;
 	case 2: sound = "Bird2.mp3"; break;
 	case 3: sound = "Bird3.mp3"; break;
@@ -273,7 +273,7 @@ void playBirdSound(float volume) {
 }
 void playCrowSound(float volume) {
 	std::string sound;
-	switch (1 + randInt(4)) {
+	switch (randInt(1, 4)) {
 	case 1: sound = "Crow1.mp3"; break;
 	case 2: sound = "Crow2.mp3"; break;
 	case 3: sound = "Crow3.mp3"; break;
@@ -311,20 +311,19 @@ void playMonsterDeathByPit(const Player& p, const Monster& m) {
 }
 void playArcherDaggerSwipe() {
 	std::string sound;
-	int n = randInt(3) + 1;
-
-	switch (n) {
+	switch (randInt(1, 3)) {
 	case 1: sound = "Dagger_Swipe1.mp3"; break;
 	case 2: sound = "Dagger_Swipe2.mp3"; break;
 	case 3: sound = "Dagger_Swipe3.mp3"; break;
 	}
+
 	playSound(sound);
 }
 
 void playGotHit() {
 	std::string sound;
-	int n = randInt(5) + 1;
-	switch (n) {
+	
+	switch (randInt(1, 5)) {
 	case 1: sound = "Hit_Female1.mp3"; break;
 	case 2: sound = "Hit_Female2.mp3"; break;
 	case 3: sound = "Hit_Female3.mp3"; break;
@@ -336,9 +335,8 @@ void playGotHit() {
 	playSound("Player_Hit.mp3");
 }
 void playMiss(float volume) {
-	int n = randInt(5) + 1;
 	std::string sound;
-	switch (n) {
+	switch (randInt(1, 5)) {
 	case 1: sound = "Slash1.mp3"; break;
 	case 2: sound = "Slash2.mp3"; break;
 	case 3: sound = "Slash3.mp3"; break;
@@ -353,8 +351,8 @@ void playEnemyHit(float volume) {
 }
 void playHitSmasher(float volume) {
 	std::string sound;
-	int n = randInt(5) + 1;
-	switch (n) {
+
+	switch (randInt(1, 5)) {
 	case 1: sound = "Metal_Hit1.mp3"; break;
 	case 2: sound = "Metal_Hit2.mp3"; break;
 	case 3: sound = "Metal_Hit3.mp3"; break;
@@ -394,7 +392,7 @@ void playShieldBroken(std::string shield) {
 
 void playBoneCrunch(float volume) {
 	std::string sound;
-	switch (randInt(1)) {
+	switch (randInt(0, 0)) {
 	case 0:	sound = "Bone_Crack1.mp3"; break;
 	case 1: sound = "Bone_Crack2.mp3"; break;
 	}
@@ -402,7 +400,7 @@ void playBoneCrunch(float volume) {
 }
 void playCrumble(float volume) {
 	std::string sound;
-	switch (randInt(4)) {
+	switch (randInt(0, 3)) {
 	case 0:	sound = "RockFootStep1.mp3"; break;
 	case 1: sound = "RockFootStep2.mp3"; break;
 	case 2: sound = "RockFootStep3.mp3"; break;
@@ -413,7 +411,7 @@ void playCrumble(float volume) {
 
 void playFootstepSound() {
 	std::string sound;
-	switch (randInt(1)) {
+	switch (randInt(0, 0)) {
 	case 0: sound = "FootStepGeneric1.mp3"; break;
 	case 1: sound = "FootStepGeneric2.mp3"; break;
 	}

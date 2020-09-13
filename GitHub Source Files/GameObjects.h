@@ -11,8 +11,8 @@ struct Coords;
 class Objects {
 public:
 	Objects();
-	Objects(int x, int y, std::string item);
-	Objects(int x, int y, std::string item, std::string image);
+	Objects(int x, int y, std::string name);
+	Objects(int x, int y, std::string name, std::string image);
 	virtual ~Objects();
 
 	std::string getName() const { return m_name; };
@@ -27,13 +27,14 @@ public:
 	void setPosY(int y) { m_y = y; };
 
 	bool isDestructible() const { return m_destructible; };
+
+	virtual bool isUsable() const { return false; };
+	virtual bool isAutoUsable() const { return false; };
 	virtual bool isWeapon() const { return false; };
 	virtual bool isShield() const { return false; };
 	virtual bool isSpell() const { return false; };
-	bool isItem() const { return m_isItem; };
-	bool isAutoUse() const { return m_autoUse; };
 	virtual bool isChest() const { return false; };
-	virtual bool isTrinket() const { return false; };
+	virtual bool isRelic() const { return false; };
 	virtual bool isPassive() const { return false; }
 
 	std::string getDescription() const { return m_description; };
@@ -51,12 +52,6 @@ protected:
 	void setEmitsLight(bool emits) { m_emitsLight = emits; };
 
 	void setDestructible(bool destructible) { m_destructible = destructible; };
-	void setWeaponFlag(bool weapon) { m_isWeapon = weapon; };
-	void setShieldFlag(bool shield) { m_isShield = shield; };
-	void setItemFlag(bool item) { m_isItem = item; };
-	void setAutoFlag(bool autoUse) { m_autoUse = autoUse; };
-	void setChestFlag(bool chest) { m_isChest = chest; };
-	void setTrinketFlag(bool trinket) { m_isTrinket = trinket; };
 
 	Dungeon *m_dungeon = nullptr;
 
@@ -74,12 +69,6 @@ private:
 	int m_y;
 
 	bool m_destructible = false; // flag for telling if the object can be destroyed
-	bool m_isWeapon = false;
-	bool m_isItem = false;
-	bool m_autoUse = false;
-	bool m_isChest = false;
-	bool m_isShield = false;
-	bool m_isTrinket = false;
 };
 
 class Idol : public Objects {
@@ -171,9 +160,9 @@ public:
 //	BEGIN DROPS CLASSES
 class Drops : public Objects {
 public:
-	Drops(int x, int y, std::string item, std::string image);
+	Drops(int x, int y, std::string name, std::string image);
 
-	virtual void useItem(Dungeon &dungeon) { return; };
+	virtual void useItem(Dungeon &dungeon) = 0;
 	virtual void pickupEffect(Dungeon &dungeon) { return; }; // Effects that occur when the item is picked up
 
 	virtual bool isHealingItem() const { return false; };
@@ -194,111 +183,125 @@ private:
 	bool m_canStack = false; // Flag indicating that this item can stack
 };
 
-class HeartPod : public Drops {
+class AutoUsable : public Drops {
+public:
+	AutoUsable(int x, int y, std::string name, std::string image);
+
+	bool isAutoUsable() const override { return true; };
+};
+
+class HeartPod : public AutoUsable {
 public:
 	HeartPod(int x, int y);
 	void useItem(Dungeon &dungeon);
 };
 
-class LifePotion : public Drops {
+class ShieldRepair : public AutoUsable {
+public:
+	ShieldRepair(int x, int y);
+	void useItem(Dungeon &dungeon);
+};
+
+class Usable : public Drops {
+public:
+	Usable(int x, int y, std::string name, std::string image);
+
+	bool isUsable() const override { return true; };
+};
+
+class LifePotion : public Usable {
 public:
 	LifePotion(int x, int y);
 
-	bool isHealingItem() const { return true; };
+	bool isHealingItem() const override { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
-class BigLifePotion : public Drops {
+class BigLifePotion : public Usable {
 public:
 	BigLifePotion(int x, int y);
 
-	bool isHealingItem() const { return true; };
+	bool isHealingItem() const override { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
-class SteadyLifePotion : public Drops {
+class SteadyLifePotion : public Usable {
 public:
 	// Gives player a heal over time
 	SteadyLifePotion(int x, int y);
 
-	bool isHealingItem() const { return true; };
+	bool isHealingItem() const override { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
-class HalfLifePotion : public Drops {
+class HalfLifePotion : public Usable {
 public:
 	// Heals player up to half their maximum HP. Otherwise it does nothing.
 	HalfLifePotion(int x, int y);
 
-	bool isHealingItem() const { return true; };
+	bool isHealingItem() const override { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
-class SoulPotion : public Drops {
+class SoulPotion : public Usable {
 public:
 	// Converts the player's money into hp
 	SoulPotion(int x, int y);
 
-	bool isHealingItem() const { return true; };
+	bool isHealingItem() const override { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
-class BinaryLifePotion : public Drops {
+class BinaryLifePotion : public Usable {
 public:
 	// Heals 50% of the player's missing hp
 	BinaryLifePotion(int x, int y);
 
-	bool isHealingItem() const { return true; };
+	bool isHealingItem() const override { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
-class StatPotion : public Drops {
+class StatPotion : public Usable {
 public:
 	StatPotion(int x, int y);
 	void useItem(Dungeon &dungeon);
 };
 
-class RottenApple : public Drops {
+class RottenApple : public Usable {
 public:
 	// Heals to full, but applies a deadly poison
 	RottenApple(int x, int y);
 
-	bool isHealingItem() const { return true; };
+	bool isHealingItem() const override { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
-class Antidote : public Drops {
+class Antidote : public Usable {
 public:
 	// Cures poison
 	Antidote(int x, int y);
 	void useItem(Dungeon &dungeon);
 };
 
-class ArmorDrop : public Drops {
+class ArmorDrop : public Usable {
 public:
 	ArmorDrop(int x, int y);
 	void useItem(Dungeon &dungeon);
 };
 
-class ShieldRepair : public Drops {
-public:
-	ShieldRepair(int x, int y);
-	void useItem(Dungeon &dungeon);
-};
-
-class DizzyElixir : public Drops {
+class DizzyElixir : public Usable {
 public:
 	DizzyElixir(int x, int y);
 	void useItem(Dungeon &dungeon);
 };
 
-class PoisonBomb : public Drops {
+class PoisonBomb : public Usable {
 public:
 	PoisonBomb(int x, int y);
 	void useItem(Dungeon &dungeon);
 };
 
-class RottenMeat : public Drops {
+class RottenMeat : public Usable {
 public:
 	// Places a piece of rotten meat on the ground.
 	// Removes aggro from you for a little while and poisons monsters that consume this.
@@ -306,7 +309,7 @@ public:
 	void useItem(Dungeon &dungeon);
 };
 
-class MattockDust : public Drops {
+class MattockDust : public Usable {
 public:
 	// Created when the Mattock Head is destroyed.
 	// Placeholder effect: Confuses yourself and nearby enemies.
@@ -314,14 +317,14 @@ public:
 	void useItem(Dungeon &dungeon);
 };
 
-class Teleport : public Drops {
+class Teleport : public Usable {
 public:
 	// Teleport to a random location in the dungeon
 	Teleport(int x, int y);
 	void useItem(Dungeon &dungeon);
 };
 
-class SmokeBomb : public Drops {
+class SmokeBomb : public Usable {
 public:
 	// Throwable. Leaves a circular cloud of smoke on impact or when it travels far enough.
 	// "Possesses" all monsters which essentially will make them move erratically.
@@ -329,49 +332,64 @@ public:
 	void useItem(Dungeon &dungeon);
 };
 
-class WildMushroom : public Drops {
+class WildMushroom : public Usable {
 public:
 	// 50% chance to poison the player.
 	// 50% chance to give strength or heal. Very small chance to grant the strength bonus.
 	WildMushroom(int x, int y);
 
-	bool isHealingItem() const { return true; };
+	bool isHealingItem() const override { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
-class MagmaHeart : public Drops {
+class MagmaHeart : public Usable {
 public:
 	// After consumption, this restores 20% of the player's health when they reach the next floor
 	MagmaHeart(int x, int y);
 
-	bool isHealingItem() const { return true; };
+	bool isHealingItem() const override { return true; };
 	void useItem(Dungeon &dungeon);
 };
 
-class CactusWater : public Drops {
+class CactusWater : public Usable {
 public:
 	// Dropped by Cacti
 	CactusWater(int x, int y);
 
-	bool isHealingItem() const { return true; };
-	void pickupEffect(Dungeon &dungeon);
+	bool isHealingItem() const override { return true; };
+	void pickupEffect(Dungeon &dungeon) override;
 	void useItem(Dungeon &dungeon);
 };
 
-class SuperRoot : public Drops {
+class SuperRoot : public Usable {
 public:
 	// Preventions all negative afflictions for a duration
 	SuperRoot(int x, int y);
 	void useItem(Dungeon &dungeon);
 };
 
-class RPGInABottle : public Drops {
+class RPGInABottle : public Usable {
 public:
 	RPGInABottle(int x, int y);
 	void useItem(Dungeon &dungeon);
 };
 
-class Stackable : public Drops {
+class MonsterTransform : public Usable {
+public:
+	MonsterTransform(int x, int y);
+	void useItem(Dungeon &dungeon);
+
+private:
+	int getMonsterLevel(int currentLevel) const;
+};
+
+class SleddingScarf : public Usable {
+public:
+	SleddingScarf(int x, int y);
+	void useItem(Dungeon &dungeon);
+};
+
+class Stackable : public Usable {
 public:
 	// Items that can be stacked beyond 1
 	Stackable(int x, int y, std::string name, std::string image, int count);
@@ -405,7 +423,7 @@ public:
 	void useItem(Dungeon &dungeon);
 };
 
-class SkeletonKey : public Drops {
+class SkeletonKey : public Usable {
 public:
 	SkeletonKey(int x, int y);
 
@@ -414,7 +432,7 @@ public:
 
 
 //		SPECIAL
-class Teleporter : public Drops {
+class Teleporter : public Usable {
 public:
 	// Teleporters the player X spaces in the direction they're facing.
 	// If there is no free space, then it looks for an adjacent (cardinal) spot that is free.
@@ -423,7 +441,7 @@ public:
 	void useItem(Dungeon &dungeon);
 };
 
-class Rocks : public Drops {
+class Rocks : public Usable {
 public:
 	// Throwable item. Stuns enemies for 1 turn and knocks them back by up to two tiles.
 	Rocks(int x = 0, int y = 0);
@@ -433,7 +451,7 @@ private:
 	int m_durability;
 };
 
-class Mobility : public Drops {
+class Mobility : public Usable {
 public:
 	// The special ability for the Acrobat character.
 	Mobility(int x = 0, int y = 0);
@@ -442,11 +460,11 @@ public:
 
 
 //		SPELLS
-class Spell : public Drops {
+class Spell : public Usable {
 public:
 	Spell(int x, int y, int damage, std::string item, std::string image);
 
-	bool isSpell() const { return true; };
+	bool isSpell() const override { return true; };
 
 protected:
 	int getDamage() const { return m_damage; };
@@ -570,7 +588,7 @@ public:
 
 	virtual void apply(Player &p) = 0;
 	virtual void unapply(Player &p) = 0;
-	bool isPassive() const { return true; };
+	bool isPassive() const override { return true; };
 };
 
 class BatWing : public Passive {
@@ -826,7 +844,7 @@ public:
 	// They are upgradeable to a maximum level of 4. As before, the player can only hold one of these at a time.
 	Relic(int x, int y, std::string name, std::string image);
 
-	bool isTrinket() const { return true; };
+	bool isRelic() const override { return true; };
 
 	virtual void apply(Dungeon &dungeon, Player &p) = 0;
 	virtual void unapply(Dungeon &dungeon, Player &p) = 0;
@@ -947,12 +965,12 @@ public:
 
 
 //	BEGIN CHESTS CLASSES
-class Chests : public Drops {
+class Chests : public Objects {
 public:
 	Chests(Dungeon *dungeon, int x, int y, std::string chest, std::string image);
 	~Chests();
 
-	bool isChest() const { return true; };
+	bool isChest() const override { return true; };
 
 	// Used to check if this can be opened
 	virtual void attemptOpen(Dungeon &dungeon) { open(dungeon); };
@@ -1046,7 +1064,7 @@ class Weapon : public Objects {
 public:
 	Weapon(int x, int y, std::string name, std::string image, int dmg, int dexbonus);
 
-	bool isWeapon() const { return true; };
+	bool isWeapon() const override { return true; };
 
 	virtual void applyBonus(Actors &a) { return; }; // flat stat upgrades while equipped
 	virtual void unapplyBonus(Actors &a) { return; };
@@ -1695,9 +1713,9 @@ class Shield : public Objects {
 public:
 	Shield(int x, int y, int defense, int durability, int coverage, std::string type, std::string image);
 
-	bool isShield() const { return true; };
+	bool isShield() const override { return true; };
 
-	virtual void useAbility(Dungeon &dungeon, Actors &a) { ; };
+	virtual void useAbility(Dungeon &dungeon, Actors &a) { return; };
 
 	int getDefense() const { return m_defense; };
 	void setDefense(int defense) { m_defense = defense; };
@@ -1775,18 +1793,16 @@ public:
 
 	virtual void activeTrapAction() { return; };
 	virtual void trapAction(Actors &a) { return; };
-
-	bool isDestroyed() const { return m_destroyed; };
 	virtual void destroyTrap();
-	virtual void drops() { return; };
-	virtual void spriteCleanup();
-
-	virtual bool isLightSource() const { return false; }; // For removing the light source if it is destroyed
 
 	int getDamage() const { return m_damage; };
 
-	bool actsAsWall() const { return m_wall; };
+	bool isDestroyed() const { return m_destroyed; };
 	bool isLethal() const { return m_lethal; };
+	virtual bool isDecoy() const { return false; }
+
+	// Used for Player's Trap Illumination passive
+	virtual bool canBeIlluminated() const { return false; };
 
 	bool isExplosive() const { return m_explosive; };
 	virtual void explode() { return; };
@@ -1803,20 +1819,11 @@ public:
 	bool canBeFrozen() const { return m_canBeFrozen; };
 	virtual void freeze() { return; };
 
-	// Checks if the trap could be destroyed manually
-	//virtual void checkDestroy(int x, int y);
-
-	virtual bool isDecoy() const { return false; }
-
-	// Used for Player's Trap Illumination passive
-	virtual bool canBeIlluminated() const { return false; };
-
 protected:
 	void setDestroyed(bool destroyed) { m_destroyed = destroyed; };
 
 	void setWallFlag(bool wall) { m_wall = wall; };
 	void setLethal(bool lethal) { m_lethal = lethal; };
-
 
 	void setExplosive(bool explosive) { m_explosive = explosive; };
 	void setCanBeIgnited(bool ignite) { m_canBeIgnited = ignite; };
@@ -1831,6 +1838,12 @@ protected:
 	void checkFreeze(int x, int y);
 
 private:
+	virtual void drops() { return; };
+	virtual void spriteCleanup();
+
+	bool actsAsWall() const { return m_wall; };
+	virtual bool isLightSource() const { return false; }; // For removing the light source if it is destroyed
+
 	int m_damage = 0;
 	bool m_destroyed = false;
 	bool m_wall = false;
@@ -2390,7 +2403,7 @@ public:
 	
 	void drops();
 
-	void explode();
+	void explode() override;
 
 private:
 	int m_fuseID;
@@ -2666,6 +2679,14 @@ private:
 	int m_turns = 8;
 };
 
+class DNASplitter : public Traps {
+public:
+	DNASplitter(Dungeon &dungeon, int x, int y);
+
+	void activeTrapAction();
+	void trapAction(Actors &a);
+};
+
 class Decoy : public Traps {
 public:
 	// Decoys attract monsters away from the player
@@ -2899,7 +2920,19 @@ private:
 	int m_acceleration = 3;
 };
 
-// Traps from spells
+// Traps from spells/items
+class FactoryTile : public Traps {
+public:
+	// From SleddingScarf item.
+	// Forces enemies to move in a particular direction based on the direction of this tile.
+	FactoryTile(Dungeon &dungeon, int x, int y, char dir);
+
+	void activeTrapAction();
+
+private:
+	char m_dir;
+};
+
 class FirePillars : public Traps {
 public:
 	// Released from the FireCascade spell

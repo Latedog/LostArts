@@ -38,9 +38,9 @@ public:
 	int getInt() const { return m_int; };
 	int getLuck() const { return m_luck; };
 	int getCha() const { return m_cha; };
-	virtual std::shared_ptr<Weapon>& getWeapon() { return m_wep; };
+	std::shared_ptr<Weapon> getWeapon() const { return m_wep; };
 	std::string getName() const { return m_name; };
-	cocos2d::Sprite* getSprite() { return m_sprite; };
+	cocos2d::Sprite* getSprite() const { return m_sprite; };
 	std::string getImageName() const { return m_image; };
 	bool hasAnimation() const { return m_hasAnimation; };
 	std::string getAnimationFrames() const { return m_frames; };
@@ -68,6 +68,7 @@ public:
 	void setStr(int str) { m_str = str; };
 	void setDex(int dex) { m_dex = dex; };
 	void setInt(int intellect) { m_int = intellect; };
+	void setCha(int charisma) { m_cha = charisma; };
 	void setLuck(int luck) { m_luck = luck; };
 	void setWeapon(std::shared_ptr<Weapon> wep) { m_wep = wep; };
 	void setName(std::string name) { m_name = name; };
@@ -77,9 +78,10 @@ public:
 	void increaseStatBy(StatType stat, int amount);
 	void decreaseStatBy(StatType stat, int amount);
 
-	bool isPlayer() const { return m_isPlayer; };
-	bool isMonster() const { return m_isMonster; };
+	virtual bool isPlayer() const { return false; };
+	virtual bool isMonster() const { return false; };
 	virtual bool isSpirit() const { return false; } // Indicates if this is the insta-kill enemy
+
 	bool isDead() const { return m_isDead; };
 	void setDead(bool dead) { m_isDead = dead; };
 
@@ -106,7 +108,6 @@ public:
 	bool isHeavy() const { return m_heavy; }; // Indicates if they can be pushed
 
 	bool hasBloodlust() const { return m_bloodlust; };
-	bool hasToxic() const { return m_toxic; };
 
 	void setLavaImmunity(bool immune) { m_lavaImmune = immune; };
 	void setFlying(bool flying) { m_flying = flying; };
@@ -114,7 +115,6 @@ public:
 	void setHeavy(bool heavy) { m_heavy = heavy; };
 
 	void setBloodlust(bool lust) { m_bloodlust = lust; };
-	void setToxic(bool toxic) { m_toxic = toxic; }; // can poison others
 
 	bool canBeStunned() const { return m_stunnable; };
 	bool canBeBurned() const { return m_burnable; };
@@ -173,9 +173,6 @@ protected:
 	void setAnimationFrameCount(int count) { m_frameCount = count; };
 	void setFrameInterval(int interval) { m_frameInterval = interval; };
 
-	void setPlayerFlag(bool player) { m_isPlayer = player; };
-	void setMonsterFlag(bool monster) { m_isMonster = monster; };
-
 	Dungeon *m_dungeon = nullptr;
 	
 private:
@@ -204,15 +201,11 @@ private:
 	bool m_isDead = false;
 	bool m_superDead = false;
 
-	bool m_isPlayer = false;
-	bool m_isMonster = true;
 	bool m_lavaImmune = false;
 	bool m_bloodlust = false;
 	bool m_flying = false;
 	bool m_sturdy = true;
 	bool m_heavy = false;
-
-	bool m_toxic = false;
 
 	bool m_burnable = true;
 	bool m_stunnable = true;
@@ -252,7 +245,10 @@ private:
 class Player : public Actors {
 public:
 	Player(int hp, std::shared_ptr<Weapon> weapon);
-	~Player();
+	Player(const Player& other);
+	~Player() override;
+
+	bool isPlayer() const override { return true; };
 
 	void moveTo(int x, int y, float time = 0.10f);
 	void move(char move);
@@ -261,6 +257,7 @@ public:
 	void botchedAttack(Actors &a);
 	void chainLightning(Actors &a);
 	void reactToDamage(Monster &m);
+	void death();
 
 	int getMoney() const { return m_money; };
 	void setMoney(int money) { m_money = money; };
@@ -289,7 +286,7 @@ public:
 	
 	size_t itemCount() const { return m_items.size(); };
 	bool hasItems() const { return !m_items.empty(); };
-	std::shared_ptr<Drops> itemAt(int index) { return m_items[index]; };
+	std::shared_ptr<Drops> itemAt(int index) const { return m_items[index]; };
 	int maxItemCount() const { return m_maxiteminv; };
 
 	// Active item (Spacebar)
@@ -366,107 +363,107 @@ public:
 	bool hasAfflictionAversion() const;
 
 	bool hasExperienceGain() const;
-	int getXP() const { return m_xp; };
+	int getXP() const { return m_abilityBonuses.m_xp; };
 	void increaseXPBy(int amount);
 
 	// Special abilities gained from passives
-	bool canLifesteal() const { return m_lifesteal; };
-	void setLifesteal(bool steal) { m_lifesteal = steal; };
+	bool canLifesteal() const { return m_abilityBonuses.m_lifesteal; };
+	void setLifesteal(bool steal) { m_abilityBonuses.m_lifesteal = steal; };
 	void rollHeal();
 
-	bool hasSteelPunch() const { return m_steelPunch; };
-	void setSteelPunch(bool punch) { m_steelPunch = punch; };
+	bool hasSteelPunch() const { return m_abilityBonuses.m_steelPunch; };
+	void setSteelPunch(bool punch) { m_abilityBonuses.m_steelPunch = punch; };
 
-	bool spikeImmunity() const { return m_spikeImmunity; };
-	void setSpikeImmunity(bool immune) { m_spikeImmunity = immune; };
+	bool spikeImmunity() const { return m_abilityBonuses.m_spikeImmunity; };
+	void setSpikeImmunity(bool immune) { m_abilityBonuses.m_spikeImmunity = immune; };
 
-	bool hasPoisonTouch() const { return m_poisonTouch; };
-	void setPoisonTouch(bool poison) { m_poisonTouch = poison; };
+	bool hasPoisonTouch() const { return m_abilityBonuses.m_poisonTouch; };
+	void setPoisonTouch(bool poison) { m_abilityBonuses.m_poisonTouch = poison; };
 
-	bool hasFireTouch() const { return m_fireTouch; };
-	void setFireTouch(bool fire) { m_fireTouch = fire; };
+	bool hasFireTouch() const { return m_abilityBonuses.m_fireTouch; };
+	void setFireTouch(bool fire) { m_abilityBonuses.m_fireTouch = fire; };
 
-	bool hasFrostTouch() const { return m_frostTouch; };
-	void setFrostTouch(bool frost) { m_frostTouch = frost; };
+	bool hasFrostTouch() const { return m_abilityBonuses.m_frostTouch; };
+	void setFrostTouch(bool frost) { m_abilityBonuses.m_frostTouch = frost; };
 
-	bool explosionImmune() const { return m_explosionImmunity; };
-	void setExplosionImmune(bool explosion) { m_explosionImmunity = explosion; };
+	bool explosionImmune() const { return m_abilityBonuses.m_explosionImmunity; };
+	void setExplosionImmune(bool explosion) { m_abilityBonuses.m_explosionImmunity = explosion; };
 
-	bool hasPotentPotions() const { return m_potentPotions; };
-	void setPotentPotions(bool potent) { m_potentPotions = potent; };
+	bool hasPotentPotions() const { return m_abilityBonuses.m_potentPotions; };
+	void setPotentPotions(bool potent) { m_abilityBonuses.m_potentPotions = potent; };
 
-	bool hasSoulSplit() const { return m_soulSplit; };
-	void setSoulSplit(bool soul) { m_soulSplit = soul; };
+	bool hasSoulSplit() const { return m_abilityBonuses.m_soulSplit; };
+	void setSoulSplit(bool soul) { m_abilityBonuses.m_soulSplit = soul; };
 
-	bool canBreakWalls() const { return m_wallBreak; };
-	void setCanBreakWalls(bool wallBreak) { m_wallBreak = wallBreak; }
+	bool canBreakWalls() const { return m_abilityBonuses.m_wallBreak; };
+	void setCanBreakWalls(bool wallBreak) { m_abilityBonuses.m_wallBreak = wallBreak; }
 
-	bool hasCharismaNPC() const { return m_charismaNPC; };
-	void setCharismaNPC(bool charisma) { m_charismaNPC = charisma; };
+	bool hasCharismaNPC() const { return m_abilityBonuses.m_charismaNPC; };
+	void setCharismaNPC(bool charisma) { m_abilityBonuses.m_charismaNPC = charisma; };
 	
-	bool hasCheapShops() const { return m_cheapShops; };
-	void setCheapShops(bool cheap) { m_cheapShops = cheap; };
+	bool hasCheapShops() const { return m_abilityBonuses.m_cheapShops; };
+	void setCheapShops(bool cheap) { m_abilityBonuses.m_cheapShops = cheap; };
 
-	bool hasBetterRates() const { return m_betterRates; };
-	void setBetterRates(bool rates) { m_betterRates = rates; };
+	bool hasBetterRates() const { return m_abilityBonuses.m_betterRates; };
+	void setBetterRates(bool rates) { m_abilityBonuses.m_betterRates = rates; };
 
-	bool hasTrapIllumination() const { return m_trapIllumination; };
-	void setTrapIllumination(bool illuminate) { m_trapIllumination = illuminate; };
+	bool hasTrapIllumination() const { return m_abilityBonuses.m_trapIllumination; };
+	void setTrapIllumination(bool illuminate) { m_abilityBonuses.m_trapIllumination = illuminate; };
 
-	bool hasItemIllumination() const { return m_itemIllumination; };
-	void setItemIllumination(bool illuminate) { m_itemIllumination = illuminate; };
+	bool hasItemIllumination() const { return m_abilityBonuses.m_itemIllumination; };
+	void setItemIllumination(bool illuminate) { m_abilityBonuses.m_itemIllumination = illuminate; };
 
-	bool hasMonsterIllumination() const { return m_monsterIllumination; };
-	void setMonsterIllumination(bool illuminate) { m_monsterIllumination = illuminate; };
+	bool hasMonsterIllumination() const { return m_abilityBonuses.m_monsterIllumination; };
+	void setMonsterIllumination(bool illuminate) { m_abilityBonuses.m_monsterIllumination = illuminate; };
 
-	bool hasGoldIllumination() const { return m_goldIllumination; };
-	void setGoldIllumination(bool illuminate) { m_goldIllumination = illuminate; };
+	bool hasGoldIllumination() const { return m_abilityBonuses.m_goldIllumination; };
+	void setGoldIllumination(bool illuminate) { m_abilityBonuses.m_goldIllumination = illuminate; };
 
-	bool hasGoldInvulnerability() const { return m_goldInvulnerability; };
-	void setGoldInvulnerability(bool ability) { m_goldInvulnerability = ability; };
+	bool hasGoldInvulnerability() const { return m_abilityBonuses.m_goldInvulnerability; };
+	void setGoldInvulnerability(bool ability) { m_abilityBonuses.m_goldInvulnerability = ability; };
 
-	bool hasResonantSpells() const { return m_resonantSpells; };
-	void setResonantSpells(bool resonant) { m_resonantSpells = resonant; };
+	bool hasResonantSpells() const { return m_abilityBonuses.m_resonantSpells; };
+	void setResonantSpells(bool resonant) { m_abilityBonuses.m_resonantSpells = resonant; };
 
-	bool isSlow() const { return m_slow; };
-	void setSlow(bool slow) { m_slow = slow; };
+	bool isSlow() const { return m_abilityBonuses.m_slow; };
+	void setSlow(bool slow) { m_abilityBonuses.m_slow = slow; };
 
-	bool hasChainLightning() const { return m_chainLightning; };
-	void setChainLightning(bool lightning) { m_chainLightning = lightning; };
+	bool hasChainLightning() const { return m_abilityBonuses.m_chainLightning; };
+	void setChainLightning(bool lightning) { m_abilityBonuses.m_chainLightning = lightning; };
 
-	bool hasCripplingBlows() const { return m_cripplingBlows; };
-	void setCripplingBlows(bool cripple) { m_cripplingBlows = cripple; };
+	bool hasCripplingBlows() const { return m_abilityBonuses.m_cripplingBlows; };
+	void setCripplingBlows(bool cripple) { m_abilityBonuses.m_cripplingBlows = cripple; };
 
-	bool hasMatrixVision() const { return m_matrixVision; };
-	void setMatrixVision(bool matrix) { m_matrixVision = matrix; };
+	bool hasMatrixVision() const { return m_abilityBonuses.m_matrixVision; };
+	void setMatrixVision(bool matrix) { m_abilityBonuses.m_matrixVision = matrix; };
 
-	bool hasHarshAfflictions() const { return m_harshAfflictions; };
-	void setHarshAfflictions(bool harsh) { m_harshAfflictions = harsh; };
+	bool hasHarshAfflictions() const { return m_abilityBonuses.m_harshAfflictions; };
+	void setHarshAfflictions(bool harsh) { m_abilityBonuses.m_harshAfflictions = harsh; };
 
-	bool hasSpellRetaliation() const { return m_spellRetaliation; };
-	void setSpellRetaliation(bool retaliate) { m_spellRetaliation = retaliate; };
+	bool hasSpellRetaliation() const { return m_abilityBonuses.m_spellRetaliation; };
+	void setSpellRetaliation(bool retaliate) { m_abilityBonuses.m_spellRetaliation = retaliate; };
 
-	bool hasAfflictionOverride() const { return m_afflictionOverride; };
-	void setAfflictionOverride(bool afflict) { m_afflictionOverride = afflict; };
+	bool hasAfflictionOverride() const { return m_abilityBonuses.m_afflictionOverride; };
+	void setAfflictionOverride(bool afflict) { m_abilityBonuses.m_afflictionOverride = afflict; };
 
-	int getTimerReduction() const { return m_timerReduction; };
-	void setTimerReduction(float reduction) { m_timerReduction = reduction; };
+	int getTimerReduction() const { return m_abilityBonuses.m_timerReduction; };
+	void setTimerReduction(float reduction) { m_abilityBonuses.m_timerReduction = reduction; };
 
-	bool hasFatStacks() const { return m_fatStacks; };
-	void setFatStacks(bool stack) { m_fatStacks = stack; };
+	bool hasFatStacks() const { return m_abilityBonuses.m_fatStacks; };
+	void setFatStacks(bool stack) { m_abilityBonuses.m_fatStacks = stack; };
 
-	bool hasBonusRoll() const { return m_bonusRoll; };
-	void setBonusRoll(bool bonus) { m_bonusRoll = bonus; };
+	bool hasBonusRoll() const { return m_abilityBonuses.m_bonusRoll; };
+	void setBonusRoll(bool bonus) { m_abilityBonuses.m_bonusRoll = bonus; };
 
-	bool hasFragileRetaliation() const { return m_fragileRetaliation; };
-	void setFragileRetaliation(bool fragile) { m_fragileRetaliation = fragile; };
+	bool hasFragileRetaliation() const { return m_abilityBonuses.m_fragileRetaliation; };
+	void setFragileRetaliation(bool fragile) { m_abilityBonuses.m_fragileRetaliation = fragile; };
 
-	bool hasScavenger() const { return m_scavenger; };
-	void setScavenger(bool flag) { m_scavenger = flag; };
+	bool hasScavenger() const { return m_abilityBonuses.m_scavenger; };
+	void setScavenger(bool flag) { m_abilityBonuses.m_scavenger = flag; };
 
-	bool hasDelayedHealing() const { return m_delayedHealing > 0; };
-	float getDelayedHealing() const { return m_delayedHealing; };
-	void setDelayedHealing(float healing) { m_delayedHealing = healing; }; // Healing is the percentage of max hp to restore
+	bool hasDelayedHealing() const { return m_abilityBonuses.m_delayedHealing > 0; };
+	float getDelayedHealing() const { return m_abilityBonuses.m_delayedHealing; };
+	void setDelayedHealing(float healing) { m_abilityBonuses.m_delayedHealing = healing; }; // Healing is the percentage of max hp to restore
 	/// End special abilities
 
 	bool spiritActive() const { return m_spiritActive; };
@@ -530,42 +527,83 @@ private:
 
 	// Special abilities
 
-	// From RPG in a bottle
-	int m_xp = 0;
-	int m_xpMax = 10;
+	struct AbilityBonuses {
+		// From RPG in a bottle
+		int m_xp = 0;
+		int m_xpMax = 10;
 
-	bool m_lifesteal = false;
-	bool m_steelPunch = false; // All enemies become unsturdy
-	bool m_spikeImmunity = false;
-	bool m_poisonTouch = false;
-	bool m_fireTouch = false;
-	bool m_frostTouch = false;
-	bool m_explosionImmunity = false;
-	bool m_potentPotions = false;
-	bool m_soulSplit = false; // Damage split between hp and money
-	bool m_wallBreak = false; // Allows player to destroy walls
-	bool m_charismaNPC = false; // Increases NPC spawn rate
-	bool m_cheapShops = false; // Reduces shop prices
-	bool m_betterRates = false; // Reduces money penalty when hit and increases money gain on hit
-	bool m_trapIllumination = false; // Illuminates certain traps
-	bool m_itemIllumination = false; // Illuminates item locations
-	bool m_monsterIllumination = false; // Illuminates monsters
-	bool m_goldIllumination = false; // Illuminates gold. Can only be obtained through BrightStar relic.
-	bool m_goldInvulnerability = false; // High chance to gain 1 turn of invulnerability after collecting gold. Only obtainable through Riches relic.
-	bool m_resonantSpells = false; // Spells have a chance to not be consumed on use
-	bool m_slow = false; // Slowness means that monsters get to move before the player
-	bool m_chainLightning = false; // Chance to chain damage through nearby enemies. Only obtainable through Lightbulb relic.
-	bool m_cripplingBlows = false; // Chance to cripple enemies on hit. Only obtainable through MatrixVision relic.
-	bool m_matrixVision = false; // Chance for traps and monster to skip a few turns. Only obtainable through MatrixVision relic.
-	bool m_harshAfflictions = false; // All inflicted afflictions have longer duration. Only obtainable through SuperMagicEssence relic.
-	bool m_spellRetaliation = false; // Chance to cast random spell after being hit. Only obtainable through SuperMagicEssence relic.
-	bool m_afflictionOverride = false; // All afflictions have a chance to affect any enemy, ignoring any resistances. Only obtainable through SuperMagicEssence relic.
-	float m_timerReduction = 0.0f; // Makes the level timer slower.
-	bool m_fatStacks = false; // Allows all items to become stackable.
-	bool m_bonusRoll = false; // Grants the player a bonus roll to save from certain afflictions.
-	bool m_fragileRetaliation = false; // Small chance to give an enemy Fragile status when attacked.
-	bool m_scavenger = false; // Small chance for enemies to drop items.
-	float m_delayedHealing = 0; // Obtained from Magma Heart item. Heals when player goes to the next floor.
+		bool m_lifesteal = false;
+		bool m_steelPunch = false; // All enemies become unsturdy
+		bool m_spikeImmunity = false;
+		bool m_poisonTouch = false;
+		bool m_fireTouch = false;
+		bool m_frostTouch = false;
+		bool m_explosionImmunity = false;
+		bool m_potentPotions = false;
+		bool m_soulSplit = false; // Damage split between hp and money
+		bool m_wallBreak = false; // Allows player to destroy walls
+		bool m_charismaNPC = false; // Increases NPC spawn rate
+		bool m_cheapShops = false; // Reduces shop prices
+		bool m_betterRates = false; // Reduces money penalty when hit and increases money gain on hit
+		bool m_trapIllumination = false; // Illuminates certain traps
+		bool m_itemIllumination = false; // Illuminates item locations
+		bool m_monsterIllumination = false; // Illuminates monsters
+		bool m_goldIllumination = false; // Illuminates gold. Can only be obtained through BrightStar relic.
+		bool m_goldInvulnerability = false; // High chance to gain 1 turn of invulnerability after collecting gold. Only obtainable through Riches relic.
+		bool m_resonantSpells = false; // Spells have a chance to not be consumed on use
+		bool m_slow = false; // Slowness means that monsters get to move before the player
+		bool m_chainLightning = false; // Chance to chain damage through nearby enemies. Only obtainable through Lightbulb relic.
+		bool m_cripplingBlows = false; // Chance to cripple enemies on hit. Only obtainable through MatrixVision relic.
+		bool m_matrixVision = false; // Chance for traps and monster to skip a few turns. Only obtainable through MatrixVision relic.
+		bool m_harshAfflictions = false; // All inflicted afflictions have longer duration. Only obtainable through SuperMagicEssence relic.
+		bool m_spellRetaliation = false; // Chance to cast random spell after being hit. Only obtainable through SuperMagicEssence relic.
+		bool m_afflictionOverride = false; // All afflictions have a chance to affect any enemy, ignoring any resistances. Only obtainable through SuperMagicEssence relic.
+		float m_timerReduction = 0.0f; // Makes the level timer slower.
+		bool m_fatStacks = false; // Allows all items to become stackable.
+		bool m_bonusRoll = false; // Grants the player a bonus roll to save from certain afflictions.
+		bool m_fragileRetaliation = false; // Small chance to give an enemy Fragile status when attacked.
+		bool m_scavenger = false; // Small chance for enemies to drop items.
+		float m_delayedHealing = 0; // Obtained from Magma Heart item. Heals when player goes to the next floor.
+	};
+
+	AbilityBonuses m_abilityBonuses;
+
+	//// From RPG in a bottle
+	//int m_xp = 0;
+	//int m_xpMax = 10;
+
+	//bool m_lifesteal = false;
+	//bool m_steelPunch = false; // All enemies become unsturdy
+	//bool m_spikeImmunity = false;
+	//bool m_poisonTouch = false;
+	//bool m_fireTouch = false;
+	//bool m_frostTouch = false;
+	//bool m_explosionImmunity = false;
+	//bool m_potentPotions = false;
+	//bool m_soulSplit = false; // Damage split between hp and money
+	//bool m_wallBreak = false; // Allows player to destroy walls
+	//bool m_charismaNPC = false; // Increases NPC spawn rate
+	//bool m_cheapShops = false; // Reduces shop prices
+	//bool m_betterRates = false; // Reduces money penalty when hit and increases money gain on hit
+	//bool m_trapIllumination = false; // Illuminates certain traps
+	//bool m_itemIllumination = false; // Illuminates item locations
+	//bool m_monsterIllumination = false; // Illuminates monsters
+	//bool m_goldIllumination = false; // Illuminates gold. Can only be obtained through BrightStar relic.
+	//bool m_goldInvulnerability = false; // High chance to gain 1 turn of invulnerability after collecting gold. Only obtainable through Riches relic.
+	//bool m_resonantSpells = false; // Spells have a chance to not be consumed on use
+	//bool m_slow = false; // Slowness means that monsters get to move before the player
+	//bool m_chainLightning = false; // Chance to chain damage through nearby enemies. Only obtainable through Lightbulb relic.
+	//bool m_cripplingBlows = false; // Chance to cripple enemies on hit. Only obtainable through MatrixVision relic.
+	//bool m_matrixVision = false; // Chance for traps and monster to skip a few turns. Only obtainable through MatrixVision relic.
+	//bool m_harshAfflictions = false; // All inflicted afflictions have longer duration. Only obtainable through SuperMagicEssence relic.
+	//bool m_spellRetaliation = false; // Chance to cast random spell after being hit. Only obtainable through SuperMagicEssence relic.
+	//bool m_afflictionOverride = false; // All afflictions have a chance to affect any enemy, ignoring any resistances. Only obtainable through SuperMagicEssence relic.
+	//float m_timerReduction = 0.0f; // Makes the level timer slower.
+	//bool m_fatStacks = false; // Allows all items to become stackable.
+	//bool m_bonusRoll = false; // Grants the player a bonus roll to save from certain afflictions.
+	//bool m_fragileRetaliation = false; // Small chance to give an enemy Fragile status when attacked.
+	//bool m_scavenger = false; // Small chance for enemies to drop items.
+	//float m_delayedHealing = 0; // Obtained from Magma Heart item. Heals when player goes to the next floor.
 	
 	bool m_spiritActive = false; // Indicator that the ForgottenSpirit is to spawn
 	
@@ -589,32 +627,33 @@ class Adventurer : public Player {
 public:
 	// The standard character. Wields a shield.
 	Adventurer();
-	~Adventurer();
+	Adventurer(const Adventurer &other);
+	~Adventurer() override;
 
-	void useActiveItem();
-	void equipActiveItem(std::shared_ptr<Objects> active);
-	bool activeHasMeter() const { return true; };
-	int getCurrentActiveMeter() const;
-	int getMaxActiveMeter() const;
+	void useActiveItem() override;
+	void equipActiveItem(std::shared_ptr<Objects> active) override;
+	bool activeHasMeter() const override { return true; };
+	int getCurrentActiveMeter() const override;
+	int getMaxActiveMeter() const override;
 
-	bool activeHasAbility() const;
-	void useActiveAbility(Actors &a);
+	bool activeHasAbility() const override;
+	void useActiveAbility(Actors &a) override;
 	
-	bool canUseShield() const { return true; };
+	bool canUseShield() const override { return true; };
 	bool hasShield() const { return m_hasShield; };
 	
 	void equipShield(std::shared_ptr<Shield> shield);
 	void dropShield();
 	void shieldBroken();
-	void restoreActive(int repairs);
-	void setBlock(bool blocking) { m_blocking = blocking; };
+	void restoreActive(int repairs) override;
+	void setBlock(bool blocking) override { m_blocking = blocking; };
 	
-	bool canBlock() const;
-	bool didBlock(int mx, int my) const;
-	int blockedDamageReduction();
-	void successfulBlock();
+	bool canBlock() const override;
+	bool didBlock(int mx, int my) const override;
+	int blockedDamageReduction() override;
+	void successfulBlock() override;
 
-	void successfulAttack(Actors &a) { return; };
+	void successfulAttack(Actors &a) override { return; };
 
 private:
 	std::shared_ptr<Shield> m_shield;
@@ -627,18 +666,18 @@ public:
 	// Starts with Whirlwind as active item. Can only use spells.
 	// Picking up other spells replaces the Spellcaster's current spell.
 	Spellcaster();
-	~Spellcaster();
+	~Spellcaster() override;
 
-	void useActiveItem();
-	void equipActiveItem(std::shared_ptr<Objects> active);
-	bool activeHasMeter() const { return true; };
-	int getCurrentActiveMeter() const { return m_mp; };
-	int getMaxActiveMeter() const { return m_maxMP; };
-	bool activeHasAbility() const { return false; };
+	void useActiveItem() override;
+	void equipActiveItem(std::shared_ptr<Objects> active) override;
+	bool activeHasMeter() const override { return true; };
+	int getCurrentActiveMeter() const override { return m_mp; };
+	int getMaxActiveMeter() const override { return m_maxMP; };
+	bool activeHasAbility() const override { return false; };
 
-	bool canBlock() const { return false; };
-	bool canUseShield() const { return false; };
-	void successfulAttack(Actors &a);
+	bool canBlock() const override { return false; };
+	bool canUseShield() const override { return false; };
+	void successfulAttack(Actors &a) override;
 
 	int getMP() const { return m_mp; };
 	int getMaxMP() const { return m_maxMP; };
@@ -654,20 +693,20 @@ public:
 	// Starts with the Whip and uses Rocks as their active item.
 	// Rocks can break, so all enemies have a chance to drop Rocks.
 	Spelunker();
-	~Spelunker();
+	~Spelunker() override;
 
-	void useActiveItem();
-	void equipActiveItem(std::shared_ptr<Objects> active);
+	void useActiveItem() override;
+	void equipActiveItem(std::shared_ptr<Objects> active) override;
 
 	int getRockCount() const { return m_rocks.size(); }; // For HUD purposes
 
-	bool activeHasMeter() const { return false; };
-	bool activeHasAbility() const { return false; };
+	bool activeHasMeter() const override { return false; };
+	bool activeHasAbility() const override { return false; };
 
-	bool canBlock() const { return false; };
-	bool canUseShield() const { return false; };
+	bool canBlock() const override { return false; };
+	bool canUseShield() const override { return false; };
 
-	void successfulAttack(Actors &a) { return; };
+	void successfulAttack(Actors &a) override { return; };
 
 private:
 	std::vector<std::shared_ptr<Rocks>> m_rocks;
@@ -678,20 +717,20 @@ public:
 	// The Acrobat's ability allows them to roll/maneuver past enemies and over obstacles.
 	// They have a stamina meter though
 	Acrobat();
-	~Acrobat();
+	~Acrobat() override;
 
-	void useActiveItem();
-	void equipActiveItem(std::shared_ptr<Objects> active);
+	void useActiveItem() override;
+	void equipActiveItem(std::shared_ptr<Objects> active) override;
 
-	bool activeHasMeter() const { return true; };
-	int getCurrentActiveMeter() const { return m_stamina; };
-	int getMaxActiveMeter() const { return m_maxStamina; };
-	bool activeHasAbility() const { return false; };
+	bool activeHasMeter() const override { return true; };
+	int getCurrentActiveMeter() const override { return m_stamina; };
+	int getMaxActiveMeter() const override { return m_maxStamina; };
+	bool activeHasAbility() const override { return false; };
 
-	bool canBlock() const { return false; };
-	bool canUseShield() const { return false; };
+	bool canBlock() const override { return false; };
+	bool canUseShield() const override { return false; };
 
-	void successfulAttack(Actors &a);
+	void successfulAttack(Actors &a) override;
 
 private:
 	std::shared_ptr<Drops> m_item = nullptr;
@@ -704,18 +743,18 @@ public:
 	// Active item is a teleporter. Cannot be replaced.
 	// Starts with no weapon but increased vision radius.
 	TheMadman();
-	~TheMadman();
+	~TheMadman() override;
 
-	void useActiveItem();
-	void equipActiveItem(std::shared_ptr<Objects> active);
-	bool activeHasMeter() const { return false; };
-	int getCurrentActiveMeter() const { return 0; };
-	int getMaxActiveMeter() const { return -1; };
-	bool activeHasAbility() const { return false; };
+	void useActiveItem() override;
+	void equipActiveItem(std::shared_ptr<Objects> active) override;
+	bool activeHasMeter() const override { return false; };
+	int getCurrentActiveMeter() const override { return 0; };
+	int getMaxActiveMeter() const override { return -1; };
+	bool activeHasAbility() const override { return false; };
 
-	bool canBlock() const { return false; };
-	bool canUseShield() const { return false; };
-	void successfulAttack(Actors &a) { return; };
+	bool canBlock() const override { return false; };
+	bool canUseShield() const override { return false; };
+	void successfulAttack(Actors &a) override { return; };
 
 private:
 	std::shared_ptr<Drops> m_item;
@@ -732,26 +771,19 @@ public:
 
 	void talk();
 
-	std::vector<std::string> getDialogue() const { return m_dialogue; };
-	std::vector<std::string> getChoices() const { return m_promptChoices; };
 	virtual void useResponse(int index) { return; }; // Index of the choice that the player made in the choices vector
 
+	std::vector<std::string> getDialogue() const { return m_dialogue; };
+	std::vector<std::string> getChoices() const { return m_promptChoices; };
+
 protected:
-	virtual void checkSatisfaction() = 0;
-	virtual void reward() = 0;
-
-	virtual void addInitialDialogue() { return; };
-	virtual void addInteractedDialogue() = 0;
-	virtual void addSatisfiedDialogue() = 0;
-	virtual void addFinalDialogue() = 0;
-
 	void addDialogue(std::string line) { m_dialogue.push_back(line); };
 	void addChoice(std::string line) { m_promptChoices.push_back(line); };
 
-	void playDialogue();
-
 	void setSatisfaction(bool satisfied) { m_satisfied = satisfied; };
 	void rewardWasGiven() { m_rewardGiven = true; };
+	void successfullyRescued() { m_rescued = true; };
+	void setUnrescued() { m_rescued = false; };
 
 	int getInteractionStage() const { return m_interactedDialogueStage; };
 	void incInteractionStage() { m_interactedDialogueStage++; };
@@ -762,13 +794,41 @@ protected:
 	// the appropriate set of choices.
 	int m_promptStage = 1;
 
+	// Indicates the dialogue stage when the NPC is in the Hub.
+	int m_hubDialogueStage = 1;
+
 	std::vector<std::string> m_dialogue;
 	std::vector<std::string> m_promptChoices;
 
 private:
+	void playDialogue();
+
+	virtual void checkSatisfaction() = 0;
+	virtual void reward() = 0;
+
+	virtual void addInitialDialogue() { return; };
+	virtual void addInteractedDialogue() = 0;
+	virtual void addSatisfiedDialogue() = 0;
+	virtual void addFinalDialogue() = 0;
+
+	virtual void checkIfRescued() { return; };
+
+	virtual void addInitialUnrescuedDialogue() { return; };
+	virtual void addInteractedUnrescuedDialogue() { return; };
+	virtual void addRescuedDialogue() { return; };
+	virtual void addFinalRescuedDialogue() { return; };
+
+	virtual void addHubDialogue() { return; };
+
 	bool m_interacted = false; // flag for initial interaction with player
 	bool m_satisfied = false; // flag for determining if player has met the NPCs request
 	bool m_rewardGiven = false; // flag so that players are not given more than one reward
+
+	// Indicates if the npc must be saved from somewhere within the ruins.
+	// True indicates that they do not need to be rescued.
+	bool m_rescued = true;
+
+	bool m_unrescuedInteracted = false;
 
 	// When an NPC is continuously interacted with, this keeps track of what lines to output next
 	// if the player keeps talking to them, up to a certain limit
@@ -780,15 +840,15 @@ class CreatureLover : public NPC {
 public:
 	CreatureLover(Dungeon *dungeon, int x, int y);
 
-protected:
+private:
 	void checkSatisfaction();
 	void reward();
 
+	void addInitialDialogue();
 	void addInteractedDialogue();
 	void addSatisfiedDialogue();
 	void addFinalDialogue();
 
-private:
 	std::string m_wantedCreature;
 };
 
@@ -796,7 +856,7 @@ class Memorizer : public NPC {
 public:
 	Memorizer(Dungeon *dungeon, int x, int y);
 
-protected:
+private:
 	void useResponse(int index);
 	void checkSatisfaction();
 	void reward();
@@ -805,7 +865,6 @@ protected:
 	void addSatisfiedDialogue();
 	void addFinalDialogue();
 
-private:
 	std::string m_topic;
 	std::string m_correctChoice;
 
@@ -818,7 +877,7 @@ class InjuredExplorer : public NPC {
 public:
 	InjuredExplorer(Dungeon *dungeon, int x, int y);
 
-protected:
+private:
 	void useResponse(int index);
 	void checkSatisfaction();
 	void reward();
@@ -827,10 +886,37 @@ protected:
 	void addSatisfiedDialogue();
 	void addFinalDialogue();
 
-private:
 	bool playerHasHealingItem() const;
 
 	int m_healingItemCount = 0;
+};
+
+class PortalResearcher : public NPC {
+public:
+	// This NPC will be responsible for allowing the player to use shortcuts in the World Hub.
+	// They need to be found first before they appear in the Hub.
+	// Once found, they will require special charms to allow them to open portal shortcuts to the later floors.
+	// However, the player must still first figure out how to unlock the shortcuts from one end first.
+	PortalResearcher(Dungeon *dungeon, int x, int y);
+
+private:
+	void useResponse(int index);
+	void checkSatisfaction();
+	void reward();
+
+	void addInitialDialogue();
+	void addInteractedDialogue();
+	void addSatisfiedDialogue();
+	void addFinalDialogue();
+
+	virtual void checkIfRescued();
+
+	virtual void addInitialUnrescuedDialogue();
+	virtual void addInteractedUnrescuedDialogue();
+	virtual void addRescuedDialogue();
+	virtual void addFinalRescuedDialogue();
+
+	virtual void addHubDialogue();
 };
 
 class Shopkeeper : public NPC {
@@ -931,10 +1017,10 @@ private:
 	bool m_weaponTraded = false;
 };
 
-class OutsideMan1 : public NPC {
+class TutorialNPC1 : public NPC {
 public:
 	// A man that hangs outside the entrance to the world hub
-	OutsideMan1(Dungeon *dungeon, int x, int y);
+	TutorialNPC1(Dungeon *dungeon, int x, int y);
 
 protected:
 	void checkSatisfaction() { return; };
@@ -945,10 +1031,10 @@ protected:
 	void addFinalDialogue() { return; };
 };
 
-class OutsideMan2 : public NPC {
+class TutorialNPC2 : public NPC {
 public:
 	// A man that hangs outside the entrance to the world hub
-	OutsideMan2(Dungeon *dungeon, int x, int y);
+	TutorialNPC2(Dungeon *dungeon, int x, int y);
 
 protected:
 	void useResponse(int index);
@@ -985,6 +1071,8 @@ public:
 	Monster(Dungeon *dungeon, int x, int y, int hp, int armor, int str, int dex, std::string name);
 	Monster(Dungeon *dungeon, int x, int y, int hp, int armor, int str, int dex, std::shared_ptr<Weapon> wep, std::string name);
 	~Monster();
+
+	bool isMonster() const override { return false; };
 
 	// Moves the monster to the coordinates @x and @y
 	virtual void moveTo(int x, int y, float time = 0.10f);
@@ -2490,10 +2578,10 @@ class AbyssSummoner : public Monster {
 public:
 	// Summons a gaping maw underneath the player that will attempt to bite them.
 	AbyssSummoner(Dungeon *dungeon, int x, int y);
-	~AbyssSummoner();
 
 private:
 	void move();
+	void extraDeathEffects();
 
 	bool m_summoning = false;
 	int m_summonTurns = 3;

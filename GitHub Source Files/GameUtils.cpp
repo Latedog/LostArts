@@ -7,6 +7,10 @@
 #include <string>
 #include <memory>
 #include <unordered_map>
+#include <fstream>
+
+std::string GAME_TEXT_FILE = EN_US_FILE;
+float GLOBAL_SPRITE_SCALE = 1.0f;
 
 std::unordered_map<std::string, bool> LootTable::m_passivesObtained;
 std::unordered_map<std::string, bool> LootTable::m_relicsObtained;
@@ -18,6 +22,9 @@ unsigned int LootTable::m_rarePassiveCount = 0;
 unsigned int LootTable::m_mythicalPassiveCount = 0;
 unsigned int LootTable::m_legendaryPassiveCount = 0;
 
+std::map<std::string, void*> GameTimers::m_gameTimers;
+
+rapidjson::Document TextUtils::jsonTree;
 
 void GameTable::initializeTables() {
 	LootTable::initializeLootTable();
@@ -33,20 +40,20 @@ std::shared_ptr<Drops> rollItem(Dungeon *dungeon, int x, int y, Rarity rarity, b
 
 	switch (rarity) {
 	case Rarity::LEGENDARY: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
+		if (!fallThrough || fallThrough && randInt(1, 100) > 50) {
 
 			break;
 		}
 	}
 	case Rarity::MYTHICAL: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
+		if (!fallThrough || fallThrough && randInt(1, 100) > 50) {
 
 			break;
 		}
 	}
 	case Rarity::RARE: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 80) {
-			switch (1 + randInt(3)) {
+		if (!fallThrough || fallThrough && randInt(1, 100) > 80) {
+			switch (randInt(1, 3)) {
 			case 1: item = std::make_shared<SoulPotion>(x, y); break;
 			case 2:	item = std::make_shared<HalfLifePotion>(x, y); break;
 			case 3: item = std::make_shared<ArmorDrop>(x, y); break;
@@ -65,8 +72,8 @@ std::shared_ptr<Drops> rollItem(Dungeon *dungeon, int x, int y, Rarity rarity, b
 		}
 	}
 	case Rarity::UNCOMMON: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 70) {
-			switch (1 + randInt(5)) {
+		if (!fallThrough || fallThrough && randInt(1, 100) > 70) {
+			switch (randInt(1, 6)) {
 			case 1: item = std::make_shared<BigLifePotion>(x, y); break;
 			case 2:	item = std::make_shared<PoisonBomb>(x, y); break;
 			case 3: item = std::make_shared<RottenApple>(x, y); break;
@@ -85,7 +92,7 @@ std::shared_ptr<Drops> rollItem(Dungeon *dungeon, int x, int y, Rarity rarity, b
 		}
 	}
 	case Rarity::COMMON: {
-		switch (1 + randInt(11)) {
+		switch (randInt(1, 11)) {
 		case 1: item = std::make_shared<Bomb>(x, y); break;
 		case 2:	item = std::make_shared<Matches>(x, y); break;
 		case 3: item = std::make_shared<Firecrackers>(x, y); break;
@@ -129,7 +136,7 @@ std::shared_ptr<Spell> rollSpell(Dungeon *dungeon, int x, int y, Rarity rarity, 
 
 	switch (rarity) {
 	case Rarity::LEGENDARY: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
+		if (!fallThrough || fallThrough && randInt(1, 100) > 50) {
 			;
 			//break;
 		}
@@ -144,7 +151,7 @@ std::shared_ptr<Spell> rollSpell(Dungeon *dungeon, int x, int y, Rarity rarity, 
 		
 	}
 	case Rarity::COMMON: {
-		switch (1 + randInt(15)) {
+		switch (randInt(1, 15)) {
 		case 1: item = std::make_shared<FreezeSpell>(x, y); break;
 		case 2:	item = std::make_shared<IceShardSpell>(x, y); break;
 		case 3: item = std::make_shared<HailStormSpell>(x, y); break;
@@ -181,14 +188,14 @@ std::shared_ptr<Passive> rollPassive(Dungeon *dungeon, int x, int y, Rarity rari
 
 	switch (rarity) {
 	case Rarity::LEGENDARY: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
+		if (!fallThrough || fallThrough && randInt(1, 100) > 50) {
 
 			break;
 		}
 	}
 	case Rarity::MYTHICAL: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
-			switch (1 + randInt(5)) {
+		if (!fallThrough || fallThrough && randInt(1, 100) > 50) {
+			switch (randInt(1, 5)) {
 			case 1: item = std::make_shared<LavaImmune>(x, y); break;
 			case 2:	item = std::make_shared<RainbowTouch>(x, y); break;
 			case 3: item = std::make_shared<SoulSplit>(x, y); break;
@@ -208,8 +215,8 @@ std::shared_ptr<Passive> rollPassive(Dungeon *dungeon, int x, int y, Rarity rari
 		}
 	}
 	case Rarity::RARE: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 80) {
-			switch (1 + randInt(8)) {
+		if (!fallThrough || fallThrough && randInt(1, 100) > 80) {
+			switch (randInt(1, 8)) {
 			case 1: item = std::make_shared<BrickBreaker>(x, y); break;
 			case 2:	item = std::make_shared<SteelPunch>(x, y); break;
 			case 3: item = std::make_shared<Heavy>(x, y); break;
@@ -229,8 +236,8 @@ std::shared_ptr<Passive> rollPassive(Dungeon *dungeon, int x, int y, Rarity rari
 		}
 	}
 	case Rarity::UNCOMMON: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
-			switch (1 + randInt(10)) {
+		if (!fallThrough || fallThrough && randInt(1, 100) > 50) {
+			switch (randInt(1, 10)) {
 			case 1: item = std::make_shared<CheapShops>(x, y); break;
 			case 2:	item = std::make_shared<TrapIllumination>(x, y); break;
 			case 3: item = std::make_shared<ItemIllumination>(x, y); break;
@@ -250,7 +257,7 @@ std::shared_ptr<Passive> rollPassive(Dungeon *dungeon, int x, int y, Rarity rari
 		}
 	}
 	case Rarity::COMMON: {
-		switch (1 + randInt(5)) {
+		switch (randInt(1, 5)) {
 		case 1: item = std::make_shared<LifeElixir>(x, y); break;
 		case 2:	item = std::make_shared<MagicEssence>(x, y); break;
 		case 3: item = std::make_shared<LuckUp>(x, y); break;
@@ -293,7 +300,7 @@ std::shared_ptr<Passive> rollPassive(Dungeon *dungeon, int x, int y, Rarity rari
 std::shared_ptr<Passive> rollStatPassive(Dungeon *dungeon, int x, int y) {
 	std::shared_ptr<Passive> item(nullptr);
 
-	switch (1 + randInt(4)) {
+	switch (randInt(1, 4)) {
 	case 1: item = std::make_shared<LifeElixir>(x, y); break;
 	case 2:	item = std::make_shared<MagicEssence>(x, y); break;
 	case 3: item = std::make_shared<LuckUp>(x, y); break;
@@ -312,31 +319,31 @@ std::shared_ptr<Relic> rollRelic(Dungeon *dungeon, Rarity rarity, bool fallThrou
 
 	switch (rarity) {
 	case Rarity::LEGENDARY: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
+		if (!fallThrough || fallThrough && randInt(1, 100) > 50) {
 
 			//break;
 		}
 	}
 	case Rarity::MYTHICAL: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
+		if (!fallThrough || fallThrough && randInt(1, 100) > 50) {
 
 			//break;
 		}
 	}
 	case Rarity::RARE: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
+		if (!fallThrough || fallThrough && randInt(1, 100) > 50) {
 
 			//break;
 		}
 	}
 	case Rarity::UNCOMMON: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
+		if (!fallThrough || fallThrough && randInt(1, 100) > 50) {
 
 			//break;
 		}
 	}
 	case Rarity::COMMON: {
-		switch (1 + randInt(7)) {
+		switch (randInt(1, 7)) {
 		case 1: item = std::make_shared<CursedStrength>(); break;
 		case 2: item = std::make_shared<BrightStar>(); break;
 		case 3: item = std::make_shared<DarkStar>(); break;
@@ -364,14 +371,14 @@ std::shared_ptr<Chests> rollChest(Dungeon *dungeon, int x, int y, Rarity rarity,
 
 	switch (rarity) {
 	case Rarity::LEGENDARY: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
+		if (!fallThrough || fallThrough && randReal(1, 100) > 50) {
 
 			//break;
 		}
 	}
 	case Rarity::MYTHICAL: {
 		if (!fallThrough || fallThrough && randReal(1, 100) > 80) {
-			switch (1 + randInt(1)) {
+			switch (randInt(1, 1)) {
 			case 1: item = std::make_shared<GoldenChest>(dungeon, x, y); break;
 			default: break;
 			}
@@ -380,7 +387,7 @@ std::shared_ptr<Chests> rollChest(Dungeon *dungeon, int x, int y, Rarity rarity,
 	}
 	case Rarity::RARE: {
 		if (!fallThrough || fallThrough && randReal(1, 100) > 70) {
-			switch (1 + randInt(3)) {
+			switch (randInt(1, 3)) {
 			case 1: item = std::make_shared<HauntedChest>(dungeon, x, y); break;
 			case 2: item = std::make_shared<ExplodingChest>(dungeon, x, y); break;
 			case 3: item = std::make_shared<TeleportingChest>(dungeon, x, y); break;
@@ -391,7 +398,7 @@ std::shared_ptr<Chests> rollChest(Dungeon *dungeon, int x, int y, Rarity rarity,
 	}
 	case Rarity::UNCOMMON: {
 		if (!fallThrough || fallThrough && randReal(1, 100) > 50) {
-			switch (1 + randInt(2)) {
+			switch (randInt(1, 2)) {
 			case 1: item = std::make_shared<SilverChest>(dungeon, x, y); break;
 			case 2: item = std::make_shared<LifeChest>(dungeon, x, y); break;
 			default: break;
@@ -400,7 +407,7 @@ std::shared_ptr<Chests> rollChest(Dungeon *dungeon, int x, int y, Rarity rarity,
 		}
 	}
 	case Rarity::COMMON: {
-		switch (1 + randInt(2)) {
+		switch (randInt(1, 2)) {
 		case 1: item = std::make_shared<TreasureChest>(dungeon, x, y); break;
 		case 2:	item = std::make_shared<BrownChest>(dungeon, x, y); break;
 			//case 9: item = std::make_shared<Matches>(x, y); break;
@@ -422,14 +429,14 @@ std::shared_ptr<Weapon> rollWeapon(Dungeon *dungeon, int x, int y, Rarity rarity
 
 	switch (rarity) {
 	case Rarity::LEGENDARY: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 98) {
+		if (!fallThrough || fallThrough && randReal(1, 100) > 99.5) {
 
 			break;
 		}
 	}
 	case Rarity::MYTHICAL: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 90) {
-			switch (1 + randInt(8)) {
+		if (!fallThrough || fallThrough && randReal(1, 100) > 90) {
+			switch (randInt(1, 8)) {
 			case 1: item = std::make_shared<SuperiorNunchuks>(x, y); break;
 			case 2:	item = std::make_shared<SuperiorJian>(x, y); break;
 			case 3: item = std::make_shared<SuperiorHammer>(x, y); break;
@@ -447,8 +454,8 @@ std::shared_ptr<Weapon> rollWeapon(Dungeon *dungeon, int x, int y, Rarity rarity
 		}
 	}
 	case Rarity::RARE: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 70) {
-			switch (1 + randInt(10)) {
+		if (!fallThrough || fallThrough && randReal(1, 100) > 70) {
+			switch (randInt(1, 10)) {
 			case 1: item = std::make_shared<GreaterNunchuks>(x, y); break;
 			case 2:	item = std::make_shared<GreaterJian>(x, y); break;
 			case 3: item = std::make_shared<GreaterHammer>(x, y); break;
@@ -466,8 +473,8 @@ std::shared_ptr<Weapon> rollWeapon(Dungeon *dungeon, int x, int y, Rarity rarity
 		}
 	}
 	case Rarity::UNCOMMON: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
-			switch (1 + randInt(11)) {
+		if (!fallThrough || fallThrough && randReal(1, 100) > 50) {
+			switch (randInt(1, 11)) {
 			case 1: item = std::make_shared<CarbonFiberPike>(x, y); break;
 			case 2:	item = std::make_shared<EnchantedPike>(x, y); break;
 			case 3: item = std::make_shared<LuckyPike>(x, y); break;
@@ -485,7 +492,7 @@ std::shared_ptr<Weapon> rollWeapon(Dungeon *dungeon, int x, int y, Rarity rarity
 		}
 	}
 	case Rarity::COMMON: {
-		switch (1 + randInt(8)) {
+		switch (randInt(1, 8)) {
 		case 1: item = std::make_shared<CarbonFiberShortSword>(x, y); break;
 		case 2:	item = std::make_shared<EnchantedShortSword>(x, y); break;
 		case 3: item = std::make_shared<LuckyShortSword>(x, y); break;
@@ -513,31 +520,31 @@ std::shared_ptr<Shield> rollShield(Dungeon *dungeon, int x, int y, Rarity rarity
 
 	switch (rarity) {
 	case Rarity::LEGENDARY: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
+		if (!fallThrough || fallThrough && randReal(1, 100) > 50) {
 
 			//break;
 		}
 	}
 	case Rarity::MYTHICAL: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
+		if (!fallThrough || fallThrough && randReal(1, 100) > 50) {
 
 			//break;
 		}
 	}
 	case Rarity::RARE: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
+		if (!fallThrough || fallThrough && randReal(1, 100) > 50) {
 
 			//break;
 		}
 	}
 	case Rarity::UNCOMMON: {
-		if (!fallThrough || fallThrough && 1 + randInt(100) > 50) {
+		if (!fallThrough || fallThrough && randReal(1, 100) > 50) {
 
 			//break;
 		}
 	}
 	case Rarity::COMMON: {
-		switch (1 + randInt(5)) {
+		switch (randInt(1, 5)) {
 		case 1: item = std::make_shared<WoodShield>(x, y); break;
 		case 2:	item = std::make_shared<IronShield>(x, y); break;
 		case 3: item = std::make_shared<FrostShield>(x, y); break;
@@ -580,6 +587,7 @@ Rarity increaseRarityLevel(Rarity rarity) {
 	case Rarity::RARE: return Rarity::MYTHICAL;
 	case Rarity::UNCOMMON: return Rarity::RARE;
 	case Rarity::COMMON: return Rarity::UNCOMMON;
+	default: return Rarity::COMMON;
 	}
 }
 
@@ -644,6 +652,7 @@ bool LootTable::allPassivesOfRaritySeen(Rarity rarity) {
 	case Rarity::RARE: return m_rarePassiveCount == 8;
 	case Rarity::UNCOMMON: return m_uncommonPassiveCount == 10;
 	case Rarity::COMMON: return m_commonPassiveCount == 5;
+	default: return true;
 	}
 }
 void LootTable::updatePassiveRarityCount(Rarity rarity) {
@@ -697,7 +706,7 @@ std::shared_ptr<NPC> rollNPC(Dungeon *dungeon, int x, int y) {
 
 	std::shared_ptr<NPC> npc(nullptr);
 
-	switch (randInt(5)) {
+	switch (randInt(0, 4)) {
 	case 0: npc = std::make_shared<CreatureLover>(dungeon, x, y); break;
 	case 1: npc = std::make_shared<Memorizer>(dungeon, x, y); break;
 	case 2: npc = std::make_shared<Enchanter>(dungeon, x, y); break;
@@ -885,7 +894,7 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 
 	switch (level) {
 	case FIRST_FLOOR: {
-		switch (1 + randInt(12)) {
+		switch (randInt(1, 12)) {
 		case 1:	monster = std::make_shared<Seeker>(dungeon, x, y); break;
 		case 2:	monster = std::make_shared<GooSack>(dungeon, x, y); break;
 		case 3:	monster = std::make_shared<Roundabout>(dungeon, x, y); break;
@@ -903,7 +912,7 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		break;
 	}
 	case SECOND_FLOOR: {
-		switch (1 + randInt(12)) {
+		switch (randInt(1, 12)) {
 		case 1:	monster = std::make_shared<RabidWanderer>(dungeon, x, y); break;
 		case 2:	monster = std::make_shared<Toad>(dungeon, x, y); break;
 		case 3:	monster = std::make_shared<PoisonBubble>(dungeon, x, y); break;
@@ -921,7 +930,7 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		break;
 	}
 	case THIRD_FLOOR: {
-		switch (1 + randInt(10)) {
+		switch (randInt(1, 10)) {
 		case 1:	monster = std::make_shared<CrystalWarrior>(dungeon, x, y); break;
 		case 2:	monster = std::make_shared<CrystalTurtle>(dungeon, x, y); break;
 		case 3:	monster = std::make_shared<CrystalHedgehog>(dungeon, x, y); break;
@@ -939,7 +948,7 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		break;
 	}
 	case FOURTH_FLOOR: {
-		switch (1 + randInt(10)) {
+		switch (randInt(1, 10)) {
 		case 1:	monster = std::make_shared<FlameWanderer>(dungeon, x, y); break;
 		case 2:	monster = std::make_shared<Zapper>(dungeon, x, y); break;
 		case 3:	monster = std::make_shared<Spinner>(dungeon, x, y); break;
@@ -957,7 +966,7 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		break;
 	}
 	case FIFTH_FLOOR: {
-		switch (1 + randInt(12)) {
+		switch (randInt(1, 12)) {
 		case 1:	monster = std::make_shared<Puff>(dungeon, x, y); break;
 		case 2:	monster = std::make_shared<GustyPuff>(dungeon, x, y); break;
 		case 3:	monster = std::make_shared<StrongGustyPuff>(dungeon, x, y); break;
@@ -975,7 +984,7 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		break;
 	}
 	case SIXTH_FLOOR: {
-		switch (1 + randInt(11)) {
+		switch (randInt(1, 11)) {
 		case 1:	monster = std::make_shared<Wisp>(dungeon, x, y); break;
 		case 2:	monster = std::make_shared<LightningWisp>(dungeon, x, y); break;
 		case 3:	monster = std::make_shared<Grabber>(dungeon, x, y); break;
@@ -993,7 +1002,7 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		break;
 	}
 	case SEVENTH_FLOOR: {
-		switch (1 + randInt(10)) {
+		switch (randInt(1, 10)) {
 		case 1:	monster = std::make_shared<Pikeman>(dungeon, x, y); break;
 		case 2:	monster = std::make_shared<Shrinekeeper>(dungeon, x, y); break;
 		case 3: monster = std::make_shared<Swapper>(dungeon, x, y); break;
@@ -1011,7 +1020,7 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		break;
 	}
 	case EIGHTH_FLOOR: {
-		switch (1 + randInt(11)) {
+		switch (randInt(1, 11)) {
 		case 1: monster = std::make_shared<AbyssSummoner>(dungeon, x, y); break;
 		case 2: monster = std::make_shared<MagicalBerserker>(dungeon, x, y); break;
 		case 3: monster = std::make_shared<Disabler>(dungeon, x, y); break;
@@ -1029,7 +1038,7 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 		break;
 	}
 	case NINTH_FLOOR: {
-		switch (1 + randInt(10)) {
+		switch (randInt(1, 10)) {
 		case 1:
 		//case 1: monster = std::make_shared<>(dungeon, x, y); break;
 		//case 2: monster = std::make_shared<>(dungeon, x, y); break;
@@ -1051,6 +1060,29 @@ std::shared_ptr<Monster> rollMonster(int level, Dungeon *dungeon, int x, int y) 
 	}
 
 	return monster;
+}
+
+void GameTimers::addGameTimer(const std::string &name, void *target) {
+	m_gameTimers.insert(std::make_pair(name, target));
+}
+void GameTimers::removeGameTimer(const std::string &name) {
+	auto it = m_gameTimers.find(name);
+	if (it != m_gameTimers.end())
+		m_gameTimers.erase(it);
+}
+void GameTimers::resumeAllGameTimers() {
+	for (auto &it : m_gameTimers)
+		cocos2d::Director::getInstance()->getScheduler()->resumeTarget(it.second);
+}
+void GameTimers::pauseAllGameTimers() {
+	for (auto &it : m_gameTimers)
+		cocos2d::Director::getInstance()->getScheduler()->pauseTarget(it.second);	
+}
+void GameTimers::removeAllGameTimers() {
+	for (auto &it : m_gameTimers)
+		cocos2d::Director::getInstance()->getScheduler()->unscheduleUpdate(it.second);
+	
+	m_gameTimers.clear();
 }
 
 int calculateDistanceBetween(const Coords &start, const Coords &end) {
@@ -1309,13 +1341,13 @@ char getCardinalFacingDirectionRelativeTo(int sx, int sy, int ex, int ey) {
 	else {
 		
 		if (sx < ex && sy < ey)
-			return randInt(2) == 0 ? 'r' : 'd';
+			return randInt(0, 1) == 0 ? 'r' : 'd';
 		else if (sx > ex && sy < ey)
-			return randInt(2) == 0 ? 'l' : 'd';
+			return randInt(0, 1) == 0 ? 'l' : 'd';
 		else if (sx < ex && sy > ey)
-			return randInt(2) == 0 ? 'r' : 'u';
+			return randInt(0, 1) == 0 ? 'r' : 'u';
 		else
-			return randInt(2) == 0 ? 'l' : 'u';	
+			return randInt(0, 1) == 0 ? 'l' : 'u';
 	}
 }
 bool isMovementAction(char move) {
@@ -1380,4 +1412,197 @@ bool playerInRectangularRange(const Player &p, int length, int width, int x, int
 		return abs(x - px) <= length && abs(y - py) <= length;
 
 	return (abs(x - px) <= length && abs(y - py) <= width) || (abs(x - px) <= width && abs(y - py) <= length);
+}
+
+
+void TextUtils::initJsonText() {
+	std::ifstream ifs(GAME_TEXT_FILE);
+	std::string content((std::istreambuf_iterator<char>(ifs)),
+		std::istreambuf_iterator<char>());
+
+	jsonTree.Parse(content.c_str());
+}
+
+std::string fetchMenuText(const std::string &menuType, const std::string &id) {
+	auto menuObj = TextUtils::jsonTree.FindMember("Menus");
+	if (menuObj != TextUtils::jsonTree.MemberEnd()) {
+		auto obj = menuObj->value.GetObjectW();
+		auto it = obj.FindMember(menuType.c_str());
+		if (it != obj.MemberEnd()) {
+			auto a = it->value.GetArray();
+			for (auto it = a.Begin(); it != a.End(); it++) {
+				auto menuItem = it->GetObjectW();
+				auto menuText = menuItem.FindMember(id.c_str());
+				if (menuText != menuItem.MemberEnd())
+					return menuText->value.GetString();
+			}
+		}
+	}
+
+	return "MENU TEXT NOT FOUND";
+}
+std::string fetchPromptText(const std::string &promptType, const std::string &id) {
+	auto menuObj = TextUtils::jsonTree.FindMember("Prompts");
+	if (menuObj != TextUtils::jsonTree.MemberEnd()) {
+		auto obj = menuObj->value.GetObjectW();
+		auto it = obj.FindMember(promptType.c_str());
+		if (it != obj.MemberEnd()) {
+			auto a = it->value.GetArray();
+			for (auto it = a.Begin(); it != a.End(); it++) {
+				auto menuItem = it->GetObjectW();
+				auto menuText = menuItem.FindMember(id.c_str());
+				if (menuText != menuItem.MemberEnd())
+					return menuText->value.GetString();
+			}
+		}
+	}
+
+	return "PROMPT TEXT NOT FOUND";
+}
+void fetchNPCDialogue(const std::string &name, const std::string &id, std::vector<std::string> &dialogue) {
+	auto it = TextUtils::jsonTree.FindMember("NPC");
+	if (it != TextUtils::jsonTree.MemberEnd()) {
+		auto npcObj = it->value.GetObjectW();
+		auto npcIt = npcObj.FindMember(name.c_str());
+		if (npcIt != npcObj.MemberEnd()) {
+			auto npcTextObj = npcIt->value.GetObjectW();
+			auto npcTextIt = npcTextObj.FindMember(id.c_str());
+			if (npcTextIt != npcTextObj.MemberEnd()) {
+				auto a = npcTextIt->value.GetArray();
+				for (auto it = a.Begin(); it != a.End(); it++) {
+					dialogue.push_back(it->GetString());
+				}
+			}
+		}
+	}
+}
+void fetchItemInfo(const std::string &type, const std::string &id, std::string &name, std::string &desc) {
+	auto it = TextUtils::jsonTree.FindMember("Drops");
+	if (it != TextUtils::jsonTree.MemberEnd()) {
+		auto itemObj = it->value.GetObjectW();
+		auto itemIt = itemObj.FindMember(type.c_str());
+		if (itemIt != itemObj.MemberEnd()) {
+			auto itemTextObj = itemIt->value.GetObjectW();
+			auto itemTextIt = itemTextObj.FindMember(id.c_str());
+			if (itemTextIt != itemTextObj.MemberEnd()) {
+				auto a = itemTextIt->value.GetArray();
+				name = a[0].GetObjectW().FindMember("name")->value.GetString();
+				desc = a[1].GetObjectW().FindMember("desc")->value.GetString();
+				return;
+			}
+		}
+	}
+
+	name = "ITEM NOT FOUND";
+	desc = "";
+}
+std::string fetchItemName(const std::string &type, const std::string &id) {
+	std::string name, dummy;
+	fetchItemInfo(type, id, name, dummy);
+	return name;
+}
+
+void getNPCDialogue(const std::string &filename, const std::string &id, std::vector<std::string> &dialogue) {
+	std::fstream in;
+	in.open(filename);
+
+	if (!in)
+		return;
+
+	std::string line;
+	while (getline(in, line)) {
+		if (line == id) {
+			while (getline(in, line), line != "#")
+				dialogue.push_back(line);
+
+			break;
+		}
+	}
+
+	in.close();
+}
+void getItemInfo(const std::string &filename, const std::string &id, std::string &name, std::string &desc) {
+	name = "ITEM NAME NOT FOUND";
+
+	std::fstream in;
+	in.open(filename);
+
+	if (!in)
+		return;
+
+	/** Information is organized in the file as the following:
+	*   English_Item_Name
+	*   Localized_Item_Name
+	*   Localized_Item_Desc */
+
+	std::string line;
+	while (getline(in, line)) {
+		if (line == id) {
+			getline(in, name);
+			getline(in, line);
+			getline(in, desc);
+
+			break;
+		}
+	}
+
+	in.close();
+}
+std::string getItemName(const std::string &filename, const std::string &id) {
+	std::string name, dummy;
+	getItemInfo(filename, id, name, dummy);
+	return name;
+}
+
+void formatItemDescriptionForDisplay(std::string &desc) {
+	int maxLineLength = 55; // Max number of chars allow per line. May need to be dynamically adjusted.
+
+	if (static_cast<int>(desc.size()) > maxLineLength) {
+		int lineBreaks = desc.size() / maxLineLength;
+		size_t pos = maxLineLength - 1;
+		while (lineBreaks > 0) {
+			while (desc[pos] != ' ')
+				pos--;
+
+			if (lineBreaks == 1 && static_cast<int>(desc.substr(pos).size()) > maxLineLength)
+				lineBreaks++;
+
+			desc.replace(pos, 1, "\n");
+
+			pos += maxLineLength + 1;
+			lineBreaks--;
+		}
+	}
+}
+void replaceTextVariableWith(std::vector<std::string> &text, const std::string &varText, const std::string &actualText) {
+	int size = text.size();
+	for (int i = 0; i < size; i++) {
+		if (text[i].find(varText) == std::string::npos)
+			continue;
+
+		size_t startPos = text[i].find("[");
+		while (startPos != std::string::npos) {
+			size_t endPos = text[i].find("]");
+			if (endPos == std::string::npos)
+				break;
+
+			text[i].replace(startPos, endPos - startPos + 1, actualText);
+
+			startPos = text[i].find("[");
+		}
+	}
+}
+
+
+void SaveManager::createNewSaveFile() {
+
+}
+void SaveManager::loadSaveFile(const std::string &file) {
+
+}
+void SaveManager::overwriteSaveFile(const std::string &file) {
+
+}
+void SaveManager::deleteSaveFile(const std::string &file) {
+
 }

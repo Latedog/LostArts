@@ -77,7 +77,13 @@ extern float GLOBAL_MUSIC_VOLUME;
 extern float GLOBAL_SOUND_VOLUME;
 extern float GLOBAL_UI_VOLUME;
 
-const float GLOBAL_SPRITE_SCALE = 0.8f;
+extern float GLOBAL_SPRITE_SCALE;
+
+const std::string TEXT_FONT = "fonts/SquadaOne-Regular.ttf";
+
+const std::string EN_US_FILE = "enUS.json";
+const std::string EN_UK_FILE = "enUK.txt";
+const std::string FR_EU_FILE = "frEU.txt";
 
 const int ID_ADVENTURER = 1;
 const int ID_SPELLCASTER = 2;
@@ -133,7 +139,7 @@ const int Z_FLOOR = -100;
 
 // Self-explanatory
 const std::string SPAWN_DISALLOWED = "Nothing is allowed to spawn here";
-const std::string NPC_PROMPT = "NPC Prompt";
+const std::string NPC_PROMPT = "NPC_PROMPT";
 const std::string CHEST_PURCHASED = "Chest Purchased";
 
 const std::string PURCHASE = "purchase";
@@ -174,16 +180,17 @@ const std::string SPELUNKER = "The Spelunker";
 const std::string ACROBAT = "The Acrobat";
 
 // NPCS
-const std::string CREATURE_LOVER = "Lionel";
-const std::string MEMORIZER = "Stewart";
-const std::string INJURED_EXPLORER = "Paul";
+const std::string CREATURE_LOVER = "Creature Lover";
+const std::string MEMORIZER = "Memorizer";
+const std::string INJURED_EXPLORER = "Injured Explorer";
+const std::string PORTAL_RESEARCHER = "Portal Researcher";
 const std::string SHOPKEEPER = "Shopkeeper";
 const std::string BLACKSMITH = "Blacksmith";
 const std::string ENCHANTER = "Enchanter";
 const std::string TRADER = "Trader";
 
-const std::string OUTSIDE_MAN1 = "Tired Man";
-const std::string OUTSIDE_MAN2 = "Other Tired Man";
+const std::string TUTORIAL_NPC1 = "Tutorial NPC1";
+const std::string TUTORIAL_NPC2 = "Tutorial NPC2";
 const std::string OUTSIDE_WOMAN1 = "Alert Woman";
 
 
@@ -387,6 +394,8 @@ const std::string MAGMA_HEART = "Magma Heart";
 const std::string CACTUS_WATER = "Cactus Water";
 const std::string SUPER_ROOT = "Super Root";
 const std::string RPG_IN_A_BOTTLE = "RPG In A Bottle";
+const std::string MONSTER_TRANSFORM = "Monster Transform";
+const std::string SLEDDING_SCARF = "Sledding Scarf";
 
 const std::string TELEPORTER = "Functional Teleporter";
 const std::string ROCKS = "Rock";
@@ -411,19 +420,19 @@ const std::string FROST_SHIELD = "Frost Shield";
 const std::string REFLECT_SHIELD = "Reflect Shield";
 
 // SPELLS
-const std::string FREEZE_SPELL = "Freeze";
-const std::string ICE_SHARD_SPELL = "Ice Shards";
-const std::string HAIL_STORM_SPELL = "Hail Storm";
-const std::string EARTHQUAKE_SPELL = "Earthquake";
-const std::string ROCK_SUMMON_SPELL = "Rock Summon";
-const std::string SHOCKWAVE_SPELL = "Shockwave";
-const std::string FIREBLAST_SPELL = "Fire Blast";
-const std::string FIRE_CASCADE_SPELL = "Fire Cascade";
-const std::string FIRE_EXPLOSION_SPELL = "Fiery Explosion";
-const std::string WHIRLWIND_SPELL = "Whirlwind";
-const std::string WIND_BLAST_SPELL = "Wind Blast";
-const std::string WIND_VORTEX_SPELL = "Wind Vortex";
-const std::string THUNDER_CLOUD_SPELL = "Thunder Cloud";
+const std::string FREEZE_SPELL = "Freeze Spell";
+const std::string ICE_SHARD_SPELL = "Ice Shards Spell";
+const std::string HAIL_STORM_SPELL = "Hail Storm Spell";
+const std::string EARTHQUAKE_SPELL = "Earthquake Spell";
+const std::string ROCK_SUMMON_SPELL = "Rock Summon Spell";
+const std::string SHOCKWAVE_SPELL = "Shockwave Spell";
+const std::string FIREBLAST_SPELL = "Fire Blast Spell";
+const std::string FIRE_CASCADE_SPELL = "Fire Cascade Spell";
+const std::string FIRE_EXPLOSION_SPELL = "Fiery Explosion Spell";
+const std::string WHIRLWIND_SPELL = "Whirlwind Spell";
+const std::string WIND_BLAST_SPELL = "Wind Blast Spell";
+const std::string WIND_VORTEX_SPELL = "Wind Vortex Spell";
+const std::string THUNDER_CLOUD_SPELL = "Thunder Cloud Spell";
 const std::string INVISIBILITY_SPELL = "Invisibility Spell";
 const std::string ETHEREAL_SPELL = "Ethereal Spell";
 
@@ -466,7 +475,7 @@ const std::string DARK_STAR = "60 Watt";
 const std::string RICHES = "Gold Torus";
 const std::string SUPER_MAGIC_ESSENCE = "Super Magic Essence";
 const std::string MATRIX_VISION = "Matrix Vision";
-const std::string PROTECTION = "Guardian's Protection";
+const std::string PROTECTION = "Guardian's Blessing";
 
 // TRAPS
 const std::string BRAZIER = "Brazier";
@@ -557,6 +566,7 @@ const std::string REFLECTIVE_SHOT = "Reflective Projectile";
 const std::string LIGHT_BEAM = "Light Beam";
 
 const std::string ROTTING_DECOY = "Rotten Meat Decoy";
+const std::string FACTORY_TILE = "Factory Tile";
 const std::string FIRE_PILLARS = "Fire Pillars";
 const std::string ICE_SHARDS = "Ice Shards";
 const std::string HAIL_STORM = "Hail Storm";

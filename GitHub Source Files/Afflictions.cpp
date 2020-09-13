@@ -649,7 +649,8 @@ void TimedAffliction::adjust(Actors &a, Afflictions &affliction) {
 
 TimedBuff::TimedBuff(float duration, int str, int dex, int intellect)
 	: TimedAffliction(duration, 1.0f, TIMED_BUFF), m_str(str), m_dex(dex), m_int(intellect) {
-	
+	m_timerName = "Timed Buff Timer";
+	GameTimers::addGameTimer(m_timerName, this);
 }
 void TimedBuff::afflict(Actors &a) {
 	if (!m_timerIsSet) {
@@ -663,7 +664,8 @@ void TimedBuff::afflict(Actors &a) {
 			reduceDurationBy(m_interval);
 
 			if (m_duration <= 0) {
-				cocos2d::Director::getInstance()->getScheduler()->unschedule("Timed Buff Timer", this);
+				cocos2d::Director::getInstance()->getScheduler()->unschedule(m_timerName, this);
+				GameTimers::removeGameTimer(m_timerName);
 
 				a.setStr(a.getStr() - m_str);
 				a.setDex(a.getDex() - m_dex);
@@ -671,14 +673,15 @@ void TimedBuff::afflict(Actors &a) {
 				setExhaustion(true);
 			}
 
-		}, this, m_interval, false, "Timed Buff Timer");
+		}, this, m_interval, false, m_timerName);
 
 		m_timerIsSet = true;
 	}
 }
 
 TimedHeal::TimedHeal(float duration, float interval, int amount) : TimedAffliction(duration, interval, TIMED_HEAL), m_amount(amount) {
-
+	m_timerName = "Timed Heal Timer";
+	GameTimers::addGameTimer(m_timerName, this);
 }
 void TimedHeal::afflict(Actors &a) {
 	if (!m_timerIsSet) {
@@ -690,18 +693,20 @@ void TimedHeal::afflict(Actors &a) {
 			a.increaseStatBy(StatType::HP, m_amount);
 
 			if (m_duration <= 0) {
-				cocos2d::Director::getInstance()->getScheduler()->unschedule("Timed Heal Timer", this);
+				cocos2d::Director::getInstance()->getScheduler()->unschedule(m_timerName, this);
+				GameTimers::removeGameTimer(m_timerName);
 				setExhaustion(true);
 			}
 
-		}, this, m_interval, false, "Timed Heal Timer");
+		}, this, m_interval, false, m_timerName);
 
 		m_timerIsSet = true;
 	}
 }
 
 ExperienceGain::ExperienceGain(float duration, float interval) : TimedAffliction(duration, interval, XP_GAIN) {
-
+	m_timerName = "RPG In A Bottle Timer";
+	GameTimers::addGameTimer(m_timerName, this);
 }
 void ExperienceGain::afflict(Actors &a) {
 	if (!m_timerIsSet) {
@@ -711,20 +716,22 @@ void ExperienceGain::afflict(Actors &a) {
 			reduceDurationBy(m_interval);
 
 			if (m_duration <= 0) {
-				cocos2d::Director::getInstance()->getScheduler()->unschedule("RPG In A Bottle Timer", this);
+				cocos2d::Director::getInstance()->getScheduler()->unschedule(m_timerName, this);
+				GameTimers::removeGameTimer(m_timerName);
 				setExhaustion(true);
 			}
 
-		}, this, m_interval, false, "RPG In A Bottle Timer");
+		}, this, m_interval, false, m_timerName);
 
 		m_timerIsSet = true;
 	}
 }
 
 AfflictionImmunity::AfflictionImmunity(float duration, float interval) : TimedAffliction(duration, interval, AFFLICTION_IMMUNITY) {
-
+	m_timerName = "Affliction Immunity Timer";
+	GameTimers::addGameTimer(m_timerName, this);
 }
-void AfflictionImmunity::afflict(Actors & a) {
+void AfflictionImmunity::afflict(Actors &a) {
 	if (!m_timerIsSet) {
 		cocos2d::Director::getInstance()->getScheduler()->schedule([this](float) {
 			playSound("Bomb_Pickup2.mp3");
@@ -732,11 +739,12 @@ void AfflictionImmunity::afflict(Actors & a) {
 			reduceDurationBy(m_interval);
 
 			if (m_duration <= 0) {
-				cocos2d::Director::getInstance()->getScheduler()->unschedule("Affliction Immunity Timer", this);
+				cocos2d::Director::getInstance()->getScheduler()->unschedule(m_timerName, this);
+				GameTimers::removeGameTimer(m_timerName);
 				setExhaustion(true);
 			}
 
-		}, this, m_interval, false, "Affliction Immunity Timer");
+		}, this, m_interval, false, m_timerName);
 
 		m_timerIsSet = true;
 	}
