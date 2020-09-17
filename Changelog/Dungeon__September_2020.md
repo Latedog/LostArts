@@ -81,3 +81,7 @@
 - Removed the isPlayer and isMonster flags from the Actor class and replaced them with virtual versions
 - Moved all passive/item abilities granted to a struct for simpler data copying and storing
 - Added a Player copy constructor to be used with DNASplitter
+
+9/17:
+
+- Addec virtual clone functions to the Player and Weapon classes that call copy constructors to create unique instances of each type. This is to prevent weird behavior from shared instances of Weapons.
