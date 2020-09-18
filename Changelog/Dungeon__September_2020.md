@@ -90,3 +90,4 @@
 - Removed "PiercingWeapon" type weapons (Iron/Golden LongSwords)
 - Removed Golden and Blood ShortSword
 - Added a new usePattern function for the Weapon class to account for Player clones
+- Added a check in the GUI factoryTileCreation function to prevent multiple instances of it occurring at the same time due to Player clones
