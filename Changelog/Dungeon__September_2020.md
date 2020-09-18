@@ -97,3 +97,7 @@
 
 - Added getPlayerAt function to the Dungeon class to return the correct player when we also need to check for clones
 - Clones are now accounted for when lighting is checked
+- Added helper functions to the Dungeon class to retrieve the closest Player, including clones, as well as returning the coordinates of all players
+- The player and any new clone now has their hp cut in half when first duplicated.
+- Adjusted Monster functions (playerIn..., chase, attemptGreedyChase) to account for clones
+- Made a slight adjustment to the SandCentipede to correct behavior. If the player stood in one spot, it would attack them, move away, and then move back to their spot. They no longer move away if the player does not move.
