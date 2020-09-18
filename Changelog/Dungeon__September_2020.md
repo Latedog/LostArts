@@ -91,3 +91,4 @@
 - Removed Golden and Blood ShortSword
 - Added a new usePattern function for the Weapon class to account for Player clones
 - Added a check in the GUI factoryTileCreation function to prevent multiple instances of it occurring at the same time due to Player clones
+- Added new useItem functions for all Drops to account for Player clones
