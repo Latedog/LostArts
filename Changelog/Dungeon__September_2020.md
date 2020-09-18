@@ -84,7 +84,7 @@
 
 9/17:
 
-- Addec virtual clone functions to the Player and Weapon classes that call copy constructors to create unique instances of each type. This is to prevent weird behavior from shared instances of Weapons.
+- Added virtual clone functions to the Player and Weapon classes that call copy constructors to create unique instances of each type. This is to prevent weird behavior from shared instances of Weapons.
 - Removed the flags for indicating that a Player had an active item and replaced it with a more general function
 - Removed the activeItem member variable from the Player class and created a virtual class which instead returns the Player's stored active item. This is done to reduce repetitive code in which we would need to assign an active item twice, essentially.
 - Removed "PiercingWeapon" type weapons (Iron/Golden LongSwords)
@@ -92,3 +92,8 @@
 - Added a new usePattern function for the Weapon class to account for Player clones
 - Added a check in the GUI factoryTileCreation function to prevent multiple instances of it occurring at the same time due to Player clones
 - Added new useItem functions for all Drops to account for Player clones
+
+9/18:
+
+- Added getPlayerAt function to the Dungeon class to return the correct player when we also need to check for clones
+- Clones are now accounted for when lighting is checked
