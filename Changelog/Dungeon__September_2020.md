@@ -89,3 +89,4 @@
 - Removed the activeItem member variable from the Player class and created a virtual class which instead returns the Player's stored active item. This is done to reduce repetitive code in which we would need to assign an active item twice, essentially.
 - Removed "PiercingWeapon" type weapons (Iron/Golden LongSwords)
 - Removed Golden and Blood ShortSword
+- Added a new usePattern function for the Weapon class to account for Player clones
