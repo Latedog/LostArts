@@ -87,3 +87,5 @@
 - Addec virtual clone functions to the Player and Weapon classes that call copy constructors to create unique instances of each type. This is to prevent weird behavior from shared instances of Weapons.
 - Removed the flags for indicating that a Player had an active item and replaced it with a more general function
 - Removed the activeItem member variable from the Player class and created a virtual class which instead returns the Player's stored active item. This is done to reduce repetitive code in which we would need to assign an active item twice, essentially.
+- Removed "PiercingWeapon" type weapons (Iron/Golden LongSwords)
+- Removed Golden and Blood ShortSword
