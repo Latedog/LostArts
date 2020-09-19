@@ -104,3 +104,4 @@
 - Adjusted WatcherStatues, Springs, Spikes/Spiketraps, Turrets, Firebars, and Quicksand to account for clones
 - Modified most, if not all, of the monsters to account for clones. The behavior should still be unaffected when the player is not cloned, but if clones exist, monsters will simply try to look for the closest player.
 - Fixed Katanas to account for clones
+- Replaced almost all instances of pairs of ints with Coords for readability and consistency
