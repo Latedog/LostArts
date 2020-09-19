@@ -103,3 +103,4 @@
 - Made a slight adjustment to the SandCentipede to correct behavior. If the player stood in one spot, it would attack them, move away, and then move back to their spot. They no longer move away if the player does not move.
 - Adjusted WatcherStatues, Springs, Spikes/Spiketraps, Turrets, Firebars, and Quicksand to account for clones
 - Modified most, if not all, of the monsters to account for clones. The behavior should still be unaffected when the player is not cloned, but if clones exist, monsters will simply try to look for the closest player.
+- Fixed Katanas to account for clones
