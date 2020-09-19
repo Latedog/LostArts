@@ -101,4 +101,4 @@
 - The player and any new clone now has their hp cut in half when first duplicated.
 - Adjusted Monster functions (playerIn..., chase, attemptGreedyChase) to account for clones
 - Made a slight adjustment to the SandCentipede to correct behavior. If the player stood in one spot, it would attack them, move away, and then move back to their spot. They no longer move away if the player does not move.
-- Adjusted WatcherStatues, Springs, Turrets, Firebars, and Quicksand to account for clones
+- Adjusted WatcherStatues, Springs, Spikes/Spiketraps, Turrets, Firebars, and Quicksand to account for clones
