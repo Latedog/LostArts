@@ -107,3 +107,5 @@
 - Replaced almost all instances of pairs of ints with Coords for readability and consistency
 - Added an indicator for Drops (Usable items) that shows if they were used so that it can be removed from the Player's inventory. Previously, it was assumed that the item is used once useItem() is called, but this change allows for greater flexibility in item types and behaviors.
 - The Buff affliction is now stackable to allow multiple Buffs at the same time
+- Added Banana item and Banana Peel trap
+- Fixed sprite Z ordering issue with SkyCrasher
