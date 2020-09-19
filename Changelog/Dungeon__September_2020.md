@@ -116,3 +116,4 @@
 9/19:
 
 - Removed the older useItem and usePattern functions from Drops and Weapons that did not have a Player parameter
+- Fixed a bug that would not trigger Chest opening effects such as HauntedChest
