@@ -112,3 +112,7 @@
 - Added BananaBunch item. The Banana class's throwBananaPeel was made static and BananaBunch is now a friend of Banana.
 - Fixed a bug that prevented multiple Buffs from being applied to the Player
 - Fixed a bug that would causes BananaBunches/Bananas to be consumed immediately if the Player has the FatStacks passive
+
+9/19:
+
+- Removed the older useItem and usePattern functions from Drops and Weapons that did not have a Player parameter
