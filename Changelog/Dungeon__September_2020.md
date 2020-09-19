@@ -109,3 +109,4 @@
 - The Buff affliction is now stackable to allow multiple Buffs at the same time
 - Added Banana item and Banana Peel trap
 - Fixed sprite Z ordering issue with SkyCrasher
+- Added BananaBunch item. The Banana class's throwBananaPeel was made static and BananaBunch is now a friend of Banana.
