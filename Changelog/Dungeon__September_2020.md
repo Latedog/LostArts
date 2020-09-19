@@ -110,3 +110,4 @@
 - Added Banana item and Banana Peel trap
 - Fixed sprite Z ordering issue with SkyCrasher
 - Added BananaBunch item. The Banana class's throwBananaPeel was made static and BananaBunch is now a friend of Banana.
+- Fixed a bug that prevented multiple Buffs from being applied to the Player
