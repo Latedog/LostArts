@@ -127,3 +127,4 @@
 - Removed unnecessary functions from the various Player subclasses
 - Removed function setBlock from the Player class and m_blocking member variable. This has been replaced by the function resetFlags as a more general purpose use.
 - Removed the function setRelicFlag and m_hasRelic variable from the Player class and simplified implementation
+- Removed m_hasAbility variable and accompanying functions from the Shield class
