@@ -117,3 +117,12 @@
 
 - Removed the older useItem and usePattern functions from Drops and Weapons that did not have a Player parameter
 - Fixed a bug that would not trigger Chest opening effects such as HauntedChest
+
+9/20:
+
+- Removed functions: blockedDamageReduction and successfulBlock from the Player class
+- Renamed didBlock to didBlockAttackTo and added a damage parameter
+- Removed the Adventurer specific code from the Player's attack function and generalized its functionality
+- Removed function successfulAttack from the Player class and instead changed it to work with checkExtraAttackEffects. This declutters the code and makes the intention of such functions more clear.
+- Removed unnecessary functions from the various Player subclasses
+- Removed function setBlock from the Player class and m_blocking member variable. This has been replaced by the function resetFlags as a more general purpose use.
