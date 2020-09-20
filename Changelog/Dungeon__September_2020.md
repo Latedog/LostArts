@@ -126,3 +126,4 @@
 - Removed function successfulAttack from the Player class and instead changed it to work with checkExtraAttackEffects. This declutters the code and makes the intention of such functions more clear.
 - Removed unnecessary functions from the various Player subclasses
 - Removed function setBlock from the Player class and m_blocking member variable. This has been replaced by the function resetFlags as a more general purpose use.
+- Removed the function setRelicFlag and m_hasRelic variable from the Player class and simplified implementation
