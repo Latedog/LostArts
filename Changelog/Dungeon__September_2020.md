@@ -130,3 +130,7 @@
 - Removed m_hasAbility variable and accompanying functions from the Shield class
 - Fixed bug where flying actors would get sucked into Quicksand
 - Added chest creation function to the Dungeon class for streamlined usage
+
+9/21:
+
+- Added Player parameter to Monster's reactToDamage function to account for clones
