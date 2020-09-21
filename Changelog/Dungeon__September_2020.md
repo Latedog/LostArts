@@ -134,3 +134,4 @@
 9/21:
 
 - Added Player parameter to Monster's reactToDamage function to account for clones
+- Fixed bug where the isMonster function returned false for Monsters
