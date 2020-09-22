@@ -137,3 +137,9 @@
 - Fixed bug where the isMonster function returned false for Monsters
 - Added many new sprite related functions for allowing Coords/Vec2 parameters as well as offsets
 - ShieldMasters no longer have their shields added as misc sprites
+
+9/22:
+
+- Updated function transformSpriteToDungeonCoordinates
+- Removed "raw" transformDungeonToSpriteCoordinates functions that took in ints/floats
+- Added conversion operator from Coords to cocos2d Vec2's
