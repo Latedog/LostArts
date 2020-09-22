@@ -143,3 +143,4 @@
 - Updated function transformSpriteToDungeonCoordinates
 - Removed "raw" transformDungeonToSpriteCoordinates functions that took in ints/floats
 - Added conversion operator from Coords to cocos2d Vec2's
+- Added addition operator for Coords
