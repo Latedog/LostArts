@@ -144,3 +144,7 @@
 - Removed "raw" transformDungeonToSpriteCoordinates functions that took in ints/floats
 - Added conversion operator from Coords to cocos2d Vec2's
 - Added addition operator for Coords
+- Made CrumbleFloor an abstract class and added CrumblePits to replace the previous implementation
+- CrumbleFloors no longer use a pointer to an Actor to track if it was walked over
+- Added trapActionCheck function to the Traps class to check if it's destroyed before attempting to act
+- Made function trapAction in the Traps class protected
