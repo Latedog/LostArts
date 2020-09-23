@@ -151,3 +151,7 @@
 - Fixed game crashing bug caused by calling trapRemoval too early (inside trapEncounter).
 - Lava now turns into Laze when met with a fluid. Laze is a poisonous plume of smoke that deals poison damage and also poisons.
 - Fixed game crashing bug caused by opening a TreasureChest since the open function was incorrectly devirtualized
+
+9/23:
+
+- Fixed a misspelling in "Factory Tile Timer" that would cause multiple instances of SleddingScarf to be activated at once
