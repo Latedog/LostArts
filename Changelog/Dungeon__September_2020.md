@@ -148,3 +148,4 @@
 - CrumbleFloors no longer use a pointer to an Actor to track if it was walked over
 - Added trapActionCheck function to the Traps class to check if it's destroyed before attempting to act
 - Made function trapAction in the Traps class protected
+- Fixed game crashing bug caused by calling trapRemoval too early (inside trapEncounter).
