@@ -149,3 +149,4 @@
 - Added trapActionCheck function to the Traps class to check if it's destroyed before attempting to act
 - Made function trapAction in the Traps class protected
 - Fixed game crashing bug caused by calling trapRemoval too early (inside trapEncounter).
+- Lava now turns into Laze when met with a fluid. Laze is a poisonous plume of smoke that deals poison damage and also poisons.
