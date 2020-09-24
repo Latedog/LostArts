@@ -156,5 +156,5 @@
 
 - Fixed a misspelling in "Factory Tile Timer" that would cause multiple instances of SleddingScarf to be activated at once
 - Simplified Archer and Pikeman code and many other various monsters
-- Removed raw int parameter utility functions of type positionInXRange and replaced all instances that use Coords parameters
+- Removed raw int parameter utility functions of type positionInXRange and getFacingDirection, and replaced all instances wtih ones that use Coords parameters
 - Archers now wait 1 turn after un-priming before being able to become primed again
