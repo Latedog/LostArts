@@ -163,3 +163,4 @@
 
 - Improved code for Player's chainLightning
 - Removed Dungeon's getDungeon function
+- Moved the chainLightning function to the Dungeon from the Player class
