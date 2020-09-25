@@ -164,3 +164,4 @@
 - Improved code for Player's chainLightning
 - Removed Dungeon's getDungeon function
 - Moved the chainLightning function to the Dungeon from the Player class
+- Changed all instances of the overloaded Dungeon [] operator to use a clearer and easier to use function named tileAt.
