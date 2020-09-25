@@ -158,3 +158,8 @@
 - Simplified Archer and Pikeman code and many other various monsters
 - Removed raw int parameter utility functions of type positionInXRange and getFacingDirection, and replaced all instances wtih ones that use Coords parameters
 - Archers now wait 1 turn after un-priming before being able to become primed again
+
+9/24:
+
+- Improved code for Player's chainLightning
+- Removed Dungeon's getDungeon function
