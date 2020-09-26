@@ -175,3 +175,6 @@
 - Removed 2 of the playSound functions and replaced them with one that takes in Coords parameters
 - Added a SoundManager class to FX.h to handle playing multiple instances of the same sound (so as to not pollute the AudioEngine with a bunch of the same sounds, causing louder sound effects of that sound)
 - Moved the Dungeon's fight() function to the Player class and renamed it to fightMonsterAt which now takes in a Coords parameter. This fixes a bug which would not give the appropriate player clone active item charge back for attacking.
+- Moved player damage reacting in peekDungeon to its own Player function named reactToDamage() which takes no parameters.
+- Added new Player function takeDamage which is responsible for damaging specific players. There were instances in the damagePlayer code which would only affect the main player, but should technically be able to affect clones, too.
+- The invulnerability checks in peekDungeon were removed and now is checked when decreaseStatBy is called for HP. If damage is actually taken in this function, then reactToDamage is called.
