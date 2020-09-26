@@ -166,3 +166,8 @@
 - Moved the chainLightning function to the Dungeon from the Player class
 - Changed all instances of the overloaded Dungeon [] operator to use a clearer and easier to use function named tileAt.
 - Removed the overloaded [] operator from the Dungeon class
+
+9/25:
+
+- Moved the _Tile_ vector to private in the Dungeon class
+- Removed all instances of directly accessing the _Tile_ vector and replaced it with tileAt for easier reading
