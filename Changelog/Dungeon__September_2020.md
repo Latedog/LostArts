@@ -173,3 +173,4 @@
 - Removed all instances of directly accessing the _Tile_ vector and replaced it with tileAt for easier reading
 - Fixed a bug with ThunderCloudSpell which caused lighting and the sprite Z order values to be flipped
 - Removed 2 of the playSound functions and replaced them with one that takes in Coords parameters
+- Added a SoundManager class to FX.h to handle playing multiple instances of the same sound (so as to not pollute the AudioEngine with a bunch of the same sounds, causing louder sound effects of that sound)
