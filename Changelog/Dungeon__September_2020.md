@@ -174,3 +174,4 @@
 - Fixed a bug with ThunderCloudSpell which caused lighting and the sprite Z order values to be flipped
 - Removed 2 of the playSound functions and replaced them with one that takes in Coords parameters
 - Added a SoundManager class to FX.h to handle playing multiple instances of the same sound (so as to not pollute the AudioEngine with a bunch of the same sounds, causing louder sound effects of that sound)
+- Moved the Dungeon's fight() function to the Player class and renamed it to fightMonsterAt which now takes in a Coords parameter. This fixes a bug which would not give the appropriate player clone active item charge back for attacking.
