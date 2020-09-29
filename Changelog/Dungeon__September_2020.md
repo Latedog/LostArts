@@ -178,3 +178,8 @@
 - Moved player damage reacting in peekDungeon to its own Player function named reactToDamage() which takes no parameters.
 - Added new Player function takeDamage which is responsible for damaging specific players. There were instances in the damagePlayer code which would only affect the main player, but should technically be able to affect clones, too.
 - The invulnerability checks in peekDungeon were removed and now is checked when decreaseStatBy is called for HP. If damage is actually taken in this function, then reactToDamage is called.
+
+9/29:
+
+- Changed Wrigglers to use weak_ptrs instead of raw pointers when referencing the next and prev segments.
+- Wriggler construction must now use a create() function instead of calling its constructor directly to properly initilize them with weak_ptrs.
