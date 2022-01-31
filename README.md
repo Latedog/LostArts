@@ -3,7 +3,10 @@ A tile-based, real-time rogue-like dungeon crawler with heavy RPG elements and d
 
 #### About the repo:
 
-Commits of code are rare since changes are volatile and occur frequently. Read the latest Changelog to see what's been happening.
+This project is only known to be compatible with the Cocos2d-x API version 3.17 (documentation [here](https://docs.cocos2d-x.org/api-ref/cplusplus/v3x/index.html)).
+The source files from the Cocos2d-x API required to get this project running are not provided here.
+
+Currently development has been stopped, with no explicit plans on returning.
 
 
 #### About this game:
@@ -17,26 +20,21 @@ Video:
 https://youtu.be/9tkQCNRA9fw
 
 Current features:
-- 4 types of characters: the Adventurer, Spellcaster, Spelunker, and Madman
+- 5 characters with unique playstyles: Adventurer, Acrobat, Spellcaster, Spelunker, and Madman
 - 3 unique procedurally generated floors
 - "An engaging boss fight!" -my uncle
 - 15+ unique weapon types + variants. Over 45 weapons total.
 - 50+ items/drops
 - Over a dozen unique and powerful spells
-- 25+ unique enemies
-- 10+ different traps with variations
-- Shops and Merchants
+- Special, upgradable relics that provide powerful bonuses
+- 90+ unique enemies
+- 35+ different traps with variations
+- Shops and merchants
 - NPCs with special requests
 - Special happenings
 - A dynamic system with interactions between items, monsters, and traps!
 
-Goals:
-- 4 characters, each with a unique playstyle + 1 secret unlockable character
-- 20+ unique weapon types + variations
+Previous Goals:
 - 100+ items
-- 80+ unique enemy types
-- 30+ unique traps
 - Secrets, because what's a game without secrets
 - 8 base floors + 2 secret floors & secret boss
-
-ETA: 2020
