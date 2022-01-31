@@ -1,5 +1,4 @@
 # Lost Arts
-A tile-based, real-time rogue-like dungeon crawler with heavy RPG elements and dynamic interactions.
 
 #### About the repo:
 
@@ -10,6 +9,7 @@ Currently development has been stopped, with no explicit plans on returning.
 
 
 #### About this game:
+A tile-based, real-time rogue-like dungeon crawler with heavy RPG elements and dynamic interactions.
 
 You're an adventurer that finds themselves at the entrance to the mysterious ruins of Arcana, an ancient place where the art of creating magic has been lost to time. Armed with your trusty sword and shield, you must fight monsters, avoid deadly traps, collect items, and make your way to the source of where it all started! Only the strongest, or most clever, can hope to unlock the secrets that lie within the ruins. But be cautious, you don't know what's hiding in the dark... will you be able to make it out--alive?
 
