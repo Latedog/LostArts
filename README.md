@@ -6,7 +6,7 @@ This project is only guaranteed to be compatible with Cocos2d-x API version 3.17
 The numerous source files from the Cocos2d-x API required to get this project running are not provided here.
 All fonts, art, and sound effects were taken from free, public sources on the internet to act as placeholders.
 
-Currently development has been stopped, with no explicit plans on returning. Significant challenges that needed to be overcome include dynamic lighting on sprites (which required further expertise on shaders) and a system for easier level generation such as with a drag and drop GUI.
+This was a solo project for fun/learning and currently development has been stopped, with no explicit plans on returning. Significant challenges that needed to be overcome include dynamic lighting on sprites (which required further expertise on shaders) and a system for easier level generation such as with a drag and drop GUI.
 
 
 ### About this game:
