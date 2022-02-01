@@ -2,8 +2,8 @@
 
 ### About the repo:
 
-This project is only known to be compatible with the Cocos2d-x API version 3.17 (documentation [here](https://docs.cocos2d-x.org/api-ref/cplusplus/v3x/index.html)).
-The source files from the Cocos2d-x API required to get this project running are not provided here.
+This project is only known to be compatible with Cocos2d-x API version 3.17 (documentation [here](https://docs.cocos2d-x.org/api-ref/cplusplus/v3x/index.html)).
+The numerous source files from the Cocos2d-x API required to get this project running are not provided here.
 
 Currently development has been stopped, with no explicit plans on returning.
 
